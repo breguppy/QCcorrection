@@ -11,7 +11,7 @@ ui <- page_sidebar(
   theme = bs_theme(preset = "cosmo"),
   sidebar = sidebar(
     
-    # Upload Raw data
+    #--- Upload Raw data
     tags$h4("Upload Raw Data"),
     tags$h6("When sorted in order, the data must begin and end with a QC sample."),
     fileInput(
@@ -23,14 +23,14 @@ ui <- page_sidebar(
     ),
     tags$hr(),
     
-    # select non-metabolite columns
+    #--- select non-metabolite columns
     tags$h4("Select non-metabolite columns"),
     tags$h6("Must select unique columns for sample, batch, class, and order."),
     uiOutput("column_selectors"),
     uiOutput("column_warning"),
     tags$hr(),
     
-    # Filter metabolites
+    #--- Filter metabolites
     tags$h4("Filter Raw Data"),
     sliderInput(
       inputId = "missingRule",
@@ -41,7 +41,7 @@ ui <- page_sidebar(
     ),
     tags$hr(),
     
-    # impute missing values
+    #--- impute missing values
     tags$h4("Impute Missing Values"),
     radioButtons(
       inputId = "imputeM",
@@ -54,14 +54,14 @@ ui <- page_sidebar(
     ),
     tags$hr(),
     
-    # impute missing values
+    #--- Choose Correction method
     tags$h4("Correction Method"),
     radioButtons(
       inputId = "MLmethod",
       label = "Method",
-      choices = list("Random Forest Signal Correction" = 1, "Local Polynomial Fit" = 2 
+      choices = list("Random Forest Signal Correction" = "QCRFSC", "Local Polynomial Fit" = "QCRLSC" 
                      ),
-      selected = 1
+      selected = "QCRFSC"
     ),
     tags$hr(),
     
@@ -80,6 +80,7 @@ ui <- page_sidebar(
   ),
   
   card(
+    # Display raw data table
     card_title("Raw Data (first 10 rows)"),
     tableOutput("contents")
   ),
@@ -91,16 +92,17 @@ ui <- page_sidebar(
 
 # Define server
 server <- function(input, output, session) {
-  # Display raw data table
+  # upload data
   uploaded_data <- reactive({
     req(input$file1)
     read.csv(input$file1$datapath, header = TRUE)
   })
-  
+  # display raw data table 
   output$contents <- renderTable({
     head(uploaded_data(), n = 10)
   })
   
+  # Get column names and select non-metabolite columns
   output$column_selectors <- renderUI({
     req(uploaded_data())
     cols <- names(uploaded_data())
@@ -115,6 +117,7 @@ server <- function(input, output, session) {
     )
   })
   
+  # Make sure all are selected and are unique
   output$column_warning <- renderUI({
     selected <- c(
       input$sample_col,
@@ -133,7 +136,7 @@ server <- function(input, output, session) {
   })
   
   replacement_summary <- reactiveVal(NULL)
-  
+  # Rename columns, QCs and replace any non-numeric values in metabolite columns with NA
   cleaned_data <- reactive({
     req(uploaded_data())
     req(input$sample_col, input$batch_col, input$class_col, input$order_col)
@@ -162,40 +165,32 @@ server <- function(input, output, session) {
     
     for (i in seq_along(metab_cols)) {
       col <- metab_cols[i]
-      x <- df[[col]]
+      original <- df[[col]]
+      numeric_version <- suppressWarnings(as.numeric(as.character(original)))
       
-      # Count "NaN" strings
-      replaced_nan <- sum(x == "NaN", na.rm = TRUE)
+      non_numeric_count <- sum(is.na(numeric_version) & !is.na(original))
+      zero_count <- sum(numeric_version == 0, na.rm = TRUE)
       
-      # Convert to numeric (handles characters and factors)
-      x <- as.numeric(as.character(x))
+      # Replace values
+      numeric_version[numeric_version == 0] <- NA
+      df[[col]] <- numeric_version
       
-      # Count exact 0s (after conversion)
-      replaced_zero <- sum(x == 0, na.rm = TRUE)
-      
-      # Replace
-      x[x == 0] <- NA
-      df[[col]] <- x
-      df[[col]][df[[col]] == "NaN"] <- NA  # just in case some slipped through
-      
-      # Save replacement info
-      replacement_counts$replaced_nan_string[i] <- replaced_nan
-      replacement_counts$replaced_zero[i] <- replaced_zero
+      replacement_counts$non_numeric_replaced[i] <- non_numeric_count
+      replacement_counts$zero_replaced[i] <- zero_count
     }
     
-    # Save summary table to global reactive
     replacement_summary(replacement_counts)
     
+    # Normalize QC class labels
+    df$class[df$class %in% c("QC", "qc", "Qc")] <- NA
     
-    df$class[df$class == "QC"] <- NA
-    df$class[df$class == "qc"] <- NA
-    df$class[df$class == "Qc"] <- NA    
     return(df)
   })
   
   output$basic_info <- renderUI({
     req(cleaned_data())
     
+    # Get info from data
     df <- cleaned_data()
     metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
     n_metab <- length(metab_cols)
@@ -206,16 +201,32 @@ server <- function(input, output, session) {
     n_class <- length(unique(df$class[!is.na(df$class)]))
     class_list <- sort(unique(df$class[!is.na(df$class)]))
     
-    # Compute NA count in 'class' per batch
     qc_per_batch <- df %>%
       group_by(batch) %>%
       summarise(qc_in_class = sum(is.na(class)), .groups = "drop")
     
-    # Convert the table to HTML
-    na_table_html <- tagList(
-      tags$strong("Number of QCs per batch:"),
+    replace_df <- replacement_summary()
+    total_replaced <- sum(replace_df$replaced_nan_string + replace_df$replaced_zero)
+    
+    # Helper for pretty metric cards
+    metric_card <- function(label, value, color = "#f8f9fa") {
+      tags$div(
+        style = paste(
+          "background-color:", color,
+          "; padding: 10px 15px; border-radius: 8px; margin: 5px;",
+          "min-width: 200px; max-width: 220px; flex: 1;"
+        ),
+        tags$h5(style = "margin: 0;", label),
+        tags$p(style = "font-size: 1.4em; font-weight: bold; margin: 0;", value)
+      )
+    }
+    
+    # Table of QC samples per batch
+    na_table_html <- tags$div(
+      style = "margin-top: 15px;",
+      tags$h5("Number of QC Samples per Batch"),
       tags$table(
-        class = "table table-sm",
+        class = "table table-bordered table-sm",
         tags$thead(
           tags$tr(
             tags$th("Batch"),
@@ -233,25 +244,65 @@ server <- function(input, output, session) {
       )
     )
     
-    replace_df <- replacement_summary()
-    total_replaced <- sum(replace_df$replaced_nan_string + replace_df$replaced_zero)
+    # Class badges
+    class_badges <- tags$div(
+      style = "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;",
+      lapply(class_list, function(cls) {
+        tags$span(
+          style = "background-color: #e9ecef; padding: 5px 10px; border-radius: 12px;",
+          as.character(cls)
+        )
+      })
+    )
     
+    # Main layout
     tagList(
-      tags$p(paste("Number of metabolite columns:", n_metab)),
-      tags$p(paste("Number of QC samples:", n_qcs)),
-      tags$p(paste("Number of samples:", n_samp)),
-      tags$p(paste("Number of batches:", n_bat)),
-      tags$p(paste("Number of classes:", n_class)),
-      tags$p("Classes:"),
+      if (total_replaced > 0) {
+        tags$span(style = "color: darkred; font-weight: bold;", 
+                  paste(total_replaced, "non-numeric or zero metabolite values were removed."))
+      },
       tags$div(
-        style = "display: flex; flex-wrap: wrap; gap: 12px;",
-        lapply(class_list, function(cls) {
-          tags$div(style = "width: 25%;", as.character(cls))
-        })
+        style = "display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;",
+        metric_card("Metabolite Columns", n_metab),
+        metric_card("Missing Values (Metabolites)", n_missv),
+        metric_card("QC Samples", n_qcs),
+        metric_card("Samples", n_samp),
+        metric_card("Batches", n_bat),
+        metric_card("Classes", n_class),
       ),
-      tags$p(paste("Number of missing values:", n_missv)),
-      tags$p(paste("Total values changed in metabolite columns:", total_replaced)),
-      na_table_html
+      tags$div(
+        style = "display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px;",
+        
+        # Class badge column
+        tags$div(
+          style = "flex: 1; min-width: 250px;",
+          tags$h5("Unique Classes"),
+          class_badges
+        ),
+        
+        # QC per batch table column
+        tags$div(
+          style = "flex: 1; min-width: 250px;",
+          tags$h5("Number of QC Samples per Batch"),
+          tags$table(
+            class = "table table-bordered table-sm",
+            tags$thead(
+              tags$tr(
+                tags$th("Batch"),
+                tags$th("QCs in Batch")
+              )
+            ),
+            tags$tbody(
+              lapply(1:nrow(qc_per_batch), function(i) {
+                tags$tr(
+                  tags$td(as.character(qc_per_batch$batch[i])),
+                  tags$td(qc_per_batch$qc_in_class[i])
+                )
+              })
+            )
+          )
+        )
+      )
     )
   })
   
