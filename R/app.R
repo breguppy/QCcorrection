@@ -3,6 +3,7 @@
 library(shiny)
 library(bslib)
 library(dplyr)
+source("helpers.R")
 
 
 # Define UI
@@ -46,11 +47,11 @@ ui <- page_sidebar(
     radioButtons(
       inputId = "imputeM",
       label = "Imputation method",
-      choices = list("metabolite median" = 1, "metabolite mean" = 2, 
-                     "class-metabolite median" = 3, "class-metabolite mean" = 4,
-                     "KNN" = 5, "minimum value" = 6, "half minimum value" = 7,
-                     "zero" = 8),
-      selected = 1
+      choices = list("metabolite median" = "median", "metabolite mean" = "met_mean", 
+                     "class-metabolite median" = "class_med", "class-metabolite mean" = "class_mean",
+                     "KNN" = "KNN", "minimum value" = "min", "half minimum value" = "minHalf",
+                     "zero" = "zero"),
+      selected = "median"
     ),
     tags$hr(),
     
@@ -87,6 +88,9 @@ ui <- page_sidebar(
   card(
     card_title("Basic Information"),
     uiOutput("basic_info")
+  ),
+  card(
+    card_title("Post-Corrected Data")
   )
 )
 
