@@ -81,8 +81,8 @@ ui <- page_fillable(
             inputId = "imputeM",
             label = "Imputation method",
             choices = list("metabolite median" = "median", 
-                           "metabolite mean" = "met_mean", 
-                           "class-metabolite median" = "class_med", 
+                           "metabolite mean" = "mean", 
+                           "class-metabolite median" = "class_median", 
                            "class-metabolite mean" = "class_mean",
                            "KNN" = "KNN", 
                            "minimum value" = "min", 
@@ -118,7 +118,8 @@ ui <- page_fillable(
           width = 400,
         ),
         card(
-          card_title("Correction Results")
+          card_title("Correction Results"),
+          uiOutput("imputed_info")
         )
       )
     )
@@ -385,6 +386,22 @@ server <- function(input, output, session) {
   observeEvent(input$next_correction, {
     accordion_panel_close(id = "main_steps", value = "Raw Data" , session = session)
     accordion_panel_open(id = "main_steps", value = "Correction Settings", session = session)
+  })
+  
+  imputed_result <- eventReactive(input$correct, {
+    result <- filtered_result()
+    req(result)
+    
+    filtered_df <- result$df_filtered
+    metabolite_cols <- setdiff(names(filtered_df), c("sample", "batch", "class", "order"))
+    impute_missing(filtered_df, metabolite_cols, input$imputeM, input$class_col)
+  })
+  
+  output$imputed_info <- renderUI({
+    result <- imputed_result()
+    req(result)
+    
+    tags$span("missing values imputed.")
   })
   
 }
