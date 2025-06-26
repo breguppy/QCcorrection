@@ -95,7 +95,7 @@ ui <- page_fillable(
           #--- Choose Correction method
           tags$h4("Correction Method"),
           radioButtons(
-            inputId = "MLmethod",
+            inputId = "corMethod",
             label = "Method",
             choices = list("Random Forest Signal Correction" = "QCRFSC", 
                            "Local Polynomial Fit" = "QCRLSC" 
@@ -119,7 +119,9 @@ ui <- page_fillable(
         ),
         card(
           card_title("Correction Results"),
-          uiOutput("imputed_info")
+          uiOutput("imputed_info"),
+          uiOutput("correction_info"),
+          tableOutput("cor_data")
         )
       )
     )
@@ -393,17 +395,35 @@ server <- function(input, output, session) {
     req(result)
     
     filtered_df <- result$df_filtered
-    metabolite_cols <- setdiff(names(filtered_df), c("sample", "batch", "class", "order"))
-    impute_missing(filtered_df, metabolite_cols, input$imputeM, input$class_col)
+    metab_cols <- setdiff(names(filtered_df), c("sample", "batch", "class", "order"))
+    impute_missing(filtered_df, metab_cols, input$imputeM, input$class_col)
   })
   
   output$imputed_info <- renderUI({
     result <- imputed_result()
     req(result)
     
-    tags$span("missing values imputed.")
+    tags$span(paste(result$n_missv, "missing values imputed with", result$impute_str))
   })
   
+  corrected_result <- eventReactive(input$correct, {
+    result <- imputed_result()
+    req(result)
+    
+    imputed_df <- result$df_imputed
+    metab_cols <- setdiff(names(imputed_df), c("sample", "batch", "class", "order"))
+    correct_data(imputed_df, metab_cols, input$corMethod)
+  })
+  output$correction_info <- renderUI({
+    result <- corrected_result()
+    req(result)
+    tags$span(paste("Data corrected with", result$cor_str))
+  })
+  output$cor_data <- renderTable({
+    result <- corrected_result()
+    req(result)
+    head(result$df_corrected, n = 10)
+  })
 }
 
 
