@@ -116,6 +116,19 @@ ui <- fluidPage(
             value = 50
           ),
           tags$hr(),
+          
+          # After correction scaling / normalization
+          tags$h4("Post-Correction Transformation or Normalization"),
+          radioButtons(
+            inputId = "transform",
+            label = "Method",
+            choices = list("Log 2 transformation" = "log2", 
+                           "Total Ratio Normalization" = "TRN", 
+                           "None" = "none"),
+            selected = "none"
+          ),
+          tags$hr(),
+          
           actionButton(inputId = "correct", label = "Correct Data"),
           width = 400,
         ),
@@ -130,6 +143,11 @@ ui <- fluidPage(
                    style = "position: absolute; bottom: 15px; right: 15px;")
         )
       )
+    ),
+    
+    #--- Step 3: Correction settings
+    accordion_panel(
+      title = "Evaluation Metrics and Visualization"
     )
   )
 )
