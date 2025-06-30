@@ -5,11 +5,12 @@ library(bslib)
 library(dplyr)
 library(shinycssloaders)
 source("helpers.R")
+source("processing_helpers.R")
 
 
 # Define UI
 
-ui <- page_fillable(
+ui <- fluidPage(
   theme = bs_theme(preset = "cosmo"),
   
   accordion(
@@ -35,10 +36,10 @@ ui <- page_fillable(
           
           #--- select non-metabolite columns
           tags$h4("Select non-metabolite columns"),
-          tags$h6("Please select unique columns for sample, batch, class, and order."),
+          tags$h6("Please select columns for sample, batch, class, and order."),
           uiOutput("column_selectors"),
           uiOutput("column_warning"),
-          tags$h6("Coming soon: option to select other non-metabolite columns."),
+          #tags$h6("Coming soon: option to select other non-metabolite columns."),
           tags$hr(),
           
           #--- Filter metabolites
@@ -70,7 +71,7 @@ ui <- page_fillable(
       )
     ),
     
-    #--- Step 2: Corerction settings
+    #--- Step 2: Correction settings
     accordion_panel(
       title = "Correction Settings",
       
@@ -104,7 +105,7 @@ ui <- page_fillable(
             selected = "QCRFSC"
           ),
           tags$hr(),
-          
+    
           # After correction filtering
           tags$h4("Post-Correction Filtering"),
           sliderInput(
@@ -119,8 +120,11 @@ ui <- page_fillable(
           width = 400,
         ),
         card(
-          card_title("Correction Results"),
+          card_title("Correction Information"),
           uiOutput("correction_info") %>% withSpinner(color = "#404040"),
+        ),
+        card(
+          card_title("Corrected Data"),
           tableOutput("cor_data"),
           uiOutput("download_corr_btn", container = div, 
                    style = "position: absolute; bottom: 15px; right: 15px;")
@@ -163,40 +167,7 @@ server <- function(input, output, session) {
       input$class_col,
       input$order_col
     )
-    col_sel_warn <- columnWarningUI(selected)
-    
-    if (!is.null(col_sel_warn)) {
-      return(col_sel_warn)
-    }
-    
-    warnings <- list()
-    
-    # sample duplicates
-    samp_vec <- data_raw()[[ input$sample_col ]]
-    if (anyDuplicated(samp_vec) > 0) {
-      warnings <- c(warnings,
-                    tags$span(
-                      style = "color:red; display:block; margin-top:5px;",
-                      icon("exclamation-triangle"), " Duplicate sample names detected!"
-                    ))
-    }
-    
-    # order duplicates
-    order_vec <- data_raw()[[ input$order_col ]]
-    if (anyDuplicated(order_vec) > 0) {
-      warnings <- c(warnings,
-                    tags$span(
-                      style = "color:red; display:block; margin-top:5px;",
-                      icon("exclamation-triangle"), " Duplicate order values detected!"
-                    ))
-    }
-    
-    # 3) If we collected any warnings, show them; otherwise NULL
-    if (length(warnings) > 0) {
-      tagList(warnings)
-    } else {
-      NULL
-    }
+    columnWarningUI(data_raw(), selected)
   })
   
   #–– 4) cleaned data + track replacements
@@ -244,7 +215,6 @@ server <- function(input, output, session) {
                    setdiff(names(filtered_result$df_filtered), c("sample", "batch", "class", "order")), 
                    input$imputeM)
   })
-  
   corrected <- eventReactive(input$correct, {
     imputed_result <- imputed()
     req(imputed_result)
@@ -261,33 +231,16 @@ server <- function(input, output, session) {
     rsd_filter(corrected_result$df_corrected, input$rsd_filter, c("sample", "batch", "class", "order"))
   })
   
+  
   output$correction_info <- renderUI({
     imputed_result <- imputed()
     corrected_result <- corrected()
     filtered_corrected_result <- filtered_corrected()
     req(imputed_result, corrected_result, filtered_corrected_result)
-    
-    n_removed <- length(filtered_corrected_result$removed_metabolites)
-    
-    tagList(
-      tags$span(paste(imputed_result$n_missv, 
-                      "missing values imputed with", 
-                      imputed_result$impute_str)),
-      tags$br(),
-      tags$span(paste("Data corrected with", corrected_result$cor_str)),
-      tags$br(),
-      tags$span(style = "color: darkorange; font-weight: bold;",
-                paste(n_removed, "metabolite columns were removed based on QC RSD threshold.")),
-      tags$br(),
-      tags$h5("Removed Columns:"),
-      tags$ul(
-        lapply(filtered_corrected_result$removed_metabolites, function(name) {
-          tags$li(name)
-        })
-      )
-    )
+    correctionInfoUI(imputed_result, corrected_result, filtered_corrected_result, input$imputeM, input$corMethod)
     
   })
+  
   output$cor_data <- renderTable({
     fil_cor_result <- filtered_corrected()
     req(fil_cor_result)

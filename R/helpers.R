@@ -1,18 +1,56 @@
 # Helper function for app.R
-
-library(randomForest)
+library(shiny)
+library(bslib)
 library(dplyr)
+library(shinycssloaders)
 library(purrr)
 
 #–– UI snippets ––#
 # 1.2 Column-warning text
-columnWarningUI <- function(selected) {
+columnWarningUI <- function(data, selected) {
+  warnings <- list()
+  
   if (any(selected == "")) {
-    tags$span(style="color:darkorange;", "Please select all four columns.")
+    warnings[[length(warnings) + 1]] <- tags$span(
+      style = "color:darkorange; font-weight:bold;",
+      icon("exclamation-triangle"),
+      " Please select all four columns."
+    )
   } else if (length(unique(selected)) < 4) {
-    tags$span(style="color:red;", "Each selected column must be unique.")
+    warnings[[length(warnings) + 1]] <- tags$span(
+      style = "color:darkred; font-weight:bold;",
+      icon("exclamation-triangle"),
+      " Each selected column must be unique."
+    )
+  }
+  
+  if (!any(selected == "") && length(unique(selected)) == 4) {
+    samp_vec  <- data[[selected[1]]]
+    order_vec <- data[[selected[4]]]
+    
+    if (anyDuplicated(samp_vec) > 0) {
+      warnings[[length(warnings) + 1]] <- tags$span(
+        style = "color:darkred; font-weight:bold; display:block; margin-top:5px;",
+        icon("exclamation-triangle"),
+        " Duplicate sample names detected!"
+      )
+    }
+    
+    if (anyDuplicated(order_vec) > 0) {
+      warnings[[length(warnings) + 1]] <- tags$span(
+        style = "color:darkred; font-weight:bold; display:block; margin-top:5px;",
+        icon("exclamation-triangle"),
+        " Duplicate order values detected!"
+      )
+    }
+  }
+  
+  if (length(warnings) == 0) {
+    return(NULL)
+  } else if (length(warnings) == 1) {
+    return(warnings[[1]])
   } else {
-    NULL
+    return(do.call(tagList, warnings))
   }
 }
 
@@ -136,7 +174,7 @@ basicInfoUI <- function(df, replacement_counts) {
 # 1.5 Filter‐info panel
 filterInfoUI <- function(removed) {
   if (length(removed)==0) {
-    span(style="color:darkgreen;font-weight:bold;",
+    tags$span(style="color:darkgreen;font-weight:bold;",
          "No metabolites removed.")
   } else {
     tagList(
@@ -147,285 +185,27 @@ filterInfoUI <- function(removed) {
   }
 }
 
-#–– Data cleaning helpers ––#
-
-# 1.6 Clean & track replacements
-cleanData <- function(df, sample, batch, class, order) {
-  names(df)[names(df)==sample] <- "sample"
-  names(df)[names(df)==batch]  <- "batch"
-  names(df)[names(df)==class]  <- "class"
-  names(df)[names(df)==order]  <- "order"
+correctionInfoUI <- function(imputed_result, corrected_result, filtered_corrected_result, imputeM, corMethod) {
+  n_removed <- length(filtered_corrected_result$removed_metabolites)
+  ui <- list(tags$div(
+      style = "display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top 15px;",
+      metric_card(paste("missing values imputed with", imputed_result$impute_str), imputed_result$n_missv),
+      metric_card(corrected_result$cor_str, "Correction Method:")
+      )
+  )
   
-  metab <- setdiff(names(df), c("sample","batch","class","order"))
-  repl <- tibble(metabolite = metab,
-                 non_numeric_replaced = 0L,
-                 zero_replaced = 0L)
-  
-  for (i in seq_along(metab)) {
-    col <- metab[i]
-    orig <- df[[col]]
-    num  <- suppressWarnings(as.numeric(orig))
-    cnt1 <- sum(is.na(num) & !is.na(orig))
-    cnt2 <- sum(num==0, na.rm=TRUE)
-    num[num==0] <- NA
-    df[[col]]   <- num
-    repl$non_numeric_replaced[i] <- cnt1
-    repl$zero_replaced[i]        <- cnt2
-  }
-  
-  df$class[df$class %in% c("QC","qc","Qc")] <- NA
-  list(df = df, replacement_counts = repl)
-}
-
-
-# Remove metabolites based on Frule
-filter_data <- function(df, metab_cols, Frule){
-  # remove any metabolite column that has more than Frule% missing values
-  
-  # Compute percentage of missing values per metabolite column
-  missing_pct <- sapply(df[metab_cols], function(col) {
-    mean(is.na(col)) * 100
-  })
-  
-  # Keep only columns with missing percentage <= Frule
-  keep_cols <- metab_cols[missing_pct <= Frule]
-  removed_cols <- setdiff(metab_cols, keep_cols)
-  
-  # Return df with only the retained metabolite columns
-  df_filtered <- df[, c(setdiff(names(df), metab_cols), keep_cols)]
-  
-  return(list(
-    df_filtered = df_filtered,
-    removed_cols = removed_cols
+  if(n_removed > 0) {
+    ui <- c(ui, list(
+      tags$span(style = "color: darkorange; font-weight: bold;",
+                paste(n_removed, "metabolite columns were removed based on QC RSD threshold.")),
+      tags$br(),
+      tags$span(style = "font-weight: bold;","Removed Columns:"),
+      tags$ul(
+        lapply(filtered_corrected_result$removed_metabolites, function(name) {
+          tags$li(name)
+        })
+      )
     ))
-}
-
-# Impute missing values based on imputeM
-impute_missing <- function(df, metab_cols, imputeM) {
-  n_missv <- sum(is.na(df[, metab_cols]))
-  imputed_df <- df
-  impute_str <- imputeM
-  # impute missing values with column median
-  if (imputeM == "median"){
-    impute_str <- "metabolite median"
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- median(col, na.rm = TRUE)
-      col
-    })
   }
-  # impute missing values with column mean
-  else if (imputeM == "mean"){
-    impute_str <- "metabolite mean"
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- mean(col, na.rm = TRUE)
-      col
-    })
-  }
-  # Impute with sample_class median for each column
-  else if (imputeM == "class_median"){
-    impute_str <- "class-metabolite median"
-    imputed_df <- imputed_df %>%
-      group_by(.data[["class"]]) %>%
-      mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
-      ungroup()
-  }
-  # impute with sample_class mean for each column
-  else if (imputeM == "class_mean"){
-    impute_str <- "class-metabolite median"
-    imputed_df <- imputed_df %>%
-      group_by(.data[["class"]]) %>%
-      mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
-      ungroup()
-  }
-  # impute with KNN
-  else if (imputeM == "KNN"){
-    metab_matrix <- as.matrix(imputed_df[metab_cols])
-    transposed <- t(metab_matrix)
-    knn_result <- impute::impute.knn(transposed, rowmax = 0.99, colmax = 0.99, 
-                                     maxp = 15000)
-    imputed_matrix <- t(knn_result$data)
-    imputed_df[metab_cols] <- as.data.frame(imputed_matrix)
-  }
-  # impute with minimum column value
-  else if (imputeM == "min"){
-    impute_str <- "metabolite minimum"
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- min(col, na.rm = TRUE)
-      col
-    })
-  }
-  # impute with half minimum column value
-  else if (imputeM == "minHalf"){
-    impute_str <- "half the metabolite minimum"
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- 0.5 * min(col, na.rm = TRUE)
-      col
-    })
-  }
-  # impute with 0
-  else if (imputeM == "zero"){
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- 0
-      col
-    })
-  }
-  
-  return(list(
-    df_imputed = imputed_df,
-    n_missv = n_missv,
-    impute_str = impute_str
-  ))
-}
-
-# QCRFSC (statTarget style)
-qc_rfsc_correction <- function(df, metab_cols, ntree = 500, seed = NULL) {
-  if (!is.null(seed)) {
-    set.seed(seed)
-  }
-  df_corrected <- df
-  
-  pb <- txtProgressBar(min = 0, max = length(metab_cols), style = 3)
-  
-  for (i in seq_along(metab_cols)) {
-    metab <- metab_cols[i]
-    
-    # QC samples: class is NA
-    qc_idx <- which(is.na(df$class))
-    non_qc_idx <- which(!is.na(df$class))
-    
-    if (length(qc_idx) < 5) {
-      warning(paste("Skipping", metab, "- too few QC samples."))
-      next
-    }
-    
-    # Build random forest using QC samples
-    rf_model <- randomForest(
-      x = data.frame(order = df$order[qc_idx]),
-      y = df[[metab]][qc_idx],
-      ntree = ntree
-    )
-    
-    # Predict values for all samples using their order
-    predicted <- predict(rf_model, newdata = data.frame(order = df$order))
-    
-    # Apply correction
-    df_corrected[[metab]] <- df[[metab]] / predicted
-    
-    setTxtProgressBar(pb, i)
-  }
-  
-  close(pb)
-  return(df_corrected)
-}
-
-compute_median_dataframe <- function(df_list, metadata_cols = c("Sample", "Batch", "Order", "Treatment")) {
-  # Get metabolite column names from the first dataframe
-  all_cols <- colnames(df_list[[1]])
-  metabolite_cols <- setdiff(all_cols, metadata_cols)
-  
-  # Add a composite key for alignment
-  df_list_keyed <- lapply(df_list, function(df) {
-    df$key <- do.call(paste, c(df[metadata_cols], sep = "||"))
-    df
-  })
-  
-  # Sort by the composite key
-  df_list_sorted <- lapply(df_list_keyed, function(df) df[order(df$key), ])
-  
-  # Sanity check: all keys must align
-  key_ref <- df_list_sorted[[1]]$key
-  if (!all(sapply(df_list_sorted, function(df) all(df$key == key_ref)))) {
-    stop("Composite keys are not aligned across all data frames.")
-  }
-  
-  # Extract aligned metabolite matrices
-  metabolite_array <- array(
-    sapply(df_list_sorted, function(df) as.matrix(df[, metabolite_cols])),
-    dim = c(nrow(df_list_sorted[[1]]), length(metabolite_cols), length(df_list_sorted))
-  )
-  
-  # Compute median along third dimension
-  median_matrix <- apply(metabolite_array, c(1, 2), median, na.rm = TRUE)
-  
-  # Reconstruct result
-  median_df <- df_list_sorted[[1]][, metadata_cols]
-  median_df <- cbind(median_df, as.data.frame(median_matrix))
-  colnames(median_df)[-(1:length(metadata_cols))] <- metabolite_cols
-  
-  median_df <- median_df[order(median_df$order),]
-  median_df$class[is.na(median_df$class)] <- "QC"
-  
-  return(median_df)
-}
-  
-# Correct data
-correct_data <- function(df, metab_cols, MLmethod){
-  
-  if (MLmethod == "QCRFSC"){
-    cor_str <- "QC Random Forest Signal Correction (statTarget style)"
-    seeds <- c(42, 31416, 272)
-    # Get QC indexes from class column
-    
-    df_list <- lapply(seeds, function(seed) { 
-      return (qc_rfsc_correction(df, metab_cols, ntree = 500, seed = seed))
-      
-    })
-    metadata_cols <- setdiff(colnames(df), metab_cols)
-    
-    df_corrected <- compute_median_dataframe(df_list, metadata_cols)
-  }
-  
-  return(list(
-    df_corrected = df_corrected,
-    cor_str = cor_str
-  ))
-}
-
-metabolite_rsd <- function(df, metadata_cols = c("sample", "batch", "class", "order")){
-  metab_cols <- setdiff(names(df), metadata_cols)
-  
-  # Separate QC and non-QC samples
-  qc_df <- df[df$class == "QC", metab_cols, drop = FALSE]
-  nonqc_df <- df[df$class != "QC", metab_cols, drop = FALSE]
-  
-  # RSD function ignoring NA
-  rsd_fun <- function(x) {
-    mu <- mean(x, na.rm = TRUE)
-    sigma <- sd(x, na.rm = TRUE)
-    if (mu == 0 || is.na(mu)) return(NA)
-    return(100 * sigma / mu)
-  }
-  
-  # Compute RSDs
-  qc_rsd <- sapply(qc_df, rsd_fun)
-  nonqc_rsd <- sapply(nonqc_df, rsd_fun)
-  
-  # Return as data frame
-  result <- data.frame(
-    Metabolite = names(qc_rsd),
-    RSD_QC = qc_rsd,
-    RSD_NonQC = nonqc_rsd,
-    row.names = NULL,
-    check.names = FALSE
-  )
-  
-  return(result)
-}
-
-rsd_filter <- function(df, rsd_cutoff, metadata_cols = c("sample", "batch", "class", "order")){
-  # Compute RSD
-  rsd_df <- metabolite_rsd(df, metadata_cols)
-  
-  # Identify which metabolites to keep and remove
-  keep_metabolites <- rsd_df$Metabolite[is.na(rsd_df$RSD_QC) | rsd_df$RSD_QC <= rsd_cutoff]
-  remove_metabolites <- rsd_df$Metabolite[!is.na(rsd_df$RSD_QC) & rsd_df$RSD_QC > rsd_cutoff]
-  
-  # Columns to retain in filtered data
-  final_cols <- c(metadata_cols, keep_metabolites)
-  
-  # Return a list with the filtered data and removed metabolites
-  return(list(
-    filtered_df = df[, final_cols, drop = FALSE],
-    removed_metabolites = remove_metabolites
-  ))
+  do.call(tagList, ui)  
 }
