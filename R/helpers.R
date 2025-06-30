@@ -1,7 +1,182 @@
-# Helper function for app
+# Helper function for app.R
 
 library(randomForest)
 library(dplyr)
+library(purrr)
+
+#–– UI snippets ––#
+# 1.2 Column-warning text
+columnWarningUI <- function(selected) {
+  if (any(selected == "")) {
+    tags$span(style="color:darkorange;", "Please select all four columns.")
+  } else if (length(unique(selected)) < 4) {
+    tags$span(style="color:red;", "Each selected column must be unique.")
+  } else {
+    NULL
+  }
+}
+
+# 1.3 Metric card
+metric_card <- function(label, value) {
+  div(
+    style = "background:#f8f9fa; padding:10px; border-radius:8px; flex:1;",
+    p(style="font-size:1.4em; font-weight:bold; margin:0;", value),
+    h5(style="margin:0;", label)
+  )
+}
+
+# 1.4 Basic‐info panel
+basicInfoUI <- function(df, replacement_counts) {
+  metab_cols <- setdiff(names(df), c("sample","batch","class","order"))
+  n_metab = length(metab_cols)
+  n_missv = sum(is.na(df[,metab_cols]))
+  n_qcs   = sum(is.na(df$class))
+  n_samp  = sum(!is.na(df$class))
+  n_bat   = n_distinct(df$batch)
+  n_class = n_distinct(df$class, na.rm=TRUE)
+  class_list <- sort(unique(df$class[!is.na(df$class)]))
+  
+  qc_per_batch <- df %>%
+    group_by(batch) %>%
+    summarise(qc_in_class = sum(is.na(class)), .groups = "drop")
+  
+  total_replaced <- sum(replacement_counts$non_numeric_replaced +
+                      replacement_counts$zero_replaced)
+  
+  class_badges <- tags$div(
+    style = "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;",
+    lapply(class_list, function(cls) {
+      tags$span(
+        style = "background-color: #e9ecef; padding: 5px 10px; border-radius: 12px;",
+        as.character(cls)
+      )
+    })
+  )
+  
+  na_table_html <- tags$div(
+    style = "margin-top: 15px;",
+    tags$h5("Number of QC Samples per Batch"),
+    tags$table(
+      class = "table table-bordered table-sm",
+      tags$thead(
+        tags$tr(
+          tags$th("Batch"),
+          tags$th("QCs in Batch")
+        )
+      ),
+      tags$tbody(
+        lapply(1:nrow(qc_per_batch), function(i) {
+          tags$tr(
+            tags$td(as.character(qc_per_batch$batch[i])),
+            tags$td(qc_per_batch$qc_in_class[i])
+          )
+        })
+      )
+    )
+  )
+  
+  tagList(
+    if (total_replaced > 0) {
+      tags$span(style = "color: darkred; font-weight: bold;", 
+                paste(total_replaced, "non-numeric or zero metabolite values were removed."))
+    },
+    tags$div(
+      style = "display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px;",
+      # left side
+      tags$div(
+        style = "display: grid; grid-template-columns: repeat(1, 1fr); gap: 20px;",
+        
+        # top left
+        tags$div(
+          style = "display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top 15px;",
+          metric_card("Metabolite Columns", n_metab),
+          metric_card("Missing Values", n_missv),
+          metric_card("QC Samples", n_qcs),
+          metric_card("Samples", n_samp),
+          metric_card("Batches", n_bat),
+          metric_card("Classes", n_class),
+        ),
+        
+        #bottom left
+        tags$div(
+          style = "flex: 1; min-width: 250px;",
+          tags$h5("Unique Classes"),
+          class_badges
+        )
+        
+      ),
+      
+      # right half
+      # QC per batch table column
+      tags$div(
+        style = "flex: 1; min-width: 250px;",
+        tags$h5("Number of QC Samples per Batch"),
+        tags$table(
+          class = "table table-bordered table-sm",
+          tags$thead(
+            tags$tr(
+              tags$th("Batch"),
+              tags$th("QCs in Batch")
+            )
+          ),
+          tags$tbody(
+            lapply(1:nrow(qc_per_batch), function(i) {
+              tags$tr(
+                tags$td(as.character(qc_per_batch$batch[i])),
+                tags$td(qc_per_batch$qc_in_class[i])
+              )
+            })
+          )
+        )
+      )
+    )
+  )
+}
+
+# 1.5 Filter‐info panel
+filterInfoUI <- function(removed) {
+  if (length(removed)==0) {
+    span(style="color:darkgreen;font-weight:bold;",
+         "No metabolites removed.")
+  } else {
+    tagList(
+      tags$span(style="color:darkorange;font-weight:bold;",
+           paste(length(removed), "metabolites removed based on missing value threshold:")),
+      tags$ul(lapply(removed, tags$li))
+    )
+  }
+}
+
+#–– Data cleaning helpers ––#
+
+# 1.6 Clean & track replacements
+cleanData <- function(df, sample, batch, class, order) {
+  names(df)[names(df)==sample] <- "sample"
+  names(df)[names(df)==batch]  <- "batch"
+  names(df)[names(df)==class]  <- "class"
+  names(df)[names(df)==order]  <- "order"
+  
+  metab <- setdiff(names(df), c("sample","batch","class","order"))
+  repl <- tibble(metabolite = metab,
+                 non_numeric_replaced = 0L,
+                 zero_replaced = 0L)
+  
+  for (i in seq_along(metab)) {
+    col <- metab[i]
+    orig <- df[[col]]
+    num  <- suppressWarnings(as.numeric(orig))
+    cnt1 <- sum(is.na(num) & !is.na(orig))
+    cnt2 <- sum(num==0, na.rm=TRUE)
+    num[num==0] <- NA
+    df[[col]]   <- num
+    repl$non_numeric_replaced[i] <- cnt1
+    repl$zero_replaced[i]        <- cnt2
+  }
+  
+  df$class[df$class %in% c("QC","qc","Qc")] <- NA
+  list(df = df, replacement_counts = repl)
+}
+
 
 # Remove metabolites based on Frule
 filter_data <- function(df, metab_cols, Frule){
@@ -26,7 +201,7 @@ filter_data <- function(df, metab_cols, Frule){
 }
 
 # Impute missing values based on imputeM
-impute_missing <- function(df, metab_cols, imputeM, sample_class) {
+impute_missing <- function(df, metab_cols, imputeM) {
   n_missv <- sum(is.na(df[, metab_cols]))
   imputed_df <- df
   impute_str <- imputeM
@@ -50,7 +225,7 @@ impute_missing <- function(df, metab_cols, imputeM, sample_class) {
   else if (imputeM == "class_median"){
     impute_str <- "class-metabolite median"
     imputed_df <- imputed_df %>%
-      group_by(.data[[sample_class]]) %>%
+      group_by(.data[["class"]]) %>%
       mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
       ungroup()
   }
@@ -58,7 +233,7 @@ impute_missing <- function(df, metab_cols, imputeM, sample_class) {
   else if (imputeM == "class_mean"){
     impute_str <- "class-metabolite median"
     imputed_df <- imputed_df %>%
-      group_by(.data[[sample_class]]) %>%
+      group_by(.data[["class"]]) %>%
       mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
       ungroup()
   }
@@ -143,19 +318,114 @@ qc_rfsc_correction <- function(df, metab_cols, ntree = 500, seed = NULL) {
   return(df_corrected)
 }
 
+compute_median_dataframe <- function(df_list, metadata_cols = c("Sample", "Batch", "Order", "Treatment")) {
+  # Get metabolite column names from the first dataframe
+  all_cols <- colnames(df_list[[1]])
+  metabolite_cols <- setdiff(all_cols, metadata_cols)
+  
+  # Add a composite key for alignment
+  df_list_keyed <- lapply(df_list, function(df) {
+    df$key <- do.call(paste, c(df[metadata_cols], sep = "||"))
+    df
+  })
+  
+  # Sort by the composite key
+  df_list_sorted <- lapply(df_list_keyed, function(df) df[order(df$key), ])
+  
+  # Sanity check: all keys must align
+  key_ref <- df_list_sorted[[1]]$key
+  if (!all(sapply(df_list_sorted, function(df) all(df$key == key_ref)))) {
+    stop("Composite keys are not aligned across all data frames.")
+  }
+  
+  # Extract aligned metabolite matrices
+  metabolite_array <- array(
+    sapply(df_list_sorted, function(df) as.matrix(df[, metabolite_cols])),
+    dim = c(nrow(df_list_sorted[[1]]), length(metabolite_cols), length(df_list_sorted))
+  )
+  
+  # Compute median along third dimension
+  median_matrix <- apply(metabolite_array, c(1, 2), median, na.rm = TRUE)
+  
+  # Reconstruct result
+  median_df <- df_list_sorted[[1]][, metadata_cols]
+  median_df <- cbind(median_df, as.data.frame(median_matrix))
+  colnames(median_df)[-(1:length(metadata_cols))] <- metabolite_cols
+  
+  median_df <- median_df[order(median_df$order),]
+  median_df$class[is.na(median_df$class)] <- "QC"
+  
+  return(median_df)
+}
+  
 # Correct data
 correct_data <- function(df, metab_cols, MLmethod){
   
   if (MLmethod == "QCRFSC"){
     cor_str <- "QC Random Forest Signal Correction (statTarget style)"
-    # Get QC indexes from class column.
-    df_corrected <- qc_rfsc_correction(df, metab_cols, ntree = 500, seed = 123)
-    # Build random forest for each metabolite based on QCs
-    # Apply correction
+    seeds <- c(42, 31416, 272)
+    # Get QC indexes from class column
+    
+    df_list <- lapply(seeds, function(seed) { 
+      return (qc_rfsc_correction(df, metab_cols, ntree = 500, seed = seed))
+      
+    })
+    metadata_cols <- setdiff(colnames(df), metab_cols)
+    
+    df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   }
   
   return(list(
     df_corrected = df_corrected,
     cor_str = cor_str
+  ))
+}
+
+metabolite_rsd <- function(df, metadata_cols = c("sample", "batch", "class", "order")){
+  metab_cols <- setdiff(names(df), metadata_cols)
+  
+  # Separate QC and non-QC samples
+  qc_df <- df[df$class == "QC", metab_cols, drop = FALSE]
+  nonqc_df <- df[df$class != "QC", metab_cols, drop = FALSE]
+  
+  # RSD function ignoring NA
+  rsd_fun <- function(x) {
+    mu <- mean(x, na.rm = TRUE)
+    sigma <- sd(x, na.rm = TRUE)
+    if (mu == 0 || is.na(mu)) return(NA)
+    return(100 * sigma / mu)
+  }
+  
+  # Compute RSDs
+  qc_rsd <- sapply(qc_df, rsd_fun)
+  nonqc_rsd <- sapply(nonqc_df, rsd_fun)
+  
+  # Return as data frame
+  result <- data.frame(
+    Metabolite = names(qc_rsd),
+    RSD_QC = qc_rsd,
+    RSD_NonQC = nonqc_rsd,
+    row.names = NULL,
+    check.names = FALSE
+  )
+  
+  return(result)
+}
+
+rsd_filter <- function(df, rsd_cutoff, metadata_cols = c("sample", "batch", "class", "order")){
+  # Compute RSD
+  rsd_df <- metabolite_rsd(df, metadata_cols)
+  
+  # Identify which metabolites to keep and remove
+  keep_metabolites <- rsd_df$Metabolite[is.na(rsd_df$RSD_QC) | rsd_df$RSD_QC <= rsd_cutoff]
+  remove_metabolites <- rsd_df$Metabolite[!is.na(rsd_df$RSD_QC) & rsd_df$RSD_QC > rsd_cutoff]
+  
+  # Columns to retain in filtered data
+  final_cols <- c(metadata_cols, keep_metabolites)
+  
+  # Return a list with the filtered data and removed metabolites
+  return(list(
+    filtered_df = df[, final_cols, drop = FALSE],
+    removed_metabolites = remove_metabolites
   ))
 }
