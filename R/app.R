@@ -6,6 +6,7 @@ library(dplyr)
 library(shinycssloaders)
 source("helpers.R")
 source("processing_helpers.R")
+source("plotting_helpers.R")
 
 
 # Define UI
@@ -145,9 +146,22 @@ ui <- fluidPage(
       )
     ),
     
-    #--- Step 3: Correction settings
+    #--- Step 4: plots
     accordion_panel(
-      title = "Evaluation Metrics and Visualization"
+      title = "Evaluation Metrics and Visualization",
+      
+      layout_sidebar(
+        sidebar = sidebar(
+          #--- plot metabolite
+          tags$h4("Metabolite Scatter plot"),
+          uiOutput("met_plot_selectors")
+        ),
+        width = 400
+      ),
+      card(
+        card_title("Metabolite Scatter Plot"),
+        plotOutput("metab_scatter", height = "600px")
+      )
     )
   )
 )
@@ -285,6 +299,28 @@ server <- function(input, output, session) {
       write.csv(filtered_corrected()$filtered_df, file, row.names = FALSE)
     }
   )
+  
+  output$met_plot_selectors <- renderUI({
+    req(filtered(), filtered_corrected())
+    raw_cols <- setdiff(names(filtered()$df_filtered), c("sample", "batch", "class", "order"))
+    cor_cols <- setdiff(names(filtered_corrected()$filtered_df), c("sample", "batch", "class", "order"))
+    cols <- intersect(raw_cols, cor_cols)
+    
+    dropdown_choices <- c("Select a column..." = "", cols)
+    
+    tagList(
+      selectInput("met_col", "Metabolite column", choices = dropdown_choices, selected = "")
+    )
+  })
+  output$metab_scatter <- renderPlot({
+    req(input$met_col, filtered(), filtered_corrected())
+    met_scatter_rf(
+      data_raw = filtered()$df_filtered,
+      data_cor = filtered_corrected()$filtered_df,
+      i = input$metab
+    )
+  })
+  
 }
 
 

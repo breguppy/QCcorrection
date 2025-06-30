@@ -228,7 +228,7 @@ compute_median_dataframe <- function(df_list, metadata_cols = c("Sample", "Batch
 correct_data <- function(df, metab_cols, corMethod){
   
   if (corMethod == "QCRFSC"){
-    cor_str <- "QC Random Forest Signal Correction (statTarget style)"
+    cor_str <- "QC Random Forest Signal Correction (3 seeds x 500 trees)"
     seeds <- c(42, 31416, 272)
     # Get QC indexes from class column
     
