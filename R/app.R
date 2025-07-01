@@ -158,11 +158,25 @@ ui <- fluidPage(
       
       layout_sidebar(
         sidebar = sidebar(
+          tags$h4("RSD Evaluation"),
+          tags$h6(style = "color: darkorange; font-weight: bold;", "(Coming Soon!)"),
+          radioButtons(
+            inputId = "rsd_cal",
+            label = "Calculate RSD by",
+            choices = list("Metabolite" = "met", 
+                           "Class-Metabolite" = "class_met"),
+            selected = "met"
+          ),
+          tags$hr(),
+          
           #--- plot metabolite
           tags$h4("Metabolite Scatter plot"),
           uiOutput("met_plot_selectors"),
           width = 400,
         ),
+      card(
+        card_title("RSD Evaluation"),
+      ),
       card(
         card_title("Metabolite Scatter Plot"),
         plotOutput("metab_scatter", height = "600px", width = "600px")
