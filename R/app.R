@@ -154,14 +154,14 @@ ui <- fluidPage(
         sidebar = sidebar(
           #--- plot metabolite
           tags$h4("Metabolite Scatter plot"),
-          uiOutput("met_plot_selectors")
+          uiOutput("met_plot_selectors"),
+          width = 400,
         ),
-        width = 400
-      ),
       card(
         card_title("Metabolite Scatter Plot"),
-        plotOutput("metab_scatter", height = "600px")
-      )
+        plotOutput("metab_scatter", height = "600px", width = "600px")
+        )
+      ),
     )
   )
 )
@@ -306,18 +306,19 @@ server <- function(input, output, session) {
     cor_cols <- setdiff(names(filtered_corrected()$filtered_df), c("sample", "batch", "class", "order"))
     cols <- intersect(raw_cols, cor_cols)
     
-    dropdown_choices <- c("Select a column..." = "", cols)
+    #dropdown_choices <- c("Select a column..." = "", cols)
     
     tagList(
-      selectInput("met_col", "Metabolite column", choices = dropdown_choices, selected = "")
+      selectInput("met_col", "Metabolite column", choices = cols, selected = cols[1])
     )
   })
+  
   output$metab_scatter <- renderPlot({
     req(input$met_col, filtered(), filtered_corrected())
     met_scatter_rf(
       data_raw = filtered()$df_filtered,
       data_cor = filtered_corrected()$filtered_df,
-      i = input$metab
+      i = input$met_col
     )
   })
   

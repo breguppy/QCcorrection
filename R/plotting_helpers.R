@@ -5,16 +5,44 @@ library(patchwork)
 library(dplyr)
 source("processing_helpers.R")
 
-met_scatter_rf <- function(data_raw, data_cor, i, metadata_cols = c("sample", "batch", "class", "order")) {
+met_scatter_rf <- function(data_raw, data_cor, i) {
   
-  qc_idx <- which(is.na(data_raw$class))
-  nonqc_idx <- setdiff(seq_len(nrow(data_raw)), qc_idx)
+  raw_qc_idx <- which(is.na(data_raw$class))
+  raw_nonqc_idx <- setdiff(seq_len(nrow(data_raw)), raw_qc_idx)
   
-  mean_before <- mean(data_raw[qc_idx, i])
-  sd_before <- sd(data_raw[qc_idx, i])
+  cor_qc_idx <- which(data_cor$class == "QC")
+  cor_nonqc_idx <- setdiff(seq_len(nrow(data_cor)), cor_qc_idx)
   
-  mean_after <- mean(data_cor[qc_idx, i])
-  sd_after <- sd(data_cor[qc_idx, i])
+  raw_vals <- data_raw[[i]]
+  qc_vals_raw <- raw_vals[ raw_qc_idx ]
+  
+  mean_before <- mean(qc_vals_raw, na.rm = TRUE)
+  sd_before   <- sd(qc_vals_raw,   na.rm = TRUE)
+  
+  # same for data_cor
+  cor_vals <- data_cor[[i]]
+  qc_vals_cor  <- cor_vals[ cor_qc_idx ]
+  
+  mean_after <- mean(qc_vals_cor, na.rm = TRUE)
+  sd_after   <- sd(qc_vals_cor,   na.rm = TRUE)
+  
+  sd_df_before <- tibble::tibble(
+    y  = c(mean_before +  sd_before,
+           mean_before -  sd_before,
+           mean_before + 2*sd_before,
+           mean_before - 2*sd_before),
+    sd = factor(c("±1 SD","±1 SD","±2 SD","±2 SD"),
+                levels = c("±1 SD","±2 SD"))
+  )
+  
+  sd_df_after <- tibble::tibble(
+    y  = c(mean_after  +  sd_after,
+           mean_after  -  sd_after,
+           mean_after  + 2*sd_after,
+           mean_after  - 2*sd_after),
+    sd = factor(c("±1 SD","±1 SD","±2 SD","±2 SD"),
+                levels = c("±1 SD","±2 SD"))
+  )
   
   raw_batch_ranges <- data_raw %>%
     group_by(batch) %>%
@@ -22,79 +50,74 @@ met_scatter_rf <- function(data_raw, data_cor, i, metadata_cols = c("sample", "b
     arrange(xmin) %>%
     mutate(fill = rep(c("lightgray", "white"), length.out = n()))
   
-  p_before <- ggplot() +
-    # Background batch rectangles
+  cor_batch_ranges <- data_cor %>%
+    group_by(batch) %>%
+    summarize(xmin = min(order), xmax = max(order), .groups = "drop") %>%
+    arrange(xmin) %>%
+    mutate(fill = rep(c("lightgray", "white"), length.out = n()))
+  
+  data_raw$type <- ifelse(is.na(data_raw$class), "QC", "Sample")
+  data_cor$type <- ifelse(data_cor$class == "QC", "QC", "Sample")
+  
+  color_scale <- scale_color_manual(
+    name   = "Type: ",
+    values = c(Sample = "#F5C710", QC = "#305CDE")
+  )
+  lty_scale <- scale_linetype_manual(
+    name   = "SD Range: ",
+    values = c("±1 SD" = "dashed", "±2 SD" = "solid"),
+    guide  = guide_legend(override.aes = list(color = c("grey20","#D55E00")))
+  )
+  
+  p_before <- ggplot(data_raw, aes(x = order, y = .data[[i]], color = type), alpha = 0.8) +
     geom_rect(data = raw_batch_ranges,
               aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
-    # +-1 SD 
-    geom_hline(yintercept = mean_before + sd_before,
-               linetype = "dashed", colour = "grey20") +
-    geom_hline(yintercept = mean_before - sd_before,
-               linetype = "dashed", colour = "grey20") +
-    # +-2 SD 
-    geom_hline(yintercept = mean_before + 2*sd_before,
-               linetype = "solid", colour = "#D55E00") +
-    geom_hline(yintercept = mean_before - 2*sd_before,
-               linetype = "solid", colour = "#D55E00") +
-    # non-QC points in yellow
-    geom_point(data = data_raw[nonqc_idx, ],
-               aes(x = order, y = .data[[i]]),
-               color = "#F5C710", size = 1.5) +
-    # QC points in blue
-    geom_point(data = data_raw[qc_idx, ],
-               aes(x = order, y = .data[[i]]),
-               color = "#305CDE", size = 2) +
-    labs(
-      title = "Raw",
-      x = "Injection Order",
-      y = "Intensity",
+    geom_hline(data = sd_df_before, aes(yintercept = y, linetype = sd),
+               color = ifelse(sd_df_before$sd=="±1 SD","grey20","#D55E00"), size = 1.25) +
+    geom_point(data = data_raw %>% filter(type == "Sample"),
+               aes(order, .data[[i]], color = type), size = 3) +
+    geom_point(data = data_raw %>% filter(type == "QC"),
+               aes(order, .data[[i]], color = type), size = 3) +
+    color_scale + lty_scale +
+    theme_minimal(base_size = 16) +
+    theme(
+      plot.title = element_text(size = 20, hjust = 0.5, face = "bold"),
+      axis.title = element_text(size = 18),
+      axis.text  = element_text(size = 16),
+      legend.text= element_text(size = 16),
+      legend.position = "bottom",
+      panel.border = element_rect(colour = "black", fill=NA, size=1)
     ) +
-    legend("top", c("Sample", "QC"), col = c("#F5C710", "#305CDE"), lty = 1, pch = 19, bty = "n", cex = 0.75, 
-           horiz = TRUE)
-    theme_minimal()
+    labs(title = "Raw", x = "Injection Order", y = "Intensity")
     
-    cor_batch_ranges <- data_cor %>%
-      group_by(batch) %>%
-      summarize(xmin = min(order), xmax = max(order), .groups = "drop") %>%
-      arrange(xmin) %>%
-      mutate(fill = rep(c("lightgray", "white"), length.out = n()))
+  p_after <- ggplot(data_cor, aes(x = order, y = .data[[i]], color = type)) +
+    geom_rect(data = cor_batch_ranges,
+              aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
+              inherit.aes = FALSE, alpha = 0.3) +
+    scale_fill_identity() +
+    geom_hline(data = sd_df_after, aes(yintercept = y, linetype = sd),
+               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#D55E00"), size = 1.25) +
+    geom_point(data = data_cor %>% filter(type == "Sample"),
+               aes(order, .data[[i]], color = type), size = 3) +
+    geom_point(data = data_cor %>% filter(type == "QC"),
+               aes(order, .data[[i]], color = type), size = 3) +
+    color_scale + lty_scale +
+    theme_minimal(base_size = 16) +
+    theme(
+      plot.title = element_text(size = 20, hjust = 0.5, face = "bold"),
+      axis.title = element_text(size = 18),
+      axis.text  = element_text(size = 16),
+      legend.text= element_text(size = 16),
+      legend.position = "none",
+      panel.border = element_rect(colour = "black", fill=NA, size=1)
+    ) +
+    labs(title = "Corrected", x = "Injection Order", y = "Intensity")
+  
     
-    p_after <- ggplot() +
-      # Background batch rectangles
-      geom_rect(data = cor_batch_ranges,
-                aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
-                inherit.aes = FALSE, alpha = 0.3) +
-      scale_fill_identity() +
-      # +-1 SD 
-      geom_hline(yintercept = mean_after + sd_after,
-                 linetype = "dashed", colour = "grey20") +
-      geom_hline(yintercept = mean_after - sd_after,
-                 linetype = "dashed", colour = "grey20") +
-      # +-2 SD 
-      geom_hline(yintercept = mean_after + 2*sd_after,
-                 linetype = "solid", colour = "#D55E00") +
-      geom_hline(yintercept = mean_after - 2*sd_after,
-                 linetype = "solid", colour = "#D55E00") +
-      # non-QC points in yellow
-      geom_point(data = data_cor[nonqc_idx, ],
-                 aes(x = order, y = .data[[i]]),
-                 color = "#F5C710", size = 1.5) +
-      # QC points in blue
-      geom_point(data = data_cor[qc_idx, ],
-                 aes(x = order, y = .data[[i]]),
-                 color = "#305CDE", size = 2) +
-      labs(
-        title = "Corrected",
-        x = "Injection Order",
-        y = "Intensity",
-      ) +
-      legend("top", c("Sample", "QC"), col = c("#F5C710", "#305CDE"), lty = 1, pch = 19, bty = "n", cex = 0.75, 
-             horiz = TRUE)
-    theme_minimal()
-    
-    p_before + p_after + plot_layout(ncol = 1, widths = 3, heights = 1)
+  (p_before + p_after + plot_layout(ncol = 1, guides = "collect")) &
+    theme(legend.position = "bottom")
 }
 
 
