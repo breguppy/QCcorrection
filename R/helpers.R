@@ -185,17 +185,39 @@ filterInfoUI <- function(removed) {
   }
 }
 
-correctionInfoUI <- function(imputed_result, corrected_result, filtered_corrected_result, imputeM, corMethod) {
-  n_removed <- length(filtered_corrected_result$removed_metabolites)
+correctionInfoUI <- function(imputed_result, imputeM, corMethod) {
+  if (corMethod == "QCRFSC"){
+    cor_str <- "QC Random Forest Signal Correction (3 seeds x 500 trees)"
+  } else if (corMethod == "QCRLSC") {
+    cor_str <- "LOESS polynomial fit"
+  }
   ui <- list(tags$div(
       style = "display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top 15px;",
       metric_card(paste("missing values imputed with", imputed_result$impute_str), imputed_result$n_missv),
-      metric_card(corrected_result$cor_str, "Correction Method:")
+      metric_card(cor_str, "Correction Method:")
       )
   )
   
+  #if(n_removed > 0) {
+  #  ui <- c(ui, list(
+  #    tags$span(style = "color: darkorange; font-weight: bold;",
+  #              paste(n_removed, "metabolite columns were removed based on QC RSD threshold.")),
+  #    tags$br(),
+  #    tags$span(style = "font-weight: bold;","Removed Columns:"),
+  #    tags$ul(
+  #      lapply(filtered_corrected_result$removed_metabolites, function(name) {
+  #        tags$li(name)
+  #      })
+  #    )
+  #  ))
+  #}
+  do.call(tagList, ui)  
+}
+
+postCorFilterInfo <- function(filtered_corrected_result) {
+  n_removed <- length(filtered_corrected_result$removed_metabolites)
   if(n_removed > 0) {
-    ui <- c(ui, list(
+    ui <- list(
       tags$span(style = "color: darkorange; font-weight: bold;",
                 paste(n_removed, "metabolite columns were removed based on QC RSD threshold.")),
       tags$br(),
@@ -205,7 +227,12 @@ correctionInfoUI <- function(imputed_result, corrected_result, filtered_correcte
           tags$li(name)
         })
       )
-    ))
+    )
+  } else if (n_removed == 0){
+    ui <- list(
+      tags$span(style = "color: darkgreen; font-weight: bold;",
+                "No metabolite columns were removed based on QC RSD threshold.")
+    )
   }
-  do.call(tagList, ui)  
+  do.call(tagList, ui)
 }

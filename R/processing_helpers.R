@@ -3,6 +3,7 @@
 library(randomForest)
 library(dplyr)
 library(purrr)
+library(stats)
 
 #–– Data cleaning helpers ––#
 
@@ -224,6 +225,43 @@ compute_median_dataframe <- function(df_list, metadata_cols = c("Sample", "Batch
   return(median_df)
 }
 
+loess_correction <- function(df, metab_cols, degree = 2, span = 0.75) {
+  df_corrected <- df
+  
+  pb <- txtProgressBar(min = 0, max = length(metab_cols), style = 3)
+  
+  for (i in seq_along(metab_cols)) {
+    metab <- metab_cols[i]
+    
+    # QC samples: class is NA
+    qc_idx <- which(is.na(df$class))
+    
+    dat <- data.frame(
+      intensity = df[[metab]][qc_idx],
+      order     = df$order[qc_idx]
+    )
+    
+    # Fit loess(intensity ~ order)
+    loess_model <- stats::loess(
+      intensity ~ order,
+      data   = dat,
+      span   = span,
+      degree = degree
+    )
+    
+    
+    # Predict values for all samples using their order
+    predicted <- stats::predict(loess_model, newdata = data.frame(order = df$order))
+    
+    # Apply correction
+    df_corrected[[metab]] <- df[[metab]] / predicted
+    
+    setTxtProgressBar(pb, i)
+  }
+  
+  close(pb)
+  return(df_corrected)
+}
 # Correct data
 correct_data <- function(df, metab_cols, corMethod){
   
@@ -239,6 +277,10 @@ correct_data <- function(df, metab_cols, corMethod){
     metadata_cols <- setdiff(colnames(df), metab_cols)
     
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
+  } else if (corMethod == "QCRLSC") {
+    cor_str <- "LOESS polynomial fit"
+    df_corrected <- loess_correction(df, metab_cols)
+    df_corrected$class[is.na(df_corrected$class)] <- "QC"
   }
   
   return(list(

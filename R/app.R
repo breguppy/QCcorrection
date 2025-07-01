@@ -19,7 +19,7 @@ ui <- fluidPage(
     
     #--- Step 1: Raw Data
     accordion_panel(
-      title = "Raw Data",
+      title = "Import Raw Data",
       
       layout_sidebar(
         sidebar = sidebar(
@@ -106,6 +106,8 @@ ui <- fluidPage(
             selected = "QCRFSC"
           ),
           tags$hr(),
+          actionButton(inputId = "correct", label = "Correct Data"),
+          tags$hr(),
     
           # After correction filtering
           tags$h4("Post-Correction Filtering"),
@@ -120,6 +122,7 @@ ui <- fluidPage(
           
           # After correction scaling / normalization
           tags$h4("Post-Correction Transformation or Normalization"),
+          tags$h6(style = "color: darkorange; font-weight: bold;", "(Coming Soon!)"),
           radioButtons(
             inputId = "transform",
             label = "Method",
@@ -129,17 +132,20 @@ ui <- fluidPage(
             selected = "none"
           ),
           tags$hr(),
-          
-          actionButton(inputId = "correct", label = "Correct Data"),
+          actionButton(inputId = "next_visualization", label = "Evaluate and Visualize Correction"),
           width = 400,
         ),
         card(
           card_title("Correction Information"),
-          uiOutput("correction_info") %>% withSpinner(color = "#404040"),
+          uiOutput("correction_info"),
+        ),
+        card(
+          card_title("Post-Correction Filtering Information"),
+          uiOutput("post_cor_filter_info") %>% withSpinner(color = "#404040"),
         ),
         card(
           card_title("Corrected Data"),
-          tableOutput("cor_data"),
+          tableOutput("cor_data") %>% withSpinner(color = "#404040"),
           uiOutput("download_corr_btn", container = div, 
                    style = "position: absolute; bottom: 15px; right: 15px;")
         )
@@ -162,6 +168,14 @@ ui <- fluidPage(
         plotOutput("metab_scatter", height = "600px", width = "600px")
         )
       ),
+    ),
+    
+    #--- Step 5: Export Data
+    accordion_panel(
+      title = "Export Corrected Data and Plots",
+      card(
+        card_title("TODO: Export button"),
+      )
     )
   )
 )
@@ -173,10 +187,10 @@ server <- function(input, output, session) {
     df <- read.csv(input$file1$datapath, header=TRUE)
   })
   
-  #–– 2) preview
+  #––  preview
   output$contents <- renderTable(head(data_raw(),10))
   
-  #–– 3) column selection & warning
+  #–– column selection & warning
   output$column_selectors <- renderUI({
     req(data_raw())
     cols <- names(data_raw())
@@ -190,7 +204,6 @@ server <- function(input, output, session) {
       selectInput("order_col", "order column", choices = dropdown_choices, selected = "")
     )
   })
-  
   output$column_warning <- renderUI({
     req(data_raw())
     selected <- c(
@@ -202,7 +215,7 @@ server <- function(input, output, session) {
     columnWarningUI(data_raw(), selected)
   })
   
-  #–– 4) cleaned data + track replacements
+  #–– cleaned data
   cleaned <- reactive({
     sel <- c(
       input$sample_col,
@@ -214,14 +227,14 @@ server <- function(input, output, session) {
     cleanData(data_raw(), sel[1], sel[2], sel[3], sel[4])
   })
   
-  #–– 5) basic info
+  #–– basic info
   output$basic_info <- renderUI({
     cleaned_data <- cleaned()
     req(cleaned_data)
     basicInfoUI(cleaned_data$df, cleaned_data$replacement_counts)
   })
   
-  #–– 6) filter step
+  #–– filter step
   filtered <- reactive({
     cleaned_data <- cleaned()
     req(cleaned_data)
@@ -234,12 +247,13 @@ server <- function(input, output, session) {
     filterInfoUI(filtered_data$removed_cols)
   })
   
+  #-- Move to next panel after inspecting the raw data
   observeEvent(input$next_correction, {
-    accordion_panel_close(id = "main_steps", value = "Raw Data" , session = session)
+    accordion_panel_close(id = "main_steps", value = "Import Raw Data" , session = session)
     accordion_panel_open(id = "main_steps", value = "Correction Settings", session = session)
   })
   
-  imputed <- eventReactive(input$correct, {
+  imputed <- reactive({
     filtered_result <- filtered()
     req(filtered_result)
     
@@ -247,32 +261,34 @@ server <- function(input, output, session) {
                    setdiff(names(filtered_result$df_filtered), c("sample", "batch", "class", "order")), 
                    input$imputeM)
   })
+  
+  output$correction_info <- renderUI({
+    imputed_result <- imputed()
+    req(imputed_result)
+    correctionInfoUI(imputed_result, input$imputeM, input$corMethod)
+  })
+  
   corrected <- eventReactive(input$correct, {
     imputed_result <- imputed()
     req(imputed_result)
-
+    
     correct_data(imputed_result$df_imputed, 
                  setdiff(names(imputed_result$df_imputed), c("sample", "batch", "class", "order")),
                  input$corMethod)
   })
   
-  filtered_corrected <- eventReactive(input$correct, {
+  filtered_corrected <- reactive({
     corrected_result <- corrected()
     req(corrected_result)
     
     rsd_filter(corrected_result$df_corrected, input$rsd_filter, c("sample", "batch", "class", "order"))
   })
   
-  
-  output$correction_info <- renderUI({
-    imputed_result <- imputed()
-    corrected_result <- corrected()
-    filtered_corrected_result <- filtered_corrected()
-    req(imputed_result, corrected_result, filtered_corrected_result)
-    correctionInfoUI(imputed_result, corrected_result, filtered_corrected_result, input$imputeM, input$corMethod)
-    
+  output$post_cor_filter_info <- renderUI({
+    fil_cor_result <- filtered_corrected()
+    req(fil_cor_result)
+    postCorFilterInfo(fil_cor_result)
   })
-  
   output$cor_data <- renderTable({
     fil_cor_result <- filtered_corrected()
     req(fil_cor_result)
@@ -300,26 +316,35 @@ server <- function(input, output, session) {
     }
   )
   
+  #-- Move to next panel after inspecting the raw data
+  observeEvent(input$next_visualization, {
+    accordion_panel_close(id = "main_steps", value = "Correction Settings" , session = session)
+    accordion_panel_open(id = "main_steps", value = "Evaluation Metrics and Visualization", session = session)
+  })
+  
   output$met_plot_selectors <- renderUI({
     req(filtered(), filtered_corrected())
     raw_cols <- setdiff(names(filtered()$df_filtered), c("sample", "batch", "class", "order"))
     cor_cols <- setdiff(names(filtered_corrected()$filtered_df), c("sample", "batch", "class", "order"))
     cols <- intersect(raw_cols, cor_cols)
-    
-    #dropdown_choices <- c("Select a column..." = "", cols)
-    
     tagList(
       selectInput("met_col", "Metabolite column", choices = cols, selected = cols[1])
     )
   })
   
   output$metab_scatter <- renderPlot({
-    req(input$met_col, filtered(), filtered_corrected())
-    met_scatter_rf(
-      data_raw = filtered()$df_filtered,
-      data_cor = filtered_corrected()$filtered_df,
-      i = input$met_col
-    )
+    req(input$met_col, filtered(), filtered_corrected(), input$corMethod)
+    if (input$corMethod == "QCRFSC"){
+      met_scatter_rf(
+        data_raw = filtered()$df_filtered,
+        data_cor = filtered_corrected()$filtered_df,
+        i = input$met_col)
+    } else if (input$corMethod == "QCRLSC") {
+      met_scatter_loess(
+        data_raw = filtered()$df_filtered,
+        data_cor = filtered_corrected()$filtered_df,
+        i = input$met_col)
+    }
   })
   
 }
