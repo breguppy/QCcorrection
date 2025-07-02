@@ -66,7 +66,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
   lty_scale <- scale_linetype_manual(
     name   = "SD Range: ",
     values = c("±1 SD" = "dashed", "±2 SD" = "solid"),
-    guide  = guide_legend(override.aes = list(color = c("grey20","#D55E00")))
+    guide  = guide_legend(override.aes = list(color = c("grey20","#950606")))
   )
   
   p_before <- ggplot(data_raw, aes(x = order, y = .data[[i]], color = type), alpha = 0.8) +
@@ -75,7 +75,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
     geom_hline(data = sd_df_before, aes(yintercept = y, linetype = sd),
-               color = ifelse(sd_df_before$sd=="±1 SD","grey20","#D55E00"), size = 1.25) +
+               color = ifelse(sd_df_before$sd=="±1 SD","grey20","#950606"), size = 1.25) +
     geom_point(data = data_raw %>% filter(type == "Sample"),
                aes(order, .data[[i]], color = type), size = 3) +
     geom_point(data = data_raw %>% filter(type == "QC"),
@@ -98,7 +98,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
     geom_hline(data = sd_df_after, aes(yintercept = y, linetype = sd),
-               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#D55E00"), size = 1.25) +
+               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#950606"), size = 1.25) +
     geom_point(data = data_cor %>% filter(type == "Sample"),
                aes(order, .data[[i]], color = type), size = 3) +
     geom_point(data = data_cor %>% filter(type == "QC"),

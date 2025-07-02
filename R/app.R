@@ -111,13 +111,15 @@ ui <- fluidPage(
     
           # After correction filtering
           tags$h4("Post-Correction Filtering"),
-          sliderInput(
-            inputId = "rsd_filter",
-            label = "Metabolite RSD% threshold for QC samples",
-            min = 0,
-            max = 100,
-            value = 50
-          ),
+          checkboxInput(inputId = "post_cor_filter", label = "Don't filter any metabolites based on QC RSD%", value = FALSE),
+          conditionalPanel("input.post_cor_filter == false", 
+                           sliderInput(
+                            inputId = "rsd_filter",
+                            label = "Metabolite RSD% threshold for QC samples",
+                            min = 0,
+                            max = 100,
+                            value = 50
+                            )),
           tags$hr(),
           
           # After correction scaling / normalization
@@ -294,8 +296,11 @@ server <- function(input, output, session) {
   filtered_corrected <- reactive({
     corrected_result <- corrected()
     req(corrected_result)
-    
-    rsd_filter(corrected_result$df_corrected, input$rsd_filter, c("sample", "batch", "class", "order"))
+    if (input$post_cor_filter == FALSE){
+      rsd_filter(corrected_result$df_corrected, input$rsd_filter, c("sample", "batch", "class", "order"))
+    } else {
+      rsd_filter(corrected_result$df_corrected, Inf, c("sample", "batch", "class", "order"))
+    }
   })
   
   output$post_cor_filter_info <- renderUI({
