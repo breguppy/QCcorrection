@@ -4,10 +4,10 @@ library(shiny)
 library(bslib)
 library(dplyr)
 library(shinycssloaders)
-source("helpers.R")
-source("processing_helpers.R")
-source("plotting_helpers.R")
-
+source("R/helpers.R")
+source("R/processing_helpers.R")
+source("R/met_scatter_rf.R")
+source("R/met_scatter_loess.R")
 
 # Define UI
 
@@ -40,6 +40,10 @@ ui <- fluidPage(
           tags$h6("Please select columns for sample, batch, class, and order."),
           uiOutput("column_selectors"),
           uiOutput("column_warning"),
+          checkboxInput(inputId = "withhold_cols", label = "Withhold additional columns from correction?", value = FALSE),
+          uiOutput("n_withhold_ui"),
+          uiOutput("withhold_selectors_ui"),
+          
           #tags$h6("Coming soon: option to select other non-metabolite columns."),
           tags$hr(),
           
@@ -231,6 +235,46 @@ server <- function(input, output, session) {
     columnWarningUI(data_raw(), selected)
   })
   
+  observe({
+    req(data_raw())
+    
+    max_withhold <- max(ncol(data_raw()) - 4, 0)
+    
+    output$n_withhold_ui <- renderUI({
+      if (isTRUE(input$withhold_cols)) {
+        numericInput(
+          inputId = "n_withhold",
+          label = "Number of columns to withold from correction",
+          value = 1,
+          min = 1, 
+          max = max_withhold
+        )
+      }
+    })
+  })
+  
+  output$withhold_selectors_ui <- renderUI({
+    req(data_raw(), input$withhold_cols, input$n_withhold)
+    cols <- names(data_raw())
+    cols <- setdiff(cols, c(
+      input$sample_col,
+      input$batch_col,
+      input$class_col,
+      input$order_col
+    ))
+    dropdown_choices <- c("Select a column..." = "", cols)
+    
+    # Generate list of selectInputs
+    lapply(seq_len(input$n_withhold), function(i) {
+      selectInput(
+        inputId = paste0("withhold_col_", i),
+        label = paste("Select column to withhold #", i),
+        choices = dropdown_choices,
+        selected = ""
+      )
+    })
+  })
+  
   #–– cleaned data
   cleaned <- reactive({
     sel <- c(
@@ -239,8 +283,21 @@ server <- function(input, output, session) {
       input$class_col,
       input$order_col
     )
+    
     req(!any(sel==""), length(unique(sel))==4)
-    cleanData(data_raw(), sel[1], sel[2], sel[3], sel[4])
+    
+    df <-data_raw()
+    if (isTRUE(input$withhold_cols) && !is.null(input$n_withhold)) {
+      withheld_cols <- character(0)
+      for (i in seq_len(input$n_withhold)) {
+        col <- input[[paste0("withhold_col_", i)]]
+        if (!is.null(col) && col %in% names(df)) {
+          withheld_cols <- c(withheld_cols, col)
+        }
+      }
+      df <- df[, setdiff(names(df), withheld_cols), drop = FALSE]
+    }
+    cleanData(df, sel[1], sel[2], sel[3], sel[4])
   })
   
   #–– basic info
@@ -306,7 +363,7 @@ server <- function(input, output, session) {
   output$post_cor_filter_info <- renderUI({
     fil_cor_result <- filtered_corrected()
     req(fil_cor_result)
-    postCorFilterInfo(fil_cor_result)
+    postCorFilterInfoUI(fil_cor_result)
   })
   output$cor_data <- renderTable({
     fil_cor_result <- filtered_corrected()

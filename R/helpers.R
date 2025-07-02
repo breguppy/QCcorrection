@@ -197,24 +197,10 @@ correctionInfoUI <- function(imputed_result, imputeM, corMethod) {
       metric_card(cor_str, "Correction Method:")
       )
   )
-  
-  #if(n_removed > 0) {
-  #  ui <- c(ui, list(
-  #    tags$span(style = "color: darkorange; font-weight: bold;",
-  #              paste(n_removed, "metabolite columns were removed based on QC RSD threshold.")),
-  #    tags$br(),
-  #    tags$span(style = "font-weight: bold;","Removed Columns:"),
-  #    tags$ul(
-  #      lapply(filtered_corrected_result$removed_metabolites, function(name) {
-  #        tags$li(name)
-  #      })
-  #    )
-  #  ))
-  #}
   do.call(tagList, ui)  
 }
 
-postCorFilterInfo <- function(filtered_corrected_result) {
+postCorFilterInfoUI <- function(filtered_corrected_result) {
   n_removed <- length(filtered_corrected_result$removed_metabolites)
   if(n_removed > 0) {
     ui <- list(
