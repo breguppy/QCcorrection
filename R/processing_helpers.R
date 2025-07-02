@@ -289,6 +289,17 @@ correct_data <- function(df, metab_cols, corMethod){
   ))
 }
 
+remove_imputed_from_corrected <- function(raw_df, corrected_df) {
+  # Ensure both data frames are the same shape
+  if (!all(dim(raw_df) == dim(corrected_df))) {
+    stop("Both data frames must have the same dimensions.")
+  }
+  
+  # Return a new corrected_df with values removed where raw_df is NA
+  corrected_df[is.na(raw_df)] <- NA
+  return(corrected_df)
+}
+
 # compute metabolite RSD
 metabolite_rsd <- function(df, metadata_cols = c("sample", "batch", "class", "order")){
   metab_cols <- setdiff(names(df), metadata_cols)
@@ -332,10 +343,12 @@ rsd_filter <- function(df, rsd_cutoff, metadata_cols = c("sample", "batch", "cla
   
   # Columns to retain in filtered data
   final_cols <- c(metadata_cols, keep_metabolites)
+  filtered_df = df[, final_cols, drop = FALSE]
+  filtered_df$class[is.na(filtered_df$class)] <- "QC"
   
   # Return a list with the filtered data and removed metabolites
   return(list(
-    filtered_df = df[, final_cols, drop = FALSE],
+    filtered_df = filtered_df,
     removed_metabolites = remove_metabolites
   ))
 }

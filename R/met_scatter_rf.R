@@ -87,7 +87,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
       axis.text  = element_text(size = 16),
       legend.text= element_text(size = 16),
       legend.position = "bottom",
-      panel.border = element_rect(colour = "black", fill=NA, size=1)
+      panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
     labs(title = "Raw", x = "Injection Order", y = "Intensity")
   
@@ -110,7 +110,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
       axis.text  = element_text(size = 16),
       legend.text= element_text(size = 16),
       legend.position = "none",
-      panel.border = element_rect(colour = "black", fill=NA, size=1)
+      panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
     labs(title = "Corrected", x = "Injection Order", y = "Intensity")
   

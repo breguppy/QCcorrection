@@ -40,7 +40,9 @@ ui <- fluidPage(
           tags$h6("Please select columns for sample, batch, class, and order."),
           uiOutput("column_selectors"),
           uiOutput("column_warning"),
-          checkboxInput(inputId = "withhold_cols", label = "Withhold additional columns from correction?", value = FALSE),
+          checkboxInput(inputId = "withhold_cols", 
+                        label = "Withhold additional columns from correction?", 
+                        value = FALSE),
           uiOutput("n_withhold_ui"),
           uiOutput("withhold_selectors_ui"),
           
@@ -57,7 +59,8 @@ ui <- fluidPage(
             value = 20
           ),
           tags$hr(),
-          actionButton(inputId = "next_correction", label = "Choose Correction Settings"),
+          actionButton(inputId = "next_correction", 
+                       label = "Choose Correction Settings"),
           
           width = 400,
         ),
@@ -84,6 +87,7 @@ ui <- fluidPage(
         sidebar = sidebar(
           #--- Impute missing values
           tags$h4("Impute Missing Values"),
+          uiOutput("qc_missing_value_warning"),
           radioButtons(
             inputId = "imputeM",
             label = "Imputation method",
@@ -115,7 +119,12 @@ ui <- fluidPage(
     
           # After correction filtering
           tags$h4("Post-Correction Filtering"),
-          checkboxInput(inputId = "post_cor_filter", label = "Don't filter any metabolites based on QC RSD%", value = FALSE),
+          checkboxInput(inputId = "remove_imputed", 
+                        label = "Remove imputed values after correction?", 
+                        value = FALSE),
+          checkboxInput(inputId = "post_cor_filter", 
+                        label = "Don't filter metabolites based on QC RSD%", 
+                        value = FALSE),
           conditionalPanel("input.post_cor_filter == false", 
                            sliderInput(
                             inputId = "rsd_filter",
@@ -325,7 +334,11 @@ server <- function(input, output, session) {
     accordion_panel_close(id = "main_steps", value = "Import Raw Data" , session = session)
     accordion_panel_open(id = "main_steps", value = "Correction Settings", session = session)
   })
-  
+  output$qc_missing_value_warning <- renderUI({
+    filtered_data <- filtered()
+    req(filtered_data)
+    qcMissingValueWarning(filtered_data$df_filtered)
+  })
   imputed <- reactive({
     filtered_result <- filtered()
     req(filtered_result)
@@ -352,11 +365,19 @@ server <- function(input, output, session) {
   
   filtered_corrected <- reactive({
     corrected_result <- corrected()
+    filtered_result <- filtered()
     req(corrected_result)
-    if (input$post_cor_filter == FALSE){
-      rsd_filter(corrected_result$df_corrected, input$rsd_filter, c("sample", "batch", "class", "order"))
+    if (isTRUE(input$remove_imputed)) {
+      df <- remove_imputed_from_corrected(filtered_result$df_filtered, 
+                                          corrected_result$df_corrected)
     } else {
-      rsd_filter(corrected_result$df_corrected, Inf, c("sample", "batch", "class", "order"))
+      df <- corrected_result$df_corrected
+    }
+    
+    if (input$post_cor_filter == FALSE){
+      rsd_filter(df, input$rsd_filter, c("sample", "batch", "class", "order"))
+    } else {
+      rsd_filter(df, Inf, c("sample", "batch", "class", "order"))
     }
   })
   

@@ -185,6 +185,22 @@ filterInfoUI <- function(removed) {
   }
 }
 
+qcMissingValueWarning <- function(df) {
+  metab_cols <- setdiff(names(df), c("sample","batch","class","order"))
+  qc_idx <- which(is.na(df$class))
+  n_missv = sum(is.na(df[qc_idx, metab_cols]))
+  
+  if (n_missv > 0) {
+    tags$span(style = "color:darkred; font-weight:bold;",
+      icon("exclamation-triangle"),
+      paste(" ", n_missv," values missing from QC samples")
+    )
+  } else {
+    NULL
+  }
+  
+}
+
 correctionInfoUI <- function(imputed_result, imputeM, corMethod) {
   if (corMethod == "QCRFSC"){
     cor_str <- "QC Random Forest Signal Correction (3 seeds x 500 trees)"
