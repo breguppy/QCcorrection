@@ -73,24 +73,12 @@ plot_rsd_comparison <- function(df_before, df_after) {
   # Color mapping
   color_values <- c("Increased" = "#B22222", "No Change" = "gray25", "Decreased" = "#234F1E")
   
-  # Dummy data with numeric NA to force legend appearance
-  dummy_data <- data.frame(
-    rsd_qc_before = as.numeric(NA),
-    rsd_qc_after = as.numeric(NA),
-    rsd_nonqc_before = as.numeric(NA),
-    rsd_nonqc_after = as.numeric(NA),
-    change = factor(c("Increased", "No Change", "Decreased"),
-                    levels = c("Increased", "No Change", "Decreased"))
-  )
-  
   # Plot
   title_name <- "Comparison of RSD Before and After Correction"
-  p1 <- ggplot(df_samples, aes(x = rsd_nonqc_before, y = rsd_nonqc_after, color = change)) +
+  p1 <- ggplot(df_samples, aes(x = rsd_nonqc_before, y = rsd_nonqc_after, color = change), 
+               show.legend = TRUE) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
     geom_point(size = 3) +
-    geom_point(data = dummy_data, 
-               aes(x = rsd_nonqc_before, y = rsd_nonqc_after, color = change), 
-               show.legend = TRUE, size = 3) +
     scale_color_manual(
       values = color_values,
       breaks = names(label_map_samples),
@@ -114,12 +102,10 @@ plot_rsd_comparison <- function(df_before, df_after) {
       title = "Samples"
     )
   
-  p2 <- ggplot(df_qcs, aes(x = rsd_qc_before, y = rsd_qc_after, color = change)) +
+  p2 <- ggplot(df_qcs, aes(x = rsd_qc_before, y = rsd_qc_after, color = change), 
+               show.legend = TRUE) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
     geom_point(size = 3) +
-    geom_point(data = dummy_data, 
-               aes(x = rsd_qc_before, y = rsd_qc_after, color = change), 
-               show.legend = TRUE, size = 3) +
     scale_color_manual(
       values = color_values,
       breaks = names(label_map_qcs),
@@ -207,22 +193,11 @@ plot_rsd_comparison_class_met <- function(df_before, df_after) {
   # Color mapping
   color_values <- c("Increased" = "#B22222", "No Change" = "gray25", "Decreased" = "#234F1E")
   
-  # Dummy data with numeric NA to force legend appearance
-  dummy_data <- data.frame(
-    rsd_before = as.numeric(NA),
-    rsd_after = as.numeric(NA),
-    change = factor(c("Increased", "No Change", "Decreased"),
-                    levels = c("Increased", "No Change", "Decreased"))
-  )
-  
   # Plot
   title_name <- "Comparison of RSD Before and After Correction"
   p1 <- ggplot(df_samples, aes(x = rsd_before, y = rsd_after, color = change)) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
     geom_point(size = 3) +
-    geom_point(data = dummy_data, 
-               aes(x = rsd_before, y = rsd_after, color = change), 
-               show.legend = TRUE, size = 3) +
     scale_color_manual(
       values = color_values,
       breaks = names(label_map_samples),
@@ -249,9 +224,6 @@ plot_rsd_comparison_class_met <- function(df_before, df_after) {
   p2 <- ggplot(df_qcs, aes(x = rsd_before, y = rsd_after, color = change)) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
     geom_point(size = 3) +
-    geom_point(data = dummy_data, 
-               aes(x = rsd_before, y = rsd_after, color = change), 
-               show.legend = TRUE, size = 3) +
     scale_color_manual(
       values = color_values,
       breaks = names(label_map_qcs),
