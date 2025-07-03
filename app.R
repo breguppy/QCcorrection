@@ -191,7 +191,7 @@ ui <- fluidPage(
         ),
       card(
         card_title("RSD Evaluation"),
-        plotOutput("rsd_comparison_plot", height = "600px", width = "800px")
+        plotOutput("rsd_comparison_plot", height = "600px", width = "1100px")
       ),
       card(
         card_title("Metabolite Scatter Plot"),

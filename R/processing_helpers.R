@@ -304,6 +304,7 @@ remove_imputed_from_corrected <- function(raw_df, corrected_df) {
 metabolite_rsd <- function(df, metadata_cols = c("sample", "batch", "class", "order")){
   metab_cols <- setdiff(names(df), metadata_cols)
   
+  df$class[is.na(df$class)] <- "QC"
   # Separate QC and non-QC samples
   qc_df <- df[df$class == "QC", metab_cols, drop = FALSE]
   nonqc_df <- df[df$class != "QC", metab_cols, drop = FALSE]
