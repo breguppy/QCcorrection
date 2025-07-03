@@ -426,6 +426,11 @@ server <- function(input, output, session) {
       plot_rsd_comparison(
         filtered()$df_filtered,
         filtered_corrected()$filtered_df)
+    } else if(input$rsd_cal == "class_met"){
+      plot_rsd_comparison_class_met(
+        filtered()$df_filtered,
+        filtered_corrected()$filtered_df
+      )
     }
   })
   

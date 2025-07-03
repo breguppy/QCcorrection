@@ -333,6 +333,28 @@ metabolite_rsd <- function(df, metadata_cols = c("sample", "batch", "class", "or
   return(result)
 }
 
+# compute metabolite RSD
+class_metabolite_rsd <- function(df, metadata_cols = c("sample", "batch", "class", "order")){
+  metab_cols <- setdiff(names(df), metadata_cols)
+  
+  df$class[is.na(df$class)] <- "QC"
+  
+  long_df <- df %>%
+    pivot_longer(cols = all_of(metab_cols), names_to = "Metabolite", values_to = "Value")
+  
+  # Group by class and metabolite and compute RSD
+  rsd_df <- long_df %>%
+    group_by(class, Metabolite) %>%
+    summarise(
+      Mean = mean(Value, na.rm = TRUE),
+      SD = sd(Value, na.rm = TRUE),
+      RSD = ifelse(Mean == 0, NA, SD / Mean * 100),
+      .groups = "drop"
+    )
+  
+  return(rsd_df)
+}
+
 # Filter metabolites based on rsd_cutoff
 rsd_filter <- function(df, rsd_cutoff, metadata_cols = c("sample", "batch", "class", "order")){
   # Compute RSD
