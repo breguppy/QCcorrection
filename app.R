@@ -191,6 +191,7 @@ ui <- fluidPage(
         ),
       card(
         card_title("RSD Evaluation"),
+        plotOutput("rsd_comparison_plot", height = "600px", width = "800px")
       ),
       card(
         card_title("Metabolite Scatter Plot"),
@@ -413,10 +414,19 @@ server <- function(input, output, session) {
     }
   )
   
-  #-- Move to next panel after inspecting the raw data
+  #-- Move to next panel after inspecting the corrected data
   observeEvent(input$next_visualization, {
     accordion_panel_close(id = "main_steps", value = "Correction Settings" , session = session)
     accordion_panel_open(id = "main_steps", value = "Evaluation Metrics and Visualization", session = session)
+  })
+  
+  output$rsd_comparison_plot <- renderPlot({
+    req(filtered(), filtered_corrected(), input$rsd_cal)
+    if (input$rsd_cal == "met"){
+      plot_rsd_comparison(
+        filtered()$df_filtered,
+        filtered_corrected()$filtered_df)
+    }
   })
   
   output$met_plot_selectors <- renderUI({
