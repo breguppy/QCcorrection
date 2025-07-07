@@ -69,8 +69,11 @@ ui <- fluidPage(
           width = 400,
         ),
         card(
-          card_title("Raw Data (first 10 rows)"),
-          tableOutput("contents")
+          card_title("Raw Data"),
+          tags$div(
+            style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
+            tableOutput("contents")
+          )
         ),
         card(
           card_title("Basic Information"),
@@ -165,7 +168,10 @@ ui <- fluidPage(
         ),
         card(
           card_title("Corrected Data"),
-          tableOutput("cor_data") %>% withSpinner(color = "#404040"),
+          tags$div(
+            style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
+            tableOutput("cor_data")
+          ) %>% withSpinner(color = "#404040"),
           uiOutput("download_corr_btn", container = div, 
                    style = "position: absolute; bottom: 15px; right: 15px;")
         )
@@ -231,7 +237,7 @@ server <- function(input, output, session) {
   })
   
   #––  preview
-  output$contents <- renderTable(head(data_raw(),10))
+  output$contents <- renderTable(data_raw())
   
   #–– column selection & warning
   output$column_selectors <- renderUI({
@@ -407,7 +413,7 @@ server <- function(input, output, session) {
   output$cor_data <- renderTable({
     fil_cor_result <- filtered_corrected()
     req(fil_cor_result)
-    head(fil_cor_result$filtered_df, n = 10)
+    fil_cor_result$filtered_df
   })
   
   output$download_corr_btn <- renderUI({
