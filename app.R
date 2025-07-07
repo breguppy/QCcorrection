@@ -96,14 +96,15 @@ ui <- fluidPage(
             inputId = "imputeM",
             label = "Imputation method",
             choices = list("metabolite median" = "median", 
-                           "metabolite mean" = "mean", 
-                           "class-metabolite median" = "class_median", 
+                           "class-metabolite median" = "class_median",
+                           "metabolite mean" = "mean",
                            "class-metabolite mean" = "class_mean",
-                           "KNN" = "KNN", 
                            "minimum value" = "min", 
                            "half minimum value" = "minHalf",
+                           "KNN" = "KNN",
                            "zero" = "zero"),
-            selected = "median"
+            selected = "median",
+            inline = FALSE
           ),
           tags$hr(),
           
@@ -178,7 +179,6 @@ ui <- fluidPage(
       layout_sidebar(
         sidebar = sidebar(
           tags$h4("RSD Evaluation"),
-          tags$h6(style = "color: darkorange; font-weight: bold;", "(Coming Soon!)"),
           radioButtons(
             inputId = "rsd_cal",
             label = "Calculate RSD by",
@@ -191,6 +191,15 @@ ui <- fluidPage(
           #--- plot metabolite
           tags$h4("Metabolite Scatter plot"),
           uiOutput("met_plot_selectors"),
+          tags$hr(),
+          tags$h4("Download Figures"),
+          radioButtons(
+            inputId = "fig_format",
+            label = "Select figure format:",
+            choices = c("PDF"= "pdf", "PNG" = "png"),
+            selected = "pdf"),
+          downloadButton("download_fig_zip", "Download All Figures"),
+          uiOutput("progress_ui"),
           width = 400,
         ),
       card(
@@ -199,7 +208,7 @@ ui <- fluidPage(
       ),
       card(
         card_title("Metabolite Scatter Plot"),
-        plotOutput("metab_scatter", height = "600px", width = "600px")
+        plotOutput("metab_scatter", height = "600px", width = "600px"),
         )
       ),
     ),
@@ -402,10 +411,8 @@ server <- function(input, output, session) {
   })
   
   output$download_corr_btn <- renderUI({
-    # only run once correction has happened
     req(filtered_corrected())
     
-    # show the button
     downloadButton(
       outputId = "download_corr_data",
       label    = "Download CSV",
@@ -467,6 +474,105 @@ server <- function(input, output, session) {
     }
   })
   
+  
+  progress_reactive <- reactiveVal(0)
+  
+  output$progress_ui <- renderUI({
+    req(progress_reactive() > 0, progress_reactive() <= 1)
+    
+    tags$div(style = "margin-top: 10px;",
+             tags$label("Progress:"),
+             tags$progress(
+               value = progress_reactive(),
+               max = 1,
+               style = "width: 100%; height: 20px;"
+             ),
+             tags$span(sprintf("%.0f%%", progress_reactive() * 100))
+    )
+  })
+  
+  output$download_fig_zip <- downloadHandler(
+    filename = function() {
+      paste0("figures_", Sys.Date(), ".zip")
+    },
+    content = function(file) {
+      tmp_dir <- tempdir()
+      fig_dir <- file.path(tmp_dir, "figures")
+      if (dir.exists(fig_dir)) unlink(fig_dir, recursive = TRUE)
+      dir.create(fig_dir)
+      
+      # generate the figures
+      raw_cols <- setdiff(names(filtered()$df_filtered), c("sample", "batch", "class", "order"))
+      cor_cols <- setdiff(names(filtered_corrected()$filtered_df), c("sample", "batch", "class", "order"))
+      cols <- intersect(raw_cols, cor_cols)
+     
+      n <- length(cols)
+      
+      withProgress(message = "Creating figures...", value = 0, {
+        for (i in seq_along(cols)) {
+          metab <- cols[i]
+          
+          if (input$corMethod == "QCRFSC") {
+            fig <- met_scatter_rf(
+              data_raw = filtered()$df_filtered,
+              data_cor = filtered_corrected()$filtered_df,
+              i = metab
+            )
+          } else if (input$corMethod == "QCRLSC") {
+            fig <- met_scatter_loess(
+              data_raw = filtered()$df_filtered,
+              data_cor = filtered_corrected()$filtered_df,
+              i = metab
+            )
+          }
+          
+          path <- file.path(fig_dir, paste0(metab, ".", input$fig_format))
+          
+          if (input$fig_format == "png") {
+            ggsave(path, plot = fig, width = 8, height = 8, dpi = 300)
+          } else if (input$fig_format == "pdf") {
+            ggsave(path, plot = fig, width = 8, height = 8)
+          }
+          
+          incProgress(1 / n, detail = paste("Saved:", metab))
+        }
+      })
+      
+      if (input$rsd_cal == "met"){
+        rsd_fig <- plot_rsd_comparison(
+          filtered()$df_filtered,
+          filtered_corrected()$filtered_df)
+      } else if(input$rsd_cal == "class_met"){
+        rsd_fig <- plot_rsd_comparison_class_met(
+          filtered()$df_filtered,
+          filtered_corrected()$filtered_df
+        )
+      }
+      
+      rsd_path <- file.path(fig_dir, 
+                            paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
+      
+      if (input$fig_format == "png") {
+        ggsave(rsd_path, plot = rsd_fig, width = 16, height = 8, dpi = 300)
+      } else if (input$fig_format == "pdf") {
+        ggsave(rsd_path, plot = rsd_fig, width = 16, height = 8)
+      }
+      
+      # Zip the folder
+      zipfile <- tempfile(fileext = ".zip")
+      old_wd <- setwd(tmp_dir)
+      on.exit({
+        unlink(fig_dir, recursive = TRUE)
+        unlink(zipfile)
+        setwd(old_wd)
+      }, add = TRUE)
+      zip(zipfile = zipfile, files = "figures", extras = "-r9Xq")
+      
+      file.copy(zipfile, file)
+      
+      progress_reactive(0)
+    }
+  )
 }
 
 
