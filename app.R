@@ -1,6 +1,7 @@
 # Load packages
 
 library(shiny)
+library(shinyBS)
 library(bslib)
 library(dplyr)
 library(shinycssloaders)
@@ -40,9 +41,11 @@ ui <- fluidPage(
           tags$h6("Please select columns for sample, batch, class, and order."),
           uiOutput("column_selectors"),
           uiOutput("column_warning"),
-          checkboxInput(inputId = "withhold_cols", 
+          tooltip(checkboxInput(inputId = "withhold_cols", 
                         label = "Withhold additional columns from correction?", 
-                        value = FALSE),
+                        value = FALSE), 
+                  "Check the box if there are other non-metabolite columns or specific columns that should not be corrected.",
+                  placement = "right"),
           uiOutput("n_withhold_ui"),
           uiOutput("withhold_selectors_ui"),
           
@@ -51,13 +54,14 @@ ui <- fluidPage(
           
           #--- Filter metabolites
           tags$h4("Filter Raw Data"),
-          sliderInput(
+          tooltip(sliderInput(
             inputId = "Frule",
             label = "Acceptable % of missing values per metabolite",
             min = 0,
             max = 100,
             value = 20
-          ),
+          ), "Metabolites with more then the acceptable % of missing values will be removed from the data.",
+          placement = "right"),
           tags$hr(),
           actionButton(inputId = "next_correction", 
                        label = "Choose Correction Settings"),
@@ -228,10 +232,14 @@ server <- function(input, output, session) {
     dropdown_choices <- c("Select a column..." = "", cols)
     
     tagList(
-      selectInput("sample_col", "sample column", choices = dropdown_choices, selected = ""),
-      selectInput("batch_col", "batch column", choices = dropdown_choices, selected = ""),
-      selectInput("class_col", "class column", choices = dropdown_choices, selected = ""),
-      selectInput("order_col", "order column", choices = dropdown_choices, selected = "")
+      tooltip(selectInput("sample_col", "sample column", choices = dropdown_choices, selected = ""),
+              "Column that contains unique sample names.", placement = "right"),
+      tooltip(selectInput("batch_col", "batch column", choices = dropdown_choices, selected = ""),
+              "Column that contains batch information", placement = "right"),
+      tooltip(selectInput("class_col", "class column", choices = dropdown_choices, selected = ""),
+              "Column indication the type of sample. Must indicated QC samples.", placement = "right"),
+      tooltip(selectInput("order_col", "order column", choices = dropdown_choices, selected = ""),
+              "Column that indicated the injection order.", placement = "right")
     )
   })
   output$column_warning <- renderUI({
