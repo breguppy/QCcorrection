@@ -78,14 +78,16 @@ ui <- fluidPage(
                 value = 20
               ), "Metabolites with more then the acceptable % of missing values will be removed from the data.",
               placement = "right"),
-              tags$hr(),
-              actionButton(inputId = "next_correction", 
-                           label = "Choose Correction Settings"),
               width = 400
             ),
             uiOutput("filter_info") 
           ),
-        )
+        ),
+      card(
+        actionButton(inputId = "next_correction", 
+                     label = "Next: Choose Correction Settings",
+                     class = "btn-primary btn-lg"),
+      )
     ),
     
     #--- Step 2: Correction settings
@@ -95,41 +97,44 @@ ui <- fluidPage(
         card(
           layout_sidebar(
             sidebar = sidebar(
-              #--- Impute missing values
-              tags$h4("2.1 Impute Missing Values"),
-              uiOutput("qc_missing_value_warning"),
-              radioButtons(
-                inputId = "imputeM",
-                label = "Imputation method",
-                choices = list("metabolite median" = "median", 
-                               "class-metabolite median" = "class_median",
-                               "metabolite mean" = "mean",
-                               "class-metabolite mean" = "class_mean",
-                               "minimum value" = "min", 
-                               "half minimum value" = "minHalf",
-                               "KNN" = "KNN",
-                               "zero" = "zero"),
-                selected = "median",
-                inline = FALSE
+              tags$h4("2.1 Choose Correction Settings"),
+              fluidRow(
+                column(6,
+                       tags$h5("Impute Missing Values"),
+                       uiOutput("qc_missing_value_warning"),
+                       radioButtons(
+                         inputId = "imputeM",
+                         label = "Imputation method",
+                         choices = list("metabolite median" = "median", 
+                                        "class-metabolite median" = "class_median",
+                                        "metabolite mean" = "mean",
+                                        "class-metabolite mean" = "class_mean",
+                                        "minimum value" = "min", 
+                                        "half minimum value" = "minHalf",
+                                        "KNN" = "KNN",
+                                        "zero" = "zero"),
+                         selected = "median",
+                         inline = FALSE
+                       )
+                    ),
+                column(6, 
+                       #--- Choose Correction method
+                       tags$h5("Choose Correction Method"),
+                       radioButtons(
+                         inputId = "corMethod",
+                         label = "Method",
+                         choices = list("Random Forest Signal Correction" = "QCRFSC", 
+                                        "Local Polynomial Fit (LOESS)" = "QCRLSC" 
+                         ),
+                         selected = "QCRFSC"
+                       ),
+                       ),
+                
               ),
-              tags$hr(),
-              #--- Choose Correction method
-              tags$h4("2.2 Correction Method"),
-              radioButtons(
-                inputId = "corMethod",
-                label = "Method",
-                choices = list("Random Forest Signal Correction" = "QCRFSC", 
-                               "Local Polynomial Fit" = "QCRLSC" 
-                ),
-                selected = "QCRFSC"
-              ),
-              tags$hr(),
-              actionButton(inputId = "correct", label = "Correct Data"),
-              width = 400,
+              width = 800,
             ),
           uiOutput("correction_info"),
-          tags$div(style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
-                  tableOutput("cor_data") %>% withSpinner(color = "#404040"))
+          actionButton(inputId = "correct", label = "Correct Data with Selected Settings", class = "btn-primary btn-lg"),
           )
         ),
         card(
@@ -164,58 +169,71 @@ ui <- fluidPage(
                                "None" = "none"),
                 selected = "none"
               ),
-              tags$hr(),
-              actionButton(inputId = "next_visualization", label = "Evaluate and Visualize Correction"),
               width = 400,
             ),
+            tags$div(style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
+                     tableOutput("cor_data") %>% withSpinner(color = "#404040")),
             uiOutput("post_cor_filter_info") %>% withSpinner(color = "#404040"),
             uiOutput("download_corr_btn", container = div, 
                      style = "position: absolute; bottom: 15px; right: 15px;")
           ),
-        )
+        ),
+      card(
+        actionButton(inputId = "next_visualization", 
+                     label = "Next: Evaluate and Visualize Correction",
+                     class = "btn-primary btn-lg"),
+      )
       ),
     
     #--- Step 4: plots
     nav_panel(
       title = "3. Evaluation Metrics and Visualization",
       
-      layout_sidebar(
-        sidebar = sidebar(
-          tags$h4("3.1 RSD Evaluation"),
-          radioButtons(
-            inputId = "rsd_cal",
-            label = "Calculate RSD by",
-            choices = list("Metabolite" = "met", 
-                           "Class-Metabolite" = "class_met"),
-            selected = "met"
+      card(
+        layout_sidebar(
+          sidebar = sidebar(
+            tags$h4("3.1 RSD Evaluation"),
+            radioButtons(
+              inputId = "rsd_cal",
+              label = "Calculate RSD by",
+              choices = list("Metabolite" = "met", 
+                             "Class and Metabolite" = "class_met"),
+              selected = "met"
+            ),
+            width = 400,
           ),
-          tags$hr(),
-          
-          #--- plot metabolite
-          tags$h4("Metabolite Scatter plot"),
-          uiOutput("met_plot_selectors"),
-          tags$hr(),
-          tags$h4("Download Figures"),
-          radioButtons(
-            inputId = "fig_format",
-            label = "Select figure format:",
-            choices = c("PDF"= "pdf", "PNG" = "png"),
-            selected = "pdf"),
-          downloadButton("download_fig_zip", "Download All Figures"),
-          uiOutput("progress_ui"),
-          width = 400,
-        ),
-      card(
-        card_title("RSD Evaluation"),
         plotOutput("rsd_comparison_plot", height = "600px", width = "1100px")
-      ),
-      card(
-        card_title("Metabolite Scatter Plot"),
-        plotOutput("metab_scatter", height = "600px", width = "600px"),
         )
       ),
+      card(
+        layout_sidebar(
+          sidebar = sidebar(
+            #--- plot metabolite
+            tags$h4("3.2 Metabolite Scatter plots"),
+            uiOutput("met_plot_selectors"),
+            width = 400,
+          ),
+          plotOutput("metab_scatter", height = "600px", width = "600px"),
+        )
+      ),
+      card(
+        layout_sidebar(
+          sidebar = sidebar(
+            tooltip(radioButtons(
+              inputId = "fig_format",
+              label = "Select figure format:",
+              choices = c("PDF"= "pdf", "PNG" = "png"),
+              selected = "pdf"), 
+              "All figures will be saved in this format after clicking download button.",
+              placement = "right"),
+            width = 400,
+          ),
+            downloadButton("download_fig_zip", "Download All Figures", 
+                           class = "btn-primary btn-lg"),
+            uiOutput("progress_ui"),
+          )
+        )
     ),
-    
     #--- Step 5: Export Data
     nav_panel(
       title = "4. Export Corrected Data and Plots",
