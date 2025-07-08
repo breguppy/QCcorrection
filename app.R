@@ -129,7 +129,7 @@ ui <- fluidPage(
             ),
           uiOutput("correction_info"),
           tags$div(style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
-                  tableOutput("cor_data")) %>% withSpinner(color = "#404040")
+                  tableOutput("cor_data") %>% withSpinner(color = "#404040"))
           )
         ),
         card(
