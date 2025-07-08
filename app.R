@@ -92,93 +92,88 @@ ui <- fluidPage(
     nav_panel(
       title = "2. Correction Settings",
       
-      layout_sidebar(
-        sidebar = sidebar(
-          #--- Impute missing values
-          tags$h4("2.1 Impute Missing Values"),
-          uiOutput("qc_missing_value_warning"),
-          radioButtons(
-            inputId = "imputeM",
-            label = "Imputation method",
-            choices = list("metabolite median" = "median", 
-                           "class-metabolite median" = "class_median",
-                           "metabolite mean" = "mean",
-                           "class-metabolite mean" = "class_mean",
-                           "minimum value" = "min", 
-                           "half minimum value" = "minHalf",
-                           "KNN" = "KNN",
-                           "zero" = "zero"),
-            selected = "median",
-            inline = FALSE
-          ),
-          tags$hr(),
-          
-          #--- Choose Correction method
-          tags$h4("2.2 Correction Method"),
-          radioButtons(
-            inputId = "corMethod",
-            label = "Method",
-            choices = list("Random Forest Signal Correction" = "QCRFSC", 
-                           "Local Polynomial Fit" = "QCRLSC" 
+        card(
+          layout_sidebar(
+            sidebar = sidebar(
+              #--- Impute missing values
+              tags$h4("2.1 Impute Missing Values"),
+              uiOutput("qc_missing_value_warning"),
+              radioButtons(
+                inputId = "imputeM",
+                label = "Imputation method",
+                choices = list("metabolite median" = "median", 
+                               "class-metabolite median" = "class_median",
+                               "metabolite mean" = "mean",
+                               "class-metabolite mean" = "class_mean",
+                               "minimum value" = "min", 
+                               "half minimum value" = "minHalf",
+                               "KNN" = "KNN",
+                               "zero" = "zero"),
+                selected = "median",
+                inline = FALSE
+              ),
+              tags$hr(),
+              #--- Choose Correction method
+              tags$h4("2.2 Correction Method"),
+              radioButtons(
+                inputId = "corMethod",
+                label = "Method",
+                choices = list("Random Forest Signal Correction" = "QCRFSC", 
+                               "Local Polynomial Fit" = "QCRLSC" 
+                ),
+                selected = "QCRFSC"
+              ),
+              tags$hr(),
+              actionButton(inputId = "correct", label = "Correct Data"),
+              width = 400,
             ),
-            selected = "QCRFSC"
-          ),
-          tags$hr(),
-          actionButton(inputId = "correct", label = "Correct Data"),
-          tags$hr(),
-    
-          # After correction filtering
-          tags$h4("2.3 Post-Correction Filtering"),
-          checkboxInput(inputId = "remove_imputed", 
-                        label = "Remove imputed values after correction?", 
-                        value = FALSE),
-          checkboxInput(inputId = "post_cor_filter", 
-                        label = "Don't filter metabolites based on QC RSD%", 
-                        value = FALSE),
-          conditionalPanel("input.post_cor_filter == false", 
-                           sliderInput(
-                            inputId = "rsd_filter",
-                            label = "Metabolite RSD% threshold for QC samples",
-                            min = 0,
-                            max = 100,
-                            value = 50
-                            )),
-          tags$hr(),
-          
-          # After correction scaling / normalization
-          tags$h4("2.4 Post-Correction Transformation or Normalization"),
-          tags$h6(style = "color: darkorange; font-weight: bold;", "(Coming Soon!)"),
-          radioButtons(
-            inputId = "transform",
-            label = "Method",
-            choices = list("Log 2 transformation" = "log2", 
-                           "Total Ratio Normalization" = "TRN", 
-                           "None" = "none"),
-            selected = "none"
-          ),
-          tags$hr(),
-          actionButton(inputId = "next_visualization", label = "Evaluate and Visualize Correction"),
-          width = 400,
-        ),
-        card(
-          card_title("Correction Information"),
           uiOutput("correction_info"),
+          tags$div(style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
+                  tableOutput("cor_data")) %>% withSpinner(color = "#404040")
+          )
         ),
         card(
-          card_title("Post-Correction Filtering Information"),
-          uiOutput("post_cor_filter_info") %>% withSpinner(color = "#404040"),
-        ),
-        card(
-          card_title("Corrected Data"),
-          tags$div(
-            style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
-            tableOutput("cor_data")
-          ) %>% withSpinner(color = "#404040"),
-          uiOutput("download_corr_btn", container = div, 
-                   style = "position: absolute; bottom: 15px; right: 15px;")
+          layout_sidebar(
+            sidebar = sidebar(
+              # After correction filtering
+              tags$h4("2.3 Post-Correction Filtering"),
+              checkboxInput(inputId = "remove_imputed", 
+                            label = "Remove imputed values after correction?", 
+                            value = FALSE),
+              checkboxInput(inputId = "post_cor_filter", 
+                            label = "Don't filter metabolites based on QC RSD%", 
+                            value = FALSE),
+              conditionalPanel("input.post_cor_filter == false", 
+                               sliderInput(
+                                 inputId = "rsd_filter",
+                                 label = "Metabolite RSD% threshold for QC samples",
+                                 min = 0,
+                                 max = 100,
+                                 value = 50
+                               )),
+              tags$hr(),
+              
+              # After correction scaling / normalization
+              tags$h4("2.4 Post-Correction Transformation or Normalization"),
+              tags$h6(style = "color: darkorange; font-weight: bold;", "(Coming Soon!)"),
+              radioButtons(
+                inputId = "transform",
+                label = "Method",
+                choices = list("Log 2 transformation" = "log2", 
+                               "Total Ratio Normalization" = "TRN", 
+                               "None" = "none"),
+                selected = "none"
+              ),
+              tags$hr(),
+              actionButton(inputId = "next_visualization", label = "Evaluate and Visualize Correction"),
+              width = 400,
+            ),
+            uiOutput("post_cor_filter_info") %>% withSpinner(color = "#404040"),
+            uiOutput("download_corr_btn", container = div, 
+                     style = "position: absolute; bottom: 15px; right: 15px;")
+          ),
         )
-      )
-    ),
+      ),
     
     #--- Step 4: plots
     nav_panel(
