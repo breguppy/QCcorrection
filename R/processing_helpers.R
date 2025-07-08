@@ -32,10 +32,13 @@ cleanData <- function(df, sample, batch, class, order) {
     repl$zero_replaced[i]        <- cnt2
   }
   
-  df$class[df$class %in% c("QC","qc","Qc")] <- NA
+  df$class[is.na(df$class)] <- "QC"
+  df$class[df$class %in% c("qc","Qc")] <- "QC"
   
-  if (!(is.na(df$class[1]) && is.na(df$class[nrow(df)]))) {
-    stop("Data sorted by injection order must begin and end with a QC sample.")
+  if (df$class[1] != "QC") {
+    stop("Data sorted by injection order must begin  with a QC sample.")
+  } else if (df$class[nrow(df)] != "QC") {
+    stop("Data sorted by injection order must end with a QC sample.")
   }
   
   list(df = df, replacement_counts = repl)
@@ -157,8 +160,8 @@ qc_rfsc_correction <- function(df, metab_cols, ntree = 500, seed = NULL) {
     metab <- metab_cols[i]
     
     # QC samples: class is NA
-    qc_idx <- which(is.na(df$class))
-    non_qc_idx <- which(!is.na(df$class))
+    qc_idx <- which(df$class == "QC")
+    non_qc_idx <- which(df$class != "QC")
     
     if (length(qc_idx) < 5) {
       warning(paste("Skipping", metab, "- too few QC samples."))
@@ -220,7 +223,7 @@ compute_median_dataframe <- function(df_list, metadata_cols = c("Sample", "Batch
   colnames(median_df)[-(1:length(metadata_cols))] <- metabolite_cols
   
   median_df <- median_df[order(median_df$order),]
-  median_df$class[is.na(median_df$class)] <- "QC"
+  # median_df$class[is.na(median_df$class)] <- "QC"
   
   return(median_df)
 }
@@ -234,7 +237,7 @@ loess_correction <- function(df, metab_cols, degree = 2, span = 0.75) {
     metab <- metab_cols[i]
     
     # QC samples: class is NA
-    qc_idx <- which(is.na(df$class))
+    qc_idx <- which(df$class == "QC")
     
     dat <- data.frame(
       intensity = df[[metab]][qc_idx],
@@ -280,7 +283,7 @@ correct_data <- function(df, metab_cols, corMethod){
   } else if (corMethod == "QCRLSC") {
     cor_str <- "LOESS polynomial fit"
     df_corrected <- loess_correction(df, metab_cols)
-    df_corrected$class[is.na(df_corrected$class)] <- "QC"
+    #df_corrected$class[is.na(df_corrected$class)] <- "QC"
   }
   
   return(list(
@@ -304,7 +307,7 @@ remove_imputed_from_corrected <- function(raw_df, corrected_df) {
 metabolite_rsd <- function(df, metadata_cols = c("sample", "batch", "class", "order")){
   metab_cols <- setdiff(names(df), metadata_cols)
   
-  df$class[is.na(df$class)] <- "QC"
+  #df$class[is.na(df$class)] <- "QC"
   # Separate QC and non-QC samples
   qc_df <- df[df$class == "QC", metab_cols, drop = FALSE]
   nonqc_df <- df[df$class != "QC", metab_cols, drop = FALSE]
@@ -337,7 +340,7 @@ metabolite_rsd <- function(df, metadata_cols = c("sample", "batch", "class", "or
 class_metabolite_rsd <- function(df, metadata_cols = c("sample", "batch", "class", "order")){
   metab_cols <- setdiff(names(df), metadata_cols)
   
-  df$class[is.na(df$class)] <- "QC"
+  #df$class[is.na(df$class)] <- "QC"
   
   long_df <- df %>%
     pivot_longer(cols = all_of(metab_cols), names_to = "Metabolite", values_to = "Value")
@@ -367,7 +370,7 @@ rsd_filter <- function(df, rsd_cutoff, metadata_cols = c("sample", "batch", "cla
   # Columns to retain in filtered data
   final_cols <- c(metadata_cols, keep_metabolites)
   filtered_df = df[, final_cols, drop = FALSE]
-  filtered_df$class[is.na(filtered_df$class)] <- "QC"
+  #filtered_df$class[is.na(filtered_df$class)] <- "QC"
   
   # Return a list with the filtered data and removed metabolites
   return(list(

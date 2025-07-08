@@ -14,86 +14,88 @@ source("R/met_scatter_loess.R")
 
 ui <- fluidPage(
   theme = bs_theme(preset = "cosmo"),
+  titlePanel("QC Correction for Metabolomics Data"),
   
-  accordion(
+  navset_tab(
     id = "main_steps",
     
     #--- Step 1: Raw Data
-    accordion_panel(
-      title = "Import Raw Data",
+    nav_panel(
+      title = "1. Import Raw Data",
       
-      layout_sidebar(
-        sidebar = sidebar(
-          #--- Upload raw data
-          tags$h4("Upload Raw Data"),
-          tags$h6("When sorted by injection order, the data must begin and end with a QC samples."),
-          fileInput(
-            inputId = "file1",
-            label = "Choose CSV File",
-            accept = ".csv",
-            buttonLabel = "Browse...",
-            placeholder = "No file selected"
-          ),
-          tags$hr(),
-          
-          #--- select non-metabolite columns
-          tags$h4("Select non-metabolite columns"),
-          tags$h6("Please select columns for sample, batch, class, and order."),
-          uiOutput("column_selectors"),
-          uiOutput("column_warning"),
-          tooltip(checkboxInput(inputId = "withhold_cols", 
-                        label = "Withhold additional columns from correction?", 
-                        value = FALSE), 
-                  "Check the box if there are other non-metabolite columns or specific columns that should not be corrected.",
-                  placement = "right"),
-          uiOutput("n_withhold_ui"),
-          uiOutput("withhold_selectors_ui"),
-          
-          #tags$h6("Coming soon: option to select other non-metabolite columns."),
-          tags$hr(),
-          
-          #--- Filter metabolites
-          tags$h4("Filter Raw Data"),
-          tooltip(sliderInput(
-            inputId = "Frule",
-            label = "Acceptable % of missing values per metabolite",
-            min = 0,
-            max = 100,
-            value = 20
-          ), "Metabolites with more then the acceptable % of missing values will be removed from the data.",
-          placement = "right"),
-          tags$hr(),
-          actionButton(inputId = "next_correction", 
-                       label = "Choose Correction Settings"),
-          
-          width = 400,
-        ),
         card(
-          card_title("Raw Data"),
-          tags$div(
-            style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
-            tableOutput("contents")
+          full_screen = TRUE,
+          layout_sidebar(
+            sidebar = sidebar(
+              #--- Upload raw data
+              tags$h4("1.1 Upload Raw Data"),
+              tags$h6("When sorted by injection order, the data must begin and end with a QC samples."),
+              fileInput(
+                inputId = "file1",
+                label = "Choose CSV File",
+                accept = ".csv",
+                buttonLabel = "Browse...",
+                placeholder = "No file selected"
+              ),
+              width = 400
+            ),
+            tags$div(
+              style = "overflow-x: auto; overflow-y: auto; max-height: 400px;",
+              tableOutput("contents")
+            )
           )
         ),
         card(
-          card_title("Basic Information"),
-          uiOutput("basic_info")
+          layout_sidebar(
+            sidebar = sidebar(
+              #--- select non-metabolite columns
+              tags$h4("1.2 Select non-metabolite columns"),
+              tags$h6("Please select columns for sample, batch, class, and order."),
+              uiOutput("column_selectors"),
+              uiOutput("column_warning"),
+              tooltip(checkboxInput(inputId = "withhold_cols", 
+                                    label = "Withhold additional columns from correction?", 
+                                    value = FALSE), 
+                      "Check the box if there are more non-metabolite columns (other than what is listed above) or specific metabolite columns that should not be corrected.",
+                      placement = "right"),
+              uiOutput("n_withhold_ui"),
+              uiOutput("withhold_selectors_ui"),
+              width = 400,
+            ),
+            uiOutput("basic_info")
+          ),
         ),
         card(
-          card_title("Filtering Information"),
-          uiOutput("filter_info")
+          layout_sidebar(
+            sidebar = sidebar(
+              #--- Filter metabolites
+              tags$h4("1.3 Filter Raw Data"),
+              tooltip(sliderInput(
+                inputId = "Frule",
+                label = "Acceptable % of missing values per metabolite",
+                min = 0,
+                max = 100,
+                value = 20
+              ), "Metabolites with more then the acceptable % of missing values will be removed from the data.",
+              placement = "right"),
+              tags$hr(),
+              actionButton(inputId = "next_correction", 
+                           label = "Choose Correction Settings"),
+              width = 400
+            ),
+            uiOutput("filter_info") 
+          ),
         )
-      )
     ),
     
     #--- Step 2: Correction settings
-    accordion_panel(
-      title = "Correction Settings",
+    nav_panel(
+      title = "2. Correction Settings",
       
       layout_sidebar(
         sidebar = sidebar(
           #--- Impute missing values
-          tags$h4("Impute Missing Values"),
+          tags$h4("2.1 Impute Missing Values"),
           uiOutput("qc_missing_value_warning"),
           radioButtons(
             inputId = "imputeM",
@@ -112,7 +114,7 @@ ui <- fluidPage(
           tags$hr(),
           
           #--- Choose Correction method
-          tags$h4("Correction Method"),
+          tags$h4("2.2 Correction Method"),
           radioButtons(
             inputId = "corMethod",
             label = "Method",
@@ -126,7 +128,7 @@ ui <- fluidPage(
           tags$hr(),
     
           # After correction filtering
-          tags$h4("Post-Correction Filtering"),
+          tags$h4("2.3 Post-Correction Filtering"),
           checkboxInput(inputId = "remove_imputed", 
                         label = "Remove imputed values after correction?", 
                         value = FALSE),
@@ -144,7 +146,7 @@ ui <- fluidPage(
           tags$hr(),
           
           # After correction scaling / normalization
-          tags$h4("Post-Correction Transformation or Normalization"),
+          tags$h4("2.4 Post-Correction Transformation or Normalization"),
           tags$h6(style = "color: darkorange; font-weight: bold;", "(Coming Soon!)"),
           radioButtons(
             inputId = "transform",
@@ -179,12 +181,12 @@ ui <- fluidPage(
     ),
     
     #--- Step 4: plots
-    accordion_panel(
-      title = "Evaluation Metrics and Visualization",
+    nav_panel(
+      title = "3. Evaluation Metrics and Visualization",
       
       layout_sidebar(
         sidebar = sidebar(
-          tags$h4("RSD Evaluation"),
+          tags$h4("3.1 RSD Evaluation"),
           radioButtons(
             inputId = "rsd_cal",
             label = "Calculate RSD by",
@@ -220,8 +222,8 @@ ui <- fluidPage(
     ),
     
     #--- Step 5: Export Data
-    accordion_panel(
-      title = "Export Corrected Data and Plots",
+    nav_panel(
+      title = "4. Export Corrected Data and Plots",
       card(
         card_title("TODO: Export button"),
       )
@@ -250,11 +252,11 @@ server <- function(input, output, session) {
       tooltip(selectInput("sample_col", "sample column", choices = dropdown_choices, selected = ""),
               "Column that contains unique sample names.", placement = "right"),
       tooltip(selectInput("batch_col", "batch column", choices = dropdown_choices, selected = ""),
-              "Column that contains batch information", placement = "right"),
+              "Column that contains batch information.", placement = "right"),
       tooltip(selectInput("class_col", "class column", choices = dropdown_choices, selected = ""),
-              "Column indication the type of sample. Must indicated QC samples.", placement = "right"),
+              "Column that indicates the type of sample. Must contain QC samples labeled as 'NA', 'QC', 'Qc', or 'qc'.", placement = "right"),
       tooltip(selectInput("order_col", "order column", choices = dropdown_choices, selected = ""),
-              "Column that indicated the injection order.", placement = "right")
+              "Column that indicates injection order.", placement = "right")
     )
   })
   output$column_warning <- renderUI({
@@ -355,8 +357,7 @@ server <- function(input, output, session) {
   
   #-- Move to next panel after inspecting the raw data
   observeEvent(input$next_correction, {
-    accordion_panel_close(id = "main_steps", value = "Import Raw Data" , session = session)
-    accordion_panel_open(id = "main_steps", value = "Correction Settings", session = session)
+    updateTabsetPanel(session, "main_steps", "2. Correction Settings")
   })
   output$qc_missing_value_warning <- renderUI({
     filtered_data <- filtered()
@@ -437,8 +438,7 @@ server <- function(input, output, session) {
   
   #-- Move to next panel after inspecting the corrected data
   observeEvent(input$next_visualization, {
-    accordion_panel_close(id = "main_steps", value = "Correction Settings" , session = session)
-    accordion_panel_open(id = "main_steps", value = "Evaluation Metrics and Visualization", session = session)
+    updateTabsetPanel(session, "main_steps", "3. Evaluation Metrics and Visualization")
   })
   
   output$rsd_comparison_plot <- renderPlot({
@@ -502,22 +502,48 @@ server <- function(input, output, session) {
       paste0("figures_", Sys.Date(), ".zip")
     },
     content = function(file) {
+      # create temp folder for figures
       tmp_dir <- tempdir()
       fig_dir <- file.path(tmp_dir, "figures")
       if (dir.exists(fig_dir)) unlink(fig_dir, recursive = TRUE)
       dir.create(fig_dir)
+      # create RSD figure folder
+      rsd_fig_dir <- file.path(fig_dir, "RSD figures")
+      if (dir.exists(rsd_fig_dir)) unlink(rsd_fig_dir, recursive = TRUE)
+      dir.create(rsd_fig_dir)
       
-      # generate the figures
+      # create metabolite figure folder
+      met_fig_dir <- file.path(fig_dir, "metabolite figures")
+      if (dir.exists(met_fig_dir)) unlink(met_fig_dir, recursive = TRUE)
+      dir.create(met_fig_dir)
+      
+      # create RSD plots
+      if (input$rsd_cal == "met"){
+        rsd_fig <- plot_rsd_comparison(
+          filtered()$df_filtered,
+          filtered_corrected()$filtered_df)
+      } else if(input$rsd_cal == "class_met"){
+        rsd_fig <- plot_rsd_comparison_class_met(
+          filtered()$df_filtered,
+          filtered_corrected()$filtered_df
+        )
+      }
+      rsd_path <- file.path(rsd_fig_dir, 
+                            paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
+      if (input$fig_format == "png") {
+        ggsave(rsd_path, plot = rsd_fig, width = 16, height = 8, dpi = 300)
+      } else if (input$fig_format == "pdf") {
+        ggsave(rsd_path, plot = rsd_fig, width = 16, height = 8)
+      }
+      
+      # create metabolite scatter plots
       raw_cols <- setdiff(names(filtered()$df_filtered), c("sample", "batch", "class", "order"))
       cor_cols <- setdiff(names(filtered_corrected()$filtered_df), c("sample", "batch", "class", "order"))
       cols <- intersect(raw_cols, cor_cols)
-     
       n <- length(cols)
-      
       withProgress(message = "Creating figures...", value = 0, {
         for (i in seq_along(cols)) {
           metab <- cols[i]
-          
           if (input$corMethod == "QCRFSC") {
             fig <- met_scatter_rf(
               data_raw = filtered()$df_filtered,
@@ -531,38 +557,15 @@ server <- function(input, output, session) {
               i = metab
             )
           }
-          
-          path <- file.path(fig_dir, paste0(metab, ".", input$fig_format))
-          
+          path <- file.path(met_fig_dir, paste0(metab, ".", input$fig_format))
           if (input$fig_format == "png") {
             ggsave(path, plot = fig, width = 8, height = 8, dpi = 300)
           } else if (input$fig_format == "pdf") {
             ggsave(path, plot = fig, width = 8, height = 8)
           }
-          
           incProgress(1 / n, detail = paste("Saved:", metab))
         }
       })
-      
-      if (input$rsd_cal == "met"){
-        rsd_fig <- plot_rsd_comparison(
-          filtered()$df_filtered,
-          filtered_corrected()$filtered_df)
-      } else if(input$rsd_cal == "class_met"){
-        rsd_fig <- plot_rsd_comparison_class_met(
-          filtered()$df_filtered,
-          filtered_corrected()$filtered_df
-        )
-      }
-      
-      rsd_path <- file.path(fig_dir, 
-                            paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
-      
-      if (input$fig_format == "png") {
-        ggsave(rsd_path, plot = rsd_fig, width = 16, height = 8, dpi = 300)
-      } else if (input$fig_format == "pdf") {
-        ggsave(rsd_path, plot = rsd_fig, width = 16, height = 8)
-      }
       
       # Zip the folder
       zipfile <- tempfile(fileext = ".zip")
@@ -573,9 +576,9 @@ server <- function(input, output, session) {
         setwd(old_wd)
       }, add = TRUE)
       zip(zipfile = zipfile, files = "figures", extras = "-r9Xq")
-      
       file.copy(zipfile, file)
       
+      # Remove progress bar
       progress_reactive(0)
     }
   )

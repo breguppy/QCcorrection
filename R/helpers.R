@@ -68,15 +68,16 @@ basicInfoUI <- function(df, replacement_counts) {
   metab_cols <- setdiff(names(df), c("sample","batch","class","order"))
   n_metab = length(metab_cols)
   n_missv = sum(is.na(df[,metab_cols]))
-  n_qcs   = sum(is.na(df$class))
-  n_samp  = sum(!is.na(df$class))
+  n_qcs   = sum(df$class == "QC")
+  n_samp  = sum(df$class != "QC")
   n_bat   = n_distinct(df$batch)
-  n_class = n_distinct(df$class, na.rm=TRUE)
-  class_list <- sort(unique(df$class[!is.na(df$class)]))
+  n_class = n_distinct(df$class[df$class != "QC"])
+  class_list <- sort(unique(df$class[df$class != "QC"]))
+  perc_missv <- round(100 * (n_missv /((n_samp + n_qcs) * n_metab)), digits = 2)
   
   qc_per_batch <- df %>%
     group_by(batch) %>%
-    summarise(qc_in_class = sum(is.na(class)), .groups = "drop")
+    summarise(qc_in_class = sum(class == "QC"), .groups = "drop")
   
   total_replaced <- sum(replacement_counts$non_numeric_replaced +
                       replacement_counts$zero_replaced)
@@ -116,7 +117,7 @@ basicInfoUI <- function(df, replacement_counts) {
   tagList(
     if (total_replaced > 0) {
       tags$span(style = "color: darkred; font-weight: bold;", 
-                paste(total_replaced, "non-numeric or zero metabolite values were removed."))
+                paste(total_replaced, "non-numeric or zero metabolite values are counted as missing."))
     },
     tags$div(
       style = "display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px;",
@@ -128,7 +129,7 @@ basicInfoUI <- function(df, replacement_counts) {
         tags$div(
           style = "display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top 15px;",
           metric_card("Metabolite Columns", n_metab),
-          metric_card("Missing Values", n_missv),
+          metric_card("Missing Values", paste0(n_missv, " (", perc_missv, "%)")),
           metric_card("QC Samples", n_qcs),
           metric_card("Samples", n_samp),
           metric_card("Batches", n_bat),
@@ -187,7 +188,7 @@ filterInfoUI <- function(removed) {
 
 qcMissingValueWarning <- function(df) {
   metab_cols <- setdiff(names(df), c("sample","batch","class","order"))
-  qc_idx <- which(is.na(df$class))
+  qc_idx <- which(df$class == "QC")
   n_missv = sum(is.na(df[qc_idx, metab_cols]))
   
   if (n_missv > 0) {

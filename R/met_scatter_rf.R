@@ -6,7 +6,7 @@ library(dplyr)
 
 met_scatter_rf <- function(data_raw, data_cor, i) {
   
-  raw_qc_idx <- which(is.na(data_raw$class))
+  raw_qc_idx <- which(data_raw$class == "QC")
   raw_nonqc_idx <- setdiff(seq_len(nrow(data_raw)), raw_qc_idx)
   
   cor_qc_idx <- which(data_cor$class == "QC")
@@ -55,7 +55,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
     arrange(xmin) %>%
     mutate(fill = rep(c("lightgray", "white"), length.out = n()))
   
-  data_raw$type <- ifelse(is.na(data_raw$class), "QC", "Sample")
+  data_raw$type <- ifelse(data_raw$class == "QC", "QC", "Sample")
   data_cor$type <- ifelse(data_cor$class == "QC", "QC", "Sample")
   
   color_scale <- scale_color_manual(

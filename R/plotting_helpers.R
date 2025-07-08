@@ -1,4 +1,4 @@
-# ploting helpers
+# plotting helpers
 
 library(ggplot2)
 library(patchwork)
