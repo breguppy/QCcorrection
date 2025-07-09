@@ -421,19 +421,24 @@ server <- function(input, output, session) {
     }
   })
   
+  transformed <- reactive({
+    fil_cor_result <- filtered_corrected()
+    req(fil_cor_result)
+    transform_data(fil_cor_result$filtered_df, input$transform)
+  })
+  
   output$post_cor_filter_info <- renderUI({
     fil_cor_result <- filtered_corrected()
     req(fil_cor_result)
     postCorFilterInfoUI(fil_cor_result)
   })
   output$cor_data <- renderTable({
-    fil_cor_result <- filtered_corrected()
-    req(fil_cor_result)
-    fil_cor_result$filtered_df
+    req(transformed())
+    transformed()
   })
   
   output$download_corr_btn <- renderUI({
-    req(filtered_corrected())
+    req(transformed())
     
     downloadButton(
       outputId = "download_corr_data",
@@ -458,40 +463,40 @@ server <- function(input, output, session) {
   
   #-- display RSD comparison plot
   output$rsd_comparison_plot <- renderPlot({
-    req(filtered(), filtered_corrected(), input$rsd_cal)
+    req(filtered(), transformed(), input$rsd_cal)
     if (input$rsd_cal == "met"){
       plot_rsd_comparison(
         filtered()$df_filtered,
-        filtered_corrected()$filtered_df)
+        transformed())
     } else if(input$rsd_cal == "class_met"){
       plot_rsd_comparison_class_met(
         filtered()$df_filtered,
-        filtered_corrected()$filtered_df
+        transformed()
       )
     }
   })
   
   #-- Let user select which metabolite to display in scatter plot
   output$met_plot_selectors <- renderUI({
-    req(filtered(), filtered_corrected())
+    req(filtered(), transformed())
     raw_cols <- setdiff(names(filtered()$df_filtered), c("sample", "batch", "class", "order"))
-    cor_cols <- setdiff(names(filtered_corrected()$filtered_df), c("sample", "batch", "class", "order"))
+    cor_cols <- setdiff(names(transformed()), c("sample", "batch", "class", "order"))
     cols <- intersect(raw_cols, cor_cols)
     tagList(
       selectInput("met_col", "Metabolite column", choices = cols, selected = cols[1])
     )
   })
   output$metab_scatter <- renderPlot({
-    req(input$met_col, filtered(), filtered_corrected(), input$corMethod)
+    req(input$met_col, filtered(), transformed(), input$corMethod)
     if (input$corMethod %in% c("RF", "BW_RF")) {
       met_scatter_rf(
         data_raw = filtered()$df_filtered,
-        data_cor = filtered_corrected()$filtered_df,
+        data_cor = transformed(),
         i = input$met_col)
     } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
       met_scatter_loess(
         data_raw = filtered()$df_filtered,
-        data_cor = filtered_corrected()$filtered_df,
+        data_cor = transformed(),
         i = input$met_col)
     }
   })

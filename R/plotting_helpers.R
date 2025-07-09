@@ -91,7 +91,7 @@ plot_rsd_comparison <- function(df_before, df_after) {
       axis.title = element_text(size = 18),
       axis.text  = element_text(size = 16),
       legend.text= element_text(size = 16),
-      legend.position.inside = c(0, 1),
+      legend.position = c(0.24, 0.89),
       legend.background = element_rect(fill="white", 
                                        linewidth=0.5, linetype="solid"),
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
@@ -118,7 +118,7 @@ plot_rsd_comparison <- function(df_before, df_after) {
       axis.title = element_text(size = 18),
       axis.text  = element_text(size = 16),
       legend.text= element_text(size = 16),
-      legend.position.inside = c(0, 1),
+      legend.position = c(0.24, 0.89),
       legend.background = element_rect(fill="white", 
                                        linewidth=0.5, linetype="solid"),
       panel.border = element_rect(color = "black", fill=NA, linewidth=1)
@@ -210,7 +210,7 @@ plot_rsd_comparison_class_met <- function(df_before, df_after) {
       axis.title = element_text(size = 18),
       axis.text  = element_text(size = 16),
       legend.text= element_text(size = 16),
-      legend.position.inside = c(0, 1),
+      legend.position = c(0.24, 0.89),
       legend.background = element_rect(fill="white", 
                                        linewidth=0.5, linetype="solid"),
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
@@ -236,7 +236,7 @@ plot_rsd_comparison_class_met <- function(df_before, df_after) {
       axis.title = element_text(size = 18),
       axis.text  = element_text(size = 16),
       legend.text= element_text(size = 16),
-      legend.position.inside = c(0, 1),
+      legend.position = c(0.24, 0.89),
       legend.background = element_rect(fill="white", 
                                        linewidth=0.5, linetype="solid"),
       panel.border = element_rect(color = "black", fill=NA, linewidth=1)

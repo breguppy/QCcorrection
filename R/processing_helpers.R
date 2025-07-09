@@ -323,7 +323,6 @@ correct_data <- function(df, metab_cols, corMethod){
       return (rf_correction(df, metab_cols, ntree = 500, seed = seed))
       
     })
-    
     metadata_cols <- setdiff(colnames(df), metab_cols)
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "LOESS") {
@@ -422,4 +421,17 @@ rsd_filter <- function(df, rsd_cutoff, metadata_cols = c("sample", "batch", "cla
     filtered_df = filtered_df,
     removed_metabolites = remove_metabolites
   ))
+}
+
+transform_data <- function(df, transform) {
+  metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
+  
+  transformed_df <- df
+  
+  if (transform == "log2") {
+    transformed_df[metab_cols] <- log(transformed_df[metab_cols], base = 2)
+  } else if (transform == "TRN") {
+    # TODO: write TRN function.
+  }
+  return (transformed_df)
 }
