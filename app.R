@@ -123,10 +123,12 @@ ui <- fluidPage(
                        radioButtons(
                          inputId = "corMethod",
                          label = "Method",
-                         choices = list("Random Forest Signal Correction" = "QCRFSC", 
-                                        "Local Polynomial Fit (LOESS)" = "QCRLSC" 
+                         choices = list("Random Forest" = "RF", 
+                                        "Local Polynomial Fit (LOESS)" = "LOESS",
+                                        "Batchwise Random Forest" = "BW_RF",
+                                        "Batchwise Local polynomial fit (LOESS)" = "BW_LOESS"
                          ),
-                         selected = "QCRFSC"
+                         selected = "RF"
                        ),
                        ),
                 
@@ -402,14 +404,14 @@ server <- function(input, output, session) {
   })
   
   filtered_corrected <- reactive({
-    corrected_result <- corrected()
+    df_corrected <- corrected()
     filtered_result <- filtered()
-    req(corrected_result)
+    req(df_corrected)
     if (isTRUE(input$remove_imputed)) {
       df <- remove_imputed_from_corrected(filtered_result$df_filtered, 
-                                          corrected_result$df_corrected)
+                                          df_corrected)
     } else {
-      df <- corrected_result$df_corrected
+      df <- df_corrected
     }
     
     if (input$post_cor_filter == FALSE){
@@ -480,12 +482,12 @@ server <- function(input, output, session) {
   
   output$metab_scatter <- renderPlot({
     req(input$met_col, filtered(), filtered_corrected(), input$corMethod)
-    if (input$corMethod == "QCRFSC"){
+    if (input$corMethod %in% c("RF", "BW_RF")) {
       met_scatter_rf(
         data_raw = filtered()$df_filtered,
         data_cor = filtered_corrected()$filtered_df,
         i = input$met_col)
-    } else if (input$corMethod == "QCRLSC") {
+    } else if (input$corMethod == "LOESS") {
       met_scatter_loess(
         data_raw = filtered()$df_filtered,
         data_cor = filtered_corrected()$filtered_df,
@@ -557,13 +559,13 @@ server <- function(input, output, session) {
       withProgress(message = "Creating figures...", value = 0, {
         for (i in seq_along(cols)) {
           metab <- cols[i]
-          if (input$corMethod == "QCRFSC") {
+          if (input$corMethod == "RF") {
             fig <- met_scatter_rf(
               data_raw = filtered()$df_filtered,
               data_cor = filtered_corrected()$filtered_df,
               i = metab
             )
-          } else if (input$corMethod == "QCRLSC") {
+          } else if (input$corMethod == "LOESS") {
             fig <- met_scatter_loess(
               data_raw = filtered()$df_filtered,
               data_cor = filtered_corrected()$filtered_df,

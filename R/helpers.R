@@ -203,10 +203,14 @@ qcMissingValueWarning <- function(df) {
 }
 
 correctionInfoUI <- function(imputed_result, imputeM, corMethod) {
-  if (corMethod == "QCRFSC"){
-    cor_str <- "QC Random Forest Signal Correction (3 seeds x 500 trees)"
-  } else if (corMethod == "QCRLSC") {
-    cor_str <- "LOESS polynomial fit"
+  if (corMethod == "RF"){
+    cor_str <- "QC Random Forest (3 seeds x 500 trees)"
+  } else if (corMethod == "LOESS") {
+    cor_str <- "LOESS"
+  } else if (corMethod == "BW_RF") {
+    cor_str <- "Batchwise Random Forest (3 seeds x 500 trees)"
+  } else if (corMethod == "BW_LOESS") {
+    cor_str <- "Batchwise LOESS"
   }
   ui <- list(tags$div(
       style = "display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top 15px;",

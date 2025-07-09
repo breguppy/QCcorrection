@@ -223,7 +223,6 @@ compute_median_dataframe <- function(df_list, metadata_cols = c("Sample", "Batch
   colnames(median_df)[-(1:length(metadata_cols))] <- metabolite_cols
   
   median_df <- median_df[order(median_df$order),]
-  # median_df$class[is.na(median_df$class)] <- "QC"
   
   return(median_df)
 }
@@ -244,7 +243,7 @@ loess_correction <- function(df, metab_cols, degree = 2, span = 0.75) {
       order     = df$order[qc_idx]
     )
     
-    # Fit loess(intensity ~ order)
+    # Fit loess (intensity ~ order)
     loess_model <- stats::loess(
       intensity ~ order,
       data   = dat,
@@ -268,28 +267,20 @@ loess_correction <- function(df, metab_cols, degree = 2, span = 0.75) {
 # Correct data
 correct_data <- function(df, metab_cols, corMethod){
   
-  if (corMethod == "QCRFSC"){
-    cor_str <- "QC Random Forest Signal Correction (3 seeds x 500 trees)"
+  if (corMethod == "RF"){
     seeds <- c(42, 31416, 272)
-    # Get QC indexes from class column
-    
     df_list <- lapply(seeds, function(seed) { 
       return (qc_rfsc_correction(df, metab_cols, ntree = 500, seed = seed))
       
     })
-    metadata_cols <- setdiff(colnames(df), metab_cols)
     
+    metadata_cols <- setdiff(colnames(df), metab_cols)
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
-  } else if (corMethod == "QCRLSC") {
-    cor_str <- "LOESS polynomial fit"
+  } else if (corMethod == "LOESS") {
     df_corrected <- loess_correction(df, metab_cols)
-    #df_corrected$class[is.na(df_corrected$class)] <- "QC"
   }
   
-  return(list(
-    df_corrected = df_corrected,
-    cor_str = cor_str
-  ))
+  return(df_corrected)
 }
 
 remove_imputed_from_corrected <- function(raw_df, corrected_df) {
@@ -370,7 +361,6 @@ rsd_filter <- function(df, rsd_cutoff, metadata_cols = c("sample", "batch", "cla
   # Columns to retain in filtered data
   final_cols <- c(metadata_cols, keep_metabolites)
   filtered_df = df[, final_cols, drop = FALSE]
-  #filtered_df$class[is.na(filtered_df$class)] <- "QC"
   
   # Return a list with the filtered data and removed metabolites
   return(list(
