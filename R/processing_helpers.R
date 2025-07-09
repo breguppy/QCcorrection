@@ -148,7 +148,7 @@ impute_missing <- function(df, metab_cols, imputeM) {
 #–– Data correction helpers ––#
 
 # 3 by 500 random forest correction
-qc_rfsc_correction <- function(df, metab_cols, ntree = 500, seed = NULL) {
+rf_correction <- function(df, metab_cols, ntree = 500, seed = NULL) {
   if (!is.null(seed)) {
     set.seed(seed)
   }
@@ -235,7 +235,7 @@ loess_correction <- function(df, metab_cols, degree = 2, span = 0.75) {
   for (i in seq_along(metab_cols)) {
     metab <- metab_cols[i]
     
-    # QC samples: class is NA
+    # QC samples
     qc_idx <- which(df$class == "QC")
     
     dat <- data.frame(
@@ -264,13 +264,63 @@ loess_correction <- function(df, metab_cols, degree = 2, span = 0.75) {
   close(pb)
   return(df_corrected)
 }
+bw_loess_correction <- function(df, metab_cols, degree = 2, span = 0.75) {
+  df_corrected <- df
+  
+  batches <- unique(df$batch)
+  
+  pb <- txtProgressBar(min = 0, max = length(metab_cols) * length(batches), style = 3)
+  progress_counter <- 0
+  for (metab  in metab_cols) {
+    for (b in batches){
+      batch_df <- df[df$batch == b, ]
+      batch_idx <- which(df$batch == b)
+      
+      # QC samples in this batch
+      qc_idx <- which(batch_df$class == "QC")
+      
+      if (length(qc_idx) < 5) {
+        warning(sprintf("Skipping batch '%s' for metabolite '%s': not enough QC samples", b, metab))
+        progress_counter <- progress_counter + 1
+        setTxtProgressBar(pb, progress_counter)
+        next
+      }
+      
+      dat <- data.frame(
+        intensity = batch_df[[metab]][qc_idx],
+        order     = batch_df$order[qc_idx]
+      )
+      
+      # Fit loess (intensity ~ order)
+      loess_model <- stats::loess(
+        intensity ~ order,
+        data   = dat,
+        span   = span,
+        degree = degree
+      )
+      
+      # Predict on all samples in this batch
+      predicted <- stats::predict(loess_model, 
+                                  newdata = data.frame(order = batch_df$order))
+      
+      # Apply correction only to this batch
+      df_corrected[[metab]][batch_idx] <- df[[metab]][batch_idx] / predicted
+      
+      progress_counter <- progress_counter + 1
+      setTxtProgressBar(pb, progress_counter)
+    }
+  }
+  close(pb)
+  return(df_corrected)
+}
+
 # Correct data
 correct_data <- function(df, metab_cols, corMethod){
   
   if (corMethod == "RF"){
     seeds <- c(42, 31416, 272)
     df_list <- lapply(seeds, function(seed) { 
-      return (qc_rfsc_correction(df, metab_cols, ntree = 500, seed = seed))
+      return (rf_correction(df, metab_cols, ntree = 500, seed = seed))
       
     })
     
@@ -278,6 +328,11 @@ correct_data <- function(df, metab_cols, corMethod){
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "LOESS") {
     df_corrected <- loess_correction(df, metab_cols)
+  } else if (corMethod == "BW-RF") {
+    seeds <- c(42, 31416, 272)
+    #TODO: <- bw_rf_correction(df, metab_cols, ntree = 500, seed = seed)
+  } else if (corMethod == "BW_LOESS") {
+    df_corrected <- bw_loess_correction(df, metab_cols)
   }
   
   return(df_corrected)

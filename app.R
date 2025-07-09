@@ -451,11 +451,12 @@ server <- function(input, output, session) {
     }
   )
   
-  #-- Move to next panel after inspecting the corrected data
+  #-- Move to next tab after inspecting the corrected data
   observeEvent(input$next_visualization, {
     updateTabsetPanel(session, "main_steps", "3. Evaluation Metrics and Visualization")
   })
   
+  #-- display RSD comparison plot
   output$rsd_comparison_plot <- renderPlot({
     req(filtered(), filtered_corrected(), input$rsd_cal)
     if (input$rsd_cal == "met"){
@@ -470,6 +471,7 @@ server <- function(input, output, session) {
     }
   })
   
+  #-- Let user select which metabolite to display in scatter plot
   output$met_plot_selectors <- renderUI({
     req(filtered(), filtered_corrected())
     raw_cols <- setdiff(names(filtered()$df_filtered), c("sample", "batch", "class", "order"))
@@ -479,7 +481,6 @@ server <- function(input, output, session) {
       selectInput("met_col", "Metabolite column", choices = cols, selected = cols[1])
     )
   })
-  
   output$metab_scatter <- renderPlot({
     req(input$met_col, filtered(), filtered_corrected(), input$corMethod)
     if (input$corMethod %in% c("RF", "BW_RF")) {
@@ -487,7 +488,7 @@ server <- function(input, output, session) {
         data_raw = filtered()$df_filtered,
         data_cor = filtered_corrected()$filtered_df,
         i = input$met_col)
-    } else if (input$corMethod == "LOESS") {
+    } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
       met_scatter_loess(
         data_raw = filtered()$df_filtered,
         data_cor = filtered_corrected()$filtered_df,
@@ -495,9 +496,9 @@ server <- function(input, output, session) {
     }
   })
   
-  
+  # -- progress bar
   progress_reactive <- reactiveVal(0)
-  
+  #-- progress for downloading all images
   output$progress_ui <- renderUI({
     req(progress_reactive() > 0, progress_reactive() <= 1)
     
