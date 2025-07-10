@@ -252,7 +252,7 @@ ui <- fluidPage(
             ),
             width = 400,
           ),
-          div(downloadButton("download_fig_zip", "Download All Figures", class = "btn-primary btn-lg"),
+          downloadButton("download_fig_zip", "Download All Figures", class = "btn-primary btn-lg"),
           uiOutput("progress_ui"),
         )
       )
