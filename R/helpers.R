@@ -171,7 +171,9 @@ qcMissingValueWarning <- function(df) {
   }
   
 }
-
+#correctionSettingsUI <- function(filtered_result) {
+  
+#}
 correctionInfoUI <- function(imputed_result, imputeM, corMethod) {
   if (corMethod == "RF") {
     cor_str <- "QC Random Forest (3 seeds x 500 trees)"

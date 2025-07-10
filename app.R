@@ -101,19 +101,39 @@ ui <- fluidPage(
       card(
         style = "background-color: #eeeeee;",
         tags$h4("2.1 Choose Correction Settings"),
+        uiOutput("qc_missing_value_warning"),
         fluidRow(
           column(
-            4,
-            tags$h5("Impute Missing Values"),
-            uiOutput("qc_missing_value_warning"),
+            3,
+            tags$h5("Impute Missing QC Values"),
             radioButtons(
-              inputId = "imputeM",
-              label = "Imputation method",
+              inputId = "qcImputeM",
+              label = "QC Imputation Method",
               choices = list(
                 "metabolite median" = "median",
                 "metabolite mean" = "mean",
                 "class-metabolite median" = "class_median",
                 "class-metabolite mean" = "class_mean",
+                "minimum value" = "min",
+                "half minimum value" = "minHalf",
+                "KNN" = "KNN",
+                "zero" = "zero"
+                ),
+            selected = "median",
+            inline = FALSE
+            )
+          ),
+          column(
+            3,
+            tags$h5("Impute Missing Sample Values"),
+            radioButtons(
+              inputId = "samimputeM",
+              label = "Sample Imputation Method",
+              choices = list(
+                "metabolite median" = "median",
+                "metabolite mean" = "mean",
+                "QC-metabolite median" = "class_median",
+                "QC-metabolite mean" = "class_mean",
                 "minimum value" = "min",
                 "half minimum value" = "minHalf",
                 "KNN" = "KNN",
@@ -124,7 +144,7 @@ ui <- fluidPage(
             )
           ),
           column(
-            4,
+            3,
             #--- Choose Correction method
             tags$h5("Choose Correction Method"),
             radioButtons(
@@ -152,7 +172,7 @@ ui <- fluidPage(
         layout_sidebar(
           sidebar = sidebar(
             # After correction filtering
-            tags$h4("2.3 Post-Correction Filtering"),
+            tags$h4("2.2 Post-Correction Filtering"),
             checkboxInput(
               inputId = "remove_imputed",
               label = "Remove imputed values after correction?",
@@ -176,7 +196,7 @@ ui <- fluidPage(
             tags$hr(),
             
             # After correction scaling / normalization
-            tags$h4("2.4 Post-Correction Transformation or Normalization"),
+            tags$h4("2.3 Post-Correction Transformation or Normalization"),
             tags$h6(style = "color: darkorange; font-weight: bold;", "(Coming Soon!)"),
             radioButtons(
               inputId = "transform",
