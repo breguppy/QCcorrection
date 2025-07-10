@@ -423,7 +423,27 @@ rsd_filter <- function(df, rsd_cutoff, metadata_cols = c("sample", "batch", "cla
   ))
 }
 
-transform_data <- function(df, transform) {
+total_ratio_normalization <- function(df, metab_cols) {
+  metab_data <- df[, metab_cols, drop = FALSE]
+  
+  # sum metab_cols values in each row (sample).
+  row_sums <- rowSums(metab_data, na.rm = TRUE)
+  # compute number of non-missing values in each row (sample).
+  non_missing_counts <- rowSums(!is.na(metab_data))
+  
+  # determine row ratio = (number of non-missing) / (row sum)
+  ratios <- non_missing_counts / row_sums
+  
+  # multiply each row by ratio.
+  trn_data <- sweep(metab_data, 1, ratios, FUN = "*")
+  
+  df[, metab_cols] <- trn_data
+  
+  return(df)
+}
+
+
+transform_data <- function(df, transform, withheld_cols) {
   metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
   
   transformed_df <- df
@@ -431,7 +451,8 @@ transform_data <- function(df, transform) {
   if (transform == "log2") {
     transformed_df[metab_cols] <- log(transformed_df[metab_cols], base = 2)
   } else if (transform == "TRN") {
-    # TODO: write TRN function.
+    metab_cols <- setdiff(metab_cols, withheld_cols)
+    transformed_df <- total_ratio_normalization(transformed_df, metab_cols)
   }
   return (transformed_df)
 }

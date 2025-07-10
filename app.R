@@ -525,7 +525,16 @@ server <- function(input, output, session) {
   transformed <- reactive({
     fil_cor_result <- filtered_corrected()
     req(fil_cor_result)
-    transform_data(fil_cor_result$filtered_df, input$transform)
+    withheld_cols <- character(0)
+    if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
+      for (i in seq_len(input$trn_withhold_n)) {
+        col <- input[[paste0("trn_withhold_col_", i)]]
+        if (!is.null(col) && col %in% names(df)) {
+          withheld_cols <- c(withheld_cols, col)
+        }
+      }
+    }
+    transform_data(fil_cor_result$filtered_df, input$transform, withheld_cols)
   })
   
   output$post_cor_filter_info <- renderUI({
