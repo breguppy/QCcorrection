@@ -3,6 +3,7 @@ library(shinyBS)
 library(bslib)
 library(dplyr)
 library(shinycssloaders)
+library(openxlsx)
 source("R/helpers.R")
 source("R/processing_helpers.R")
 source("R/met_scatter_rf.R")
@@ -106,42 +107,12 @@ ui <- fluidPage(
           column(
             3,
             tags$h5("Impute Missing QC Values"),
-            radioButtons(
-              inputId = "qcImputeM",
-              label = "QC Imputation Method",
-              choices = list(
-                "metabolite median" = "median",
-                "metabolite mean" = "mean",
-                "class-metabolite median" = "class_median",
-                "class-metabolite mean" = "class_mean",
-                "minimum value" = "min",
-                "half minimum value" = "minHalf",
-                "KNN" = "KNN",
-                "zero" = "zero"
-                ),
-            selected = "median",
-            inline = FALSE
-            )
+            uiOutput("qcImpute")
           ),
           column(
             3,
             tags$h5("Impute Missing Sample Values"),
-            radioButtons(
-              inputId = "samimputeM",
-              label = "Sample Imputation Method",
-              choices = list(
-                "metabolite median" = "median",
-                "metabolite mean" = "mean",
-                "QC-metabolite median" = "class_median",
-                "QC-metabolite mean" = "class_mean",
-                "minimum value" = "min",
-                "half minimum value" = "minHalf",
-                "KNN" = "KNN",
-                "zero" = "zero"
-              ),
-              selected = "median",
-              inline = FALSE
-            )
+            uiOutput("sampleImpute")
           ),
           column(
             3,
@@ -197,7 +168,6 @@ ui <- fluidPage(
             
             # After correction scaling / normalization
             tags$h4("2.3 Post-Correction Transformation or Normalization"),
-            tags$h6(style = "color: darkorange; font-weight: bold;", "(Coming Soon!)"),
             radioButtons(
               inputId = "transform",
               label = "Method",
@@ -282,7 +252,7 @@ ui <- fluidPage(
             ),
             width = 400,
           ),
-          downloadButton("download_fig_zip", "Download All Figures", class = "btn-primary btn-lg"),
+          div(downloadButton("download_fig_zip", "Download All Figures", class = "btn-primary btn-lg"),
           uiOutput("progress_ui"),
         )
       )
@@ -458,16 +428,39 @@ server <- function(input, output, session) {
     req(filtered_data)
     qcMissingValueWarning(filtered_data$df_filtered)
   })
+  
+  output$qcImpute <- renderUI({
+    filtered_result <- filtered()
+    req(filtered_result)
+    metab_cols <- setdiff(names(filtered_result$df_filtered), c('sample', 'batch', 'class', 'order'))
+    qcImputeUI(filtered_result$df_filtered, metab_cols)
+  })
+  
+  output$sampleImpute <- renderUI({
+    filtered_result <- filtered()
+    req(filtered_result)
+    metab_cols <- setdiff(names(filtered_result$df_filtered), c('sample', 'batch', 'class', 'order'))
+    sampleImputeUI(filtered_result$df_filtered, metab_cols)
+  })
+  
   imputed <- reactive({
     filtered_result <- filtered()
     req(filtered_result)
+    metab_cols <- setdiff(names(filtered_result$df_filtered), c('sample', 'batch', 'class', 'order'))
+    qc_df <- filtered_result$df_filtered %>% filter(filtered_result$df_filtered$class == "QC")
+    has_qc_na <- any(is.na(qc_df[, metab_cols]))
+    sam_df <- filtered_result$df_filtered %>% filter(filtered_result$df_filtered$class != "QC")
+    has_sam_na <- any(is.na(sam_df[, metab_cols]))
+    
+    ifelse(!has_qc_na, qcImpute <- "median", qcImpute <- input$qcImputeM)
+    ifelse(!has_sam_na, samImpute <- "median", samImpute <- input$samImputeM)
     
     impute_missing(filtered_result$df_filtered,
                    setdiff(
                      names(filtered_result$df_filtered),
                      c("sample", "batch", "class", "order")
                    ),
-                   input$imputeM)
+                   qcImpute, samImpute)
   })
   
   output$correction_info <- renderUI({
@@ -570,17 +563,43 @@ server <- function(input, output, session) {
   output$download_corr_btn <- renderUI({
     req(transformed())
     
-    downloadButton(outputId = "download_corr_data",
-                   label    = "Download CSV",
-                   class    = "btn btn-primary")
+    div(
+      style = "max-width: 300px; display: inline-block;",
+      downloadButton(
+        outputId = "download_corr_data",
+        label    = "Download Excel File",
+        class    = "btn btn-primary"
+      )
+    )
   })
   
   output$download_corr_data <- downloadHandler(
     filename = function() {
-      paste0("corrected_data_", Sys.Date(), ".csv")
+      paste0("corrected_data_", Sys.Date(), ".xlsx")
     },
     content = function(file) {
-      write.csv(filtered_corrected()$filtered_df, file, row.names = FALSE)
+      # Create a new workbook
+      wb <- createWorkbook()
+      
+      # Add Raw Data tab
+      addWorksheet(wb, "Raw Data")
+      writeData(wb, sheet = "Raw Data", x = filtered()$df_filtered)
+      
+      # Add Corrected Data tab (name depends on method)
+      corrected_df <- filtered_corrected()$filtered_df
+      correction_method <- input$corMethod  # assumes input$corMethod is set
+      corrected_tab_name <- paste(correction_method, "Corrected")
+      addWorksheet(wb, corrected_tab_name)
+      writeData(wb, sheet = corrected_tab_name, x = corrected_df)
+      
+      # Add Transformed Data tab (name depends on method)
+      transformed_df <- transformed()  # assumes you have a reactive with transformed data
+      transform_method <- input$transform  # assumes input$transformMethod is set
+      addWorksheet(wb, transform_method)
+      writeData(wb, sheet = transform_method, x = transformed_df)
+      
+      # Save to file
+      saveWorkbook(wb, file, overwrite = TRUE)
     }
   )
   

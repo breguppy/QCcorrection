@@ -67,81 +67,76 @@ filter_data <- function(df, metab_cols, Frule) {
 
 
 # Impute missing values based on imputeM
-impute_missing <- function(df, metab_cols, imputeM) {
+impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   n_missv <- sum(is.na(df[, metab_cols]))
   imputed_df <- df
-  impute_str <- imputeM
-  # impute missing values with column median
-  if (imputeM == "median") {
-    impute_str <- "metabolite median"
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- median(col, na.rm = TRUE)
-      col
-    })
+  
+  # Helper to apply an imputation strategy to a subset of rows
+  apply_impute <- function(sub_df, method) {
+    if (method == "median") {
+      sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
+        col[is.na(col)] <- median(col, na.rm = TRUE)
+        col
+      })
+    } else if (method == "mean") {
+      sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
+        col[is.na(col)] <- mean(col, na.rm = TRUE)
+        col
+      })
+    } else if (method == "class_median") {
+      sub_df <- sub_df %>%
+        group_by(.data[["class"]]) %>%
+        mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
+        ungroup()
+    } else if (method == "class_mean") {
+      sub_df <- sub_df %>%
+        group_by(.data[["class"]]) %>%
+        mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+        ungroup()
+    } else if (method == "min") {
+      sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
+        col[is.na(col)] <- min(col, na.rm = TRUE)
+        col
+      })
+    } else if (method == "minHalf") {
+      sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
+        col[is.na(col)] <- 0.5 * min(col, na.rm = TRUE)
+        col
+      })
+    } else if (method == "zero") {
+      sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
+        col[is.na(col)] <- 0
+        col
+      })
+    } else if (method == "KNN") {
+      metab_matrix <- as.matrix(sub_df[metab_cols])
+      transposed <- t(metab_matrix)
+      knn_result <- impute::impute.knn(transposed,
+                                       rowmax = 0.99,
+                                       colmax = 0.99,
+                                       maxp = 15000)
+      imputed_matrix <- t(knn_result$data)
+      sub_df[metab_cols] <- as.data.frame(imputed_matrix)
+    }
+    return(sub_df)
   }
-  # impute missing values with column mean
-  else if (imputeM == "mean") {
-    impute_str <- "metabolite mean"
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- mean(col, na.rm = TRUE)
-      col
-    })
-  }
-  # Impute with sample_class median for each column
-  else if (imputeM == "class_median") {
-    impute_str <- "class-metabolite median"
-    imputed_df <- imputed_df %>%
-      group_by(.data[["class"]]) %>%
-      mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
-      ungroup()
-  }
-  # impute with sample_class mean for each column
-  else if (imputeM == "class_mean") {
-    impute_str <- "class-metabolite median"
-    imputed_df <- imputed_df %>%
-      group_by(.data[["class"]]) %>%
-      mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
-      ungroup()
-  }
-  # impute with KNN
-  else if (imputeM == "KNN") {
-    metab_matrix <- as.matrix(imputed_df[metab_cols])
-    transposed <- t(metab_matrix)
-    knn_result <- impute::impute.knn(transposed,
-                                     rowmax = 0.99,
-                                     colmax = 0.99,
-                                     maxp = 15000)
-    imputed_matrix <- t(knn_result$data)
-    imputed_df[metab_cols] <- as.data.frame(imputed_matrix)
-  }
-  # impute with minimum column value
-  else if (imputeM == "min") {
-    impute_str <- "metabolite minimum"
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- min(col, na.rm = TRUE)
-      col
-    })
-  }
-  # impute with half minimum column value
-  else if (imputeM == "minHalf") {
-    impute_str <- "half the metabolite minimum"
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- 0.5 * min(col, na.rm = TRUE)
-      col
-    })
-  }
-  # impute with 0
-  else if (imputeM == "zero") {
-    imputed_df[metab_cols] <- lapply(imputed_df[metab_cols], function(col) {
-      col[is.na(col)] <- 0
-      col
-    })
-  }
+  
+  # Identify QC and Sample rows
+  is_qc <- df$class == "QC"
+  qc_df <- imputed_df[is_qc, ]
+  sam_df <- imputed_df[!is_qc, ]
+  
+  # Apply respective imputation methods
+  qc_df <- apply_impute(qc_df, qcImputeM)
+  sam_df <- apply_impute(sam_df, samImputeM)
+  
+  # Combine the results
+  imputed_df <- bind_rows(qc_df, sam_df) %>%
+    arrange(.data[["order"]])
   
   return(list(
     df_imputed = imputed_df,
-    n_missv = n_missv,
-    impute_str = impute_str
+    n_missv = n_missv
   ))
 }
 

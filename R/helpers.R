@@ -171,9 +171,65 @@ qcMissingValueWarning <- function(df) {
   }
   
 }
-#correctionSettingsUI <- function(filtered_result) {
+
+qcImputeUI <- function(df, metab_cols) {
+  qc_df <- df %>% filter(df$class == "QC")
+  has_qc_na <- any(is.na(qc_df[, metab_cols]))
   
-#}
+  if (has_qc_na) {
+    radioButtons(
+      inputId = "qcImputeM",
+      label = "QC Imputation Method",
+      choices = list(
+        "metabolite median" = "median",
+        "metabolite mean" = "mean",
+        "QC-metabolite median" = "class_median",
+        "QC-metabolite mean" = "class_mean",
+        "minimum value" = "min",
+        "half minimum value" = "minHalf",
+        "KNN" = "KNN",
+        "zero" = "zero"
+      ),
+      selected = "median",
+      inline = FALSE
+    )
+  } else {
+    tags$div(
+      icon("check-circle", class = "text-success"),
+      span("No QC missing values")
+    )
+  }
+}
+
+sampleImputeUI <- function (df, metab_cols) {
+  sam_df <- df %>% filter(df$class != "QC")
+  has_sam_na <- any(is.na(sam_df[, metab_cols]))
+  
+  if (has_sam_na) {
+    radioButtons(
+      inputId = "samImputeM",
+      label = "Sample Imputation Method",
+      choices = list(
+        "metabolite median" = "median",
+        "metabolite mean" = "mean",
+        "class-metabolite median" = "class_median",
+        "class-metabolite mean" = "class_mean",
+        "minimum value" = "min",
+        "half minimum value" = "minHalf",
+        "KNN" = "KNN",
+        "zero" = "zero"
+      ),
+      selected = "median",
+      inline = FALSE
+    )
+  } else {
+    tags$div(
+      icon("check-circle", class = "text-success"),
+      span("No Sample missing values")
+    )
+  }
+}
+
 correctionInfoUI <- function(imputed_result, imputeM, corMethod) {
   if (corMethod == "RF") {
     cor_str <- "QC Random Forest (3 seeds x 500 trees)"
