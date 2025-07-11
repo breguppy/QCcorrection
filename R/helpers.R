@@ -201,7 +201,7 @@ qcImputeUI <- function(df, metab_cols) {
   }
 }
 
-sampleImputeUI <- function (df, metab_cols) {
+sampleImputeUI <- function(df, metab_cols) {
   sam_df <- df %>% filter(df$class != "QC")
   has_sam_na <- any(is.na(sam_df[, metab_cols]))
   
@@ -229,7 +229,63 @@ sampleImputeUI <- function (df, metab_cols) {
     )
   }
 }
-
+correctionMethodUI <- function(df) {
+  qc_per_batch <- df %>%
+    group_by(batch) %>%
+    summarise(qc_in_class = sum(class == "QC"), .groups = "drop")
+  
+  if (any(qc_per_batch$qc_in_class < 5)) {
+    radioButtons(
+      inputId = "corMethod",
+      label = "Method",
+      choices = list(
+        "Random Forest" = "RF",
+        "Local Polynomial Fit (LOESS)" = "LOESS"
+      ),
+      selected = "RF"
+    )
+  } else {
+    radioButtons(
+      inputId = "corMethod",
+      label = "Method",
+      choices = list(
+        "Random Forest" = "RF",
+        "Local Polynomial Fit (LOESS)" = "LOESS",
+        "Batchwise Random Forest" = "BW_RF",
+        "Batchwise Local polynomial fit (LOESS)" = "BW_LOESS"
+      ),
+      selected = "RF"
+    )
+  }
+}
+unavailableOptionsUI <- function(df, metab_cols) {
+  # If there is only 1 class: class/metabolite impute for samples not available
+  # If there is only 1 batch: no batchwise options
+  # If there is less than 5 QCs per batch: no batchwise options
+  # If there is only 1 batch and less than 5 QCs no RF option
+  qc_per_batch <- df %>%
+    group_by(batch) %>%
+    summarise(qc_in_class = sum(class == "QC"), .groups = "drop")
+  
+  unavail_opts <- list()
+  if (any(qc_per_batch$qc_in_class < 5)) {
+    unavail_opts[[length(unavail_opts) + 1]] <- tags$h6("Unavailable Correction Methods:")
+    unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
+                                                      icon("circle-xmark", class = "text-danger-emphasis"),
+                                                      " Batchwise Random Forest requires at least 5 QCs per batch.")
+    unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
+      icon("circle-xmark", class = "text-danger-emphasis"),
+      " Batchwise LOESS requires at least 5 QCs per batch.")
+  }
+  
+  if (length(unavail_opts) == 0) {
+    return(tags$span("All methods availble"))
+  } else if (length(unavail_opts) == 1) {
+    return(unavail_opts[[1]])
+  } else {
+    return(do.call(tagList, unavail_opts))
+  }
+}
 postCorFilterInfoUI <- function(filtered_corrected_result) {
   n_removed <- length(filtered_corrected_result$removed_metabolites)
   if (n_removed > 0) {

@@ -118,17 +118,12 @@ ui <- fluidPage(
             3,
             #--- Choose Correction method
             tags$h5("Choose Correction Method"),
-            radioButtons(
-              inputId = "corMethod",
-              label = "Method",
-              choices = list(
-                "Random Forest" = "RF",
-                "Local Polynomial Fit (LOESS)" = "LOESS",
-                "Batchwise Random Forest" = "BW_RF",
-                "Batchwise Local polynomial fit (LOESS)" = "BW_LOESS"
-              ),
-              selected = "RF"
-            ),
+            uiOutput("correctionMethod"),
+          ),
+          column(
+            3,
+            tags$h5("Unavailable Options"),
+            uiOutput("unavailable_options")
           ),
           actionButton(
             inputId = "correct",
@@ -467,6 +462,19 @@ server <- function(input, output, session) {
     req(filtered_result)
     metab_cols <- setdiff(names(filtered_result$df_filtered), c('sample', 'batch', 'class', 'order'))
     sampleImputeUI(filtered_result$df_filtered, metab_cols)
+  })
+  
+  output$correctionMethod <- renderUI({
+    filtered_result <- filtered()
+    req(filtered_result)
+    correctionMethodUI(filtered_result$df_filtered)
+  })
+  
+  output$unavailable_options <- renderUI({
+    filtered_result <- filtered()
+    req(filtered_result)
+    metab_cols <- setdiff(names(filtered_result$df_filtered), c('sample', 'batch', 'class', 'order'))
+    unavailableOptionsUI(filtered_result$df_filtered, metab_cols)
   })
   
   imputed <- reactive({
