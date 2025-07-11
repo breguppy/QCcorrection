@@ -135,7 +135,6 @@ ui <- fluidPage(
             label = "Correct Data with Selected Settings",
             class = "btn-primary btn-lg"
           ),
-          #uiOutput("correction_info"),
         ),
       ),
       #-- User selects post-correction filtering and transformation/normalization
@@ -144,15 +143,21 @@ ui <- fluidPage(
           sidebar = sidebar(
             # After correction filtering
             tags$h4("2.2 Post-Correction Filtering"),
-            checkboxInput(
-              inputId = "remove_imputed",
-              label = "Remove imputed values after correction?",
-              value = FALSE
+            tooltip(
+                checkboxInput(
+                inputId = "remove_imputed",
+                label = "Remove imputed values after correction?",
+                value = FALSE
+              ),
+              "Check this box if you want to the corrected data to have the same missing values as the raw data."
             ),
-            checkboxInput(
-              inputId = "post_cor_filter",
-              label = "Don't filter metabolites based on QC RSD%",
-              value = FALSE
+            tooltip(
+              checkboxInput(
+                inputId = "post_cor_filter",
+                label = "Don't filter metabolites based on QC RSD%",
+                value = FALSE
+              ), 
+              "Check this box if you don't want any metabolites removed post-correction."
             ),
             conditionalPanel(
               "input.post_cor_filter == false",

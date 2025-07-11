@@ -230,29 +230,6 @@ sampleImputeUI <- function (df, metab_cols) {
   }
 }
 
-correctionInfoUI <- function(imputed_result, imputeM, corMethod) {
-  if (corMethod == "RF") {
-    cor_str <- "QC Random Forest (3 seeds x 500 trees)"
-  } else if (corMethod == "LOESS") {
-    cor_str <- "LOESS"
-  } else if (corMethod == "BW_RF") {
-    cor_str <- "Batchwise Random Forest (3 seeds x 500 trees)"
-  } else if (corMethod == "BW_LOESS") {
-    cor_str <- "Batchwise LOESS"
-  }
-  ui <- list(
-    tags$div(
-      style = "display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top 15px;",
-      metric_card(
-        paste("missing values imputed with", imputed_result$impute_str),
-        imputed_result$n_missv
-      ),
-      metric_card(cor_str, "Correction Method:")
-    )
-  )
-  do.call(tagList, ui)
-}
-
 postCorFilterInfoUI <- function(filtered_corrected_result) {
   n_removed <- length(filtered_corrected_result$removed_metabolites)
   if (n_removed > 0) {
