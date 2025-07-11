@@ -149,7 +149,8 @@ ui <- fluidPage(
                 label = "Remove imputed values after correction?",
                 value = FALSE
               ),
-              "Check this box if you want to the corrected data to have the same missing values as the raw data."
+              "Check this box if you want to the corrected data to have the same missing values as the raw data.",
+              placement = "right"
             ),
             tooltip(
               checkboxInput(
@@ -157,16 +158,21 @@ ui <- fluidPage(
                 label = "Don't filter metabolites based on QC RSD%",
                 value = FALSE
               ), 
-              "Check this box if you don't want any metabolites removed post-correction."
+              "Check this box if you don't want any metabolites removed post-correction.",
+              placement = "right"
             ),
             conditionalPanel(
               "input.post_cor_filter == false",
-              sliderInput(
-                inputId = "rsd_filter",
-                label = "Metabolite RSD% threshold for QC samples",
-                min = 0,
-                max = 100,
-                value = 50
+              tooltip(
+                sliderInput(
+                  inputId = "rsd_filter",
+                  label = "Metabolite RSD% threshold for QC samples",
+                  min = 0,
+                  max = 100,
+                  value = 50
+                ),
+                "Metabolites with QC RSD% above this value will be removed from the corrected data.",
+                placement = "right"
               )
             ),
             tags$hr(),
@@ -177,8 +183,8 @@ ui <- fluidPage(
               inputId = "transform",
               label = "Method",
               choices = list(
-                "Log 2 transformation" = "log2",
-                "Total Ratio Normalization" = "TRN",
+                "Log 2 Transformation" = "log2",
+                "Total Ratio Normalization (TRN)" = "TRN",
                 "None" = "none"
               ),
               selected = "none"
@@ -216,7 +222,7 @@ ui <- fluidPage(
       )
     ),
     
-    #--- Step 4: plots
+    #--- Step 3: plots
     nav_panel(
       title = "3. Evaluation Metrics and Visualization",
       
@@ -257,15 +263,30 @@ ui <- fluidPage(
             ),
             width = 400,
           ),
-          downloadButton("download_fig_zip", "Download All Figures", class = "btn-primary btn-lg"),
+          uiOutput("download_fig_zip_btn", container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
           uiOutput("progress_ui"),
         )
+      ),
+      card(
+        actionButton(
+          inputId = "next_export",
+          label = "Next: Export Corrected Data and Plots",
+          class = "btn-primary btn-lg"
+        ),
       )
     ),
     #--- Step 5: Export Data
-    nav_panel(title = "4. Export Corrected Data and Plots", card(card_title(
-      "TODO: Export button"
-    ), ))
+    nav_panel(
+      title = "4. Export Corrected Data and Plots", 
+      
+      card(
+        card_title("Download Data and Plots"),
+        tags$span("TODO: Describe what will be downloaded and the format."),
+        downloadButton(outputId = "download_all",
+                       label = "Download All", 
+                       class = "btn-primary btn-lg"),
+      )
+    )
   )
 )
 
@@ -457,8 +478,8 @@ server <- function(input, output, session) {
     sam_df <- filtered_result$df_filtered %>% filter(filtered_result$df_filtered$class != "QC")
     has_sam_na <- any(is.na(sam_df[, metab_cols]))
     
-    ifelse(!has_qc_na, qcImpute <- "median", qcImpute <- input$qcImputeM)
-    ifelse(!has_sam_na, samImpute <- "median", samImpute <- input$samImputeM)
+    ifelse(!has_qc_na, qcImpute <- "nothing_to_impute", qcImpute <- input$qcImputeM)
+    ifelse(!has_sam_na, samImpute <- "nothing_to_impute", samImpute <- input$samImputeM)
     
     impute_missing(filtered_result$df_filtered,
                    setdiff(
@@ -658,7 +679,17 @@ server <- function(input, output, session) {
       )
     }
   })
-  
+  output$download_fig_zip_btn <- renderUI({
+    
+    req(transformed())
+    
+    div(
+      style = "max-width: 300px; display: inline-block;",
+      downloadButton("download_fig_zip", 
+                     "Download All Figures", 
+                     class = "btn-primary")
+    )
+  })
   # -- progress bar
   progress_reactive <- reactiveVal(0)
   #-- progress for downloading all images
@@ -784,6 +815,11 @@ server <- function(input, output, session) {
       progress_reactive(0)
     }
   )
+  observeEvent(input$next_export, {
+    updateTabsetPanel(session,
+                      "main_steps",
+                      "4. Export Corrected Data and Plots")
+  })
 }
 
 

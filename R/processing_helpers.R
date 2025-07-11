@@ -73,7 +73,9 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   
   # Helper to apply an imputation strategy to a subset of rows
   apply_impute <- function(sub_df, method) {
-    if (method == "median") {
+    if (method == "nothing_to_impute") {
+      sub_df <- sub_df
+    } else if (method == "median") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- median(col, na.rm = TRUE)
         col
