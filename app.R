@@ -608,7 +608,6 @@ server <- function(input, output, session) {
       
       # Add Corrected Data tab (name depends on method)
       corrected_df <- filtered_corrected()$df
-      #correction_method <- input$corMethod
       corrected_tab_name <- corrected()$str
       addWorksheet(wb, corrected_tab_name)
       writeData(wb, sheet = corrected_tab_name, x = corrected_df)
@@ -621,20 +620,54 @@ server <- function(input, output, session) {
       
       # Add Correction Info tab (info depended on user settings)
       correction_settings_df <- data.frame(
-        id = c("Missing Value Threshold",
-              "QC missing value imputation method",
-              "Sample missing value imputation method",
-              "Correction method",
-              "Scaling/Tranformation Method"
-              ),
-        value = c(filtered()$Frule,
-                  imputed()$qc_str,
-                  imputed()$sam_str,
-                  corrected()$str,
-                  transformed()$str)
+        Settings = c(
+          "Sample Column Name",
+          "Batch Column Name",
+          "Class Column Name",
+          "Order Column Name",
+          "Missing Value Threshold",
+          "QC Missing Value Imputation Method",
+          "Sample Missing Value Imputation Method",
+          "Correction Method",
+          "Remove Imputed Values After Correction?",
+          "QC RSD% Threshold",
+          "Scaling/Tranformation Method"
+        ),
+        Values = c(
+          input$sample_col,
+          input$batch_col,
+          input$class_col,
+          input$order_col,
+          filtered()$Frule,
+          imputed()$qc_str,
+          imputed()$sam_str,
+          corrected()$str,
+          input$remove_imputed,
+          filtered_corrected()$rsd_cutoff,
+          transformed()$str
+        ),
+        stringsAsFactors = FALSE
       )
       addWorksheet(wb, "Correction Settings")
-      writeData(wb, sheet = "Correction Settings", x = correction_settings_df)
+      writeData(wb, sheet = "Correction Settings", x = correction_settings_df, startCol = 1)
+      
+      # Append Missing Value Filtered Metabolites
+      if (length(filtered()$removed_cols) > 0) {
+        mv_df <- data.frame(
+          Missing_Value_Filtered_Metabolites = filtered()$removed_cols,
+          stringsAsFactors = FALSE
+        )
+        writeData(wb, "Correction Settings", x = mv_df, startCol = 4)
+      }
+      
+      # Append QC RSD Filtered Metabolites
+      if (length(filtered_corrected()$removed_metabolites) > 0) {
+        rsd_df <- data.frame(
+          QC_RSD_Filtered_Metabolites = filtered_corrected()$removed_metabolites,
+          stringsAsFactors = FALSE
+        )
+        writeData(wb, "Correction Settings", x = rsd_df, startCol = 6)
+      }
       
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
