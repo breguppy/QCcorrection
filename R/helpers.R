@@ -273,13 +273,14 @@ unavailableOptionsUI <- function(df, metab_cols) {
     unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
                                                       icon("circle-xmark", class = "text-danger-emphasis"),
                                                       " Batchwise Random Forest requires at least 5 QCs per batch.")
+    unavail_opts[[length(unavail_opts) + 1]] <- tags$br()
     unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
       icon("circle-xmark", class = "text-danger-emphasis"),
       " Batchwise LOESS requires at least 5 QCs per batch.")
   }
   
   if (length(unavail_opts) == 0) {
-    return(tags$span("All methods availble"))
+    return(tags$span("All methods available"))
   } else if (length(unavail_opts) == 1) {
     return(unavail_opts[[1]])
   } else {

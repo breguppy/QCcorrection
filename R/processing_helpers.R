@@ -38,7 +38,7 @@ cleanData <- function(df, sample, batch, class, order) {
   df$class[df$class %in% c("qc", "Qc")] <- "QC"
   
   if (df$class[1] != "QC") {
-    stop("Data sorted by injection order must begin  with a QC sample.")
+    stop("Data sorted by injection order must begin with a QC sample.")
   } else if (df$class[nrow(df)] != "QC") {
     stop("Data sorted by injection order must end with a QC sample.")
   }
@@ -234,6 +234,55 @@ compute_median_dataframe <- function(df_list,
   return(median_df)
 }
 
+bw_rf_correction <- function(df,
+                            metab_cols,
+                            ntree = 500,
+                            seed = NULL) {
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+  
+  df_corrected <- df
+  
+  pb <- txtProgressBar(min = 0,
+                       max = length(metab_cols),
+                       style = 3)
+  
+  for (i in seq_along(metab_cols)) {
+    metab <- metab_cols[i]
+    
+    for (batch_id in unique(df$batch)) {
+      batch_df <- df[df$batch == batch_id, ]
+      batch_idx <- which(df$batch == batch_id)
+      qc_idx <- which(batch_df$class == "QC")
+      
+      # Skip if not enough QCs in this batch
+      if (length(qc_idx) < 5) {
+        warning(sprintf("Skipping %s in batch %s - too few QC samples.", metab, batch_id))
+        next
+      }
+      
+      # Fit random forest using QC samples in this batch
+      rf_model <- randomForest::randomForest(
+        x = data.frame(order = batch_df$order[qc_idx]),
+        y = batch_df[[metab]][qc_idx],
+        ntree = ntree
+      )
+      
+      # Predict all values in the batch
+      predicted <- predict(rf_model, newdata = data.frame(order = batch_df$order))
+      
+      # Apply correction
+      df_corrected[[metab]][batch_idx] <- df[[metab]][batch_idx] / predicted
+    }
+    
+    setTxtProgressBar(pb, i)
+  }
+  
+  close(pb)
+  return(df_corrected)
+}
+
 loess_correction <- function(df,
                              metab_cols,
                              degree = 2,
@@ -344,9 +393,13 @@ correct_data <- function(df, metab_cols, corMethod) {
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "LOESS") {
     df_corrected <- loess_correction(df, metab_cols)
-  } else if (corMethod == "BW-RF") {
+  } else if (corMethod == "BW_RF") {
     seeds <- c(42, 31416, 272)
-    #TODO: <- bw_rf_correction(df, metab_cols, ntree = 500, seed = seed)
+    df_list <- lapply(seeds, function(seed) {
+      return (bw_rf_correction(df, metab_cols, ntree = 500, seed = seed))
+    })
+    metadata_cols <- setdiff(colnames(df), metab_cols)
+    df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "BW_LOESS") {
     df_corrected <- bw_loess_correction(df, metab_cols)
   }

@@ -289,7 +289,8 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   data_raw <- reactive({
     req(input$file1)
-    df <- read.csv(input$file1$datapath, header = TRUE)
+    colnames_original <- names(read.csv(input$file1$datapath, nrows = 1, check.names = FALSE))
+    df <- read.csv(input$file1$datapath, header = TRUE, check.names = FALSE)
   })
   
   #––  preview
@@ -774,19 +775,20 @@ server <- function(input, output, session) {
       withProgress(message = "Creating figures...", value = 0, {
         for (i in seq_along(cols)) {
           metab <- cols[i]
-          if (input$corMethod == "RF") {
+          if (input$corMethod %in% c("RF", "BW_RF")) {
             fig <- met_scatter_rf(
               data_raw = filtered()$df_filtered,
               data_cor = filtered_corrected()$filtered_df,
               i = metab
             )
-          } else if (input$corMethod == "LOESS") {
+          } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
             fig <- met_scatter_loess(
               data_raw = filtered()$df_filtered,
               data_cor = filtered_corrected()$filtered_df,
               i = metab
             )
           }
+          metab <- sanitize_figname(metab)
           path <- file.path(met_fig_dir, paste0(metab, ".", input$fig_format))
           if (input$fig_format == "png") {
             ggsave(

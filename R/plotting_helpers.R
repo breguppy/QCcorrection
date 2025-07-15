@@ -7,6 +7,14 @@ library(tidyr)
 source("R/processing_helpers.R")
 
 
+sanitize_figname <- function(name) {
+  name <- gsub("[<>:\"/\\\\|?*]", "_", name)       
+  name <- gsub("\\s+", "_", name)                  
+  name <- gsub("_+", "_", name)                    
+  name <- gsub("^_+|_+$", "", name)                
+  return(name)
+}
+
 plot_rsd_comparison <- function(df_before, df_after) {
   rsdBefore <- metabolite_rsd(df_before)
   rsdAfter <- metabolite_rsd(df_after)
