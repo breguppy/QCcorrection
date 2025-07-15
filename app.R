@@ -446,82 +446,69 @@ server <- function(input, output, session) {
     updateTabsetPanel(session, "main_steps", "2. Correction Settings")
   })
   output$qc_missing_value_warning <- renderUI({
-    filtered_data <- filtered()
-    req(filtered_data)
-    qcMissingValueWarning(filtered_data$df_filtered)
+    req(filtered())
+    qcMissingValueWarning(filtered()$df)
   })
   
   output$qcImpute <- renderUI({
-    filtered_result <- filtered()
-    req(filtered_result)
-    metab_cols <- setdiff(names(filtered_result$df_filtered), c('sample', 'batch', 'class', 'order'))
-    qcImputeUI(filtered_result$df_filtered, metab_cols)
+    req(filtered())
+    metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
+    qcImputeUI(filtered()$df, metab_cols)
   })
   
   output$sampleImpute <- renderUI({
-    filtered_result <- filtered()
-    req(filtered_result)
-    metab_cols <- setdiff(names(filtered_result$df_filtered), c('sample', 'batch', 'class', 'order'))
-    sampleImputeUI(filtered_result$df_filtered, metab_cols)
+    req(filtered())
+    metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
+    sampleImputeUI(filtered()$df, metab_cols)
   })
   
   output$correctionMethod <- renderUI({
-    filtered_result <- filtered()
-    req(filtered_result)
-    correctionMethodUI(filtered_result$df_filtered)
+    req(filtered())
+    correctionMethodUI(filtered()$df)
   })
   
   output$unavailable_options <- renderUI({
-    filtered_result <- filtered()
-    req(filtered_result)
-    metab_cols <- setdiff(names(filtered_result$df_filtered), c('sample', 'batch', 'class', 'order'))
-    unavailableOptionsUI(filtered_result$df_filtered, metab_cols)
+    req(filtered())
+    metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
+    unavailableOptionsUI(filtered()$df, metab_cols)
   })
   
   imputed <- reactive({
-    filtered_result <- filtered()
-    req(filtered_result)
-    metab_cols <- setdiff(names(filtered_result$df_filtered), c('sample', 'batch', 'class', 'order'))
-    qc_df <- filtered_result$df_filtered %>% filter(filtered_result$df_filtered$class == "QC")
+    req(filtered())
+    metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
+    qc_df <- filtered()$df %>% filter(filtered()$df$class == "QC")
     has_qc_na <- any(is.na(qc_df[, metab_cols]))
-    sam_df <- filtered_result$df_filtered %>% filter(filtered_result$df_filtered$class != "QC")
+    sam_df <- filtered()$df %>% filter(filtered()$df$class != "QC")
     has_sam_na <- any(is.na(sam_df[, metab_cols]))
     
     ifelse(!has_qc_na, qcImpute <- "nothing_to_impute", qcImpute <- input$qcImputeM)
     ifelse(!has_sam_na, samImpute <- "nothing_to_impute", samImpute <- input$samImputeM)
     
-    impute_missing(filtered_result$df_filtered,
+    impute_missing(filtered()$df,
                    setdiff(
-                     names(filtered_result$df_filtered),
+                     names(filtered()$df),
                      c("sample", "batch", "class", "order")
                    ),
                    qcImpute, samImpute)
   })
   
-  output$correction_info <- renderUI({
-    imputed_result <- imputed()
-    req(imputed_result)
-    correctionInfoUI(imputed_result, input$imputeM, input$corMethod)
-  })
-  
   corrected <- eventReactive(input$correct, {
-    imputed_result <- imputed()
-    req(imputed_result)
+    req(imputed())
     
-    correct_data(imputed_result$df_imputed,
+    correct_data(imputed()$df,
                  setdiff(
-                   names(imputed_result$df_imputed),
+                   names(imputed()$df),
                    c("sample", "batch", "class", "order")
                  ),
                  input$corMethod)
   })
   
   filtered_corrected <- reactive({
-    df_corrected <- corrected()
-    filtered_result <- filtered()
-    req(df_corrected)
+    req(filtered(), corrected())
+    df_corrected <- corrected()$df
+    
     if (isTRUE(input$remove_imputed)) {
-      df <- remove_imputed_from_corrected(filtered_result$df_filtered, df_corrected)
+      df <- remove_imputed_from_corrected(filtered()$df, df_corrected)
     } else {
       df <- df_corrected
     }
@@ -538,7 +525,7 @@ server <- function(input, output, session) {
   observe({
     req(corrected(), input$trn_withhold_checkbox)
     
-    max_withhold <- max(ncol(corrected()) - 4, 0)
+    max_withhold <- max(ncol(corrected()$df) - 4, 0)
     
     output$trn_withhold_ui <- renderUI({
       if (input$transform == "TRN") {
@@ -555,7 +542,7 @@ server <- function(input, output, session) {
   
   output$trn_withhold_selectors_ui <- renderUI({
     req(corrected(), input$trn_withhold_n)
-    cols <- names(corrected())
+    cols <- names(corrected()$df)
     cols <- setdiff(cols, c("sample", "batch", "class", "order"))
     dropdown_choices <- c("Select a column..." = "", cols)
     
@@ -571,8 +558,7 @@ server <- function(input, output, session) {
   })
   
   transformed <- reactive({
-    fil_cor_result <- filtered_corrected()
-    req(fil_cor_result)
+    req(filtered_corrected())
     withheld_cols <- character(0)
     if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
       for (i in seq_len(input$trn_withhold_n)) {
@@ -582,17 +568,17 @@ server <- function(input, output, session) {
         }
       }
     }
-    transform_data(fil_cor_result$filtered_df, input$transform, withheld_cols)
+    transform_data(filtered_corrected()$df, input$transform, withheld_cols)
   })
   
   output$post_cor_filter_info <- renderUI({
-    fil_cor_result <- filtered_corrected()
-    req(fil_cor_result)
-    postCorFilterInfoUI(fil_cor_result)
+    req(filtered_corrected())
+    postCorFilterInfoUI(filtered_corrected())
   })
+  
   output$cor_data <- renderTable({
     req(transformed())
-    transformed()
+    transformed()$df
   })
   
   output$download_corr_btn <- renderUI({
@@ -618,20 +604,22 @@ server <- function(input, output, session) {
       
       # Add Raw Data tab
       addWorksheet(wb, "Raw Data")
-      writeData(wb, sheet = "Raw Data", x = filtered()$df_filtered)
+      writeData(wb, sheet = "Raw Data", x = filtered()$df)
       
       # Add Corrected Data tab (name depends on method)
-      corrected_df <- filtered_corrected()$filtered_df
-      correction_method <- input$corMethod  # assumes input$corMethod is set
-      corrected_tab_name <- paste(correction_method, "Corrected")
+      corrected_df <- filtered_corrected()$df
+      #correction_method <- input$corMethod
+      corrected_tab_name <- corrected()$str
       addWorksheet(wb, corrected_tab_name)
       writeData(wb, sheet = corrected_tab_name, x = corrected_df)
       
-      # Add Transformed Data tab (name depends on method)
-      transformed_df <- transformed()  # assumes you have a reactive with transformed data
-      transform_method <- input$transform  # assumes input$transformMethod is set
+      # Add Scaled Data tab (name depends on method)
+      transformed_df <- transformed()$df  
+      transform_method <- transformed()$str 
       addWorksheet(wb, transform_method)
       writeData(wb, sheet = transform_method, x = transformed_df)
+      
+      # Add Correction Info tab (info depended on user settings)
       
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
@@ -649,20 +637,20 @@ server <- function(input, output, session) {
   output$rsd_comparison_plot <- renderPlot({
     req(filtered(), filtered_corrected(), input$rsd_cal)
     if (input$rsd_cal == "met") {
-      plot_rsd_comparison(filtered()$df_filtered,
-                          filtered_corrected()$filtered_df)
+      plot_rsd_comparison(filtered()$df,
+                          filtered_corrected()$df)
     } else if (input$rsd_cal == "class_met") {
-      plot_rsd_comparison_class_met(filtered()$df_filtered,
-                                    filtered_corrected()$filtered_df)
+      plot_rsd_comparison_class_met(filtered()$df,
+                                    filtered_corrected()$df)
     }
   })
   
   #-- Let user select which metabolite to display in scatter plot
   output$met_plot_selectors <- renderUI({
     req(filtered(), transformed())
-    raw_cols <- setdiff(names(filtered()$df_filtered),
+    raw_cols <- setdiff(names(filtered()$df),
                         c("sample", "batch", "class", "order"))
-    cor_cols <- setdiff(names(transformed()),
+    cor_cols <- setdiff(names(transformed()$df),
                         c("sample", "batch", "class", "order"))
     cols <- intersect(raw_cols, cor_cols)
     tagList(selectInput(
@@ -676,14 +664,14 @@ server <- function(input, output, session) {
     req(input$met_col, filtered(), transformed(), input$corMethod)
     if (input$corMethod %in% c("RF", "BW_RF")) {
       met_scatter_rf(
-        data_raw = filtered()$df_filtered,
-        data_cor = transformed(),
+        data_raw = filtered()$df,
+        data_cor = transformed()$df,
         i = input$met_col
       )
     } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
       met_scatter_loess(
-        data_raw = filtered()$df_filtered,
-        data_cor = transformed(),
+        data_raw = filtered()$df,
+        data_cor = transformed()$df,
         i = input$met_col
       )
     }
@@ -742,11 +730,11 @@ server <- function(input, output, session) {
       
       # create RSD plots
       if (input$rsd_cal == "met") {
-        rsd_fig <- plot_rsd_comparison(filtered()$df_filtered,
-                                       filtered_corrected()$filtered_df)
+        rsd_fig <- plot_rsd_comparison(filtered()$df,
+                                       filtered_corrected()$df)
       } else if (input$rsd_cal == "class_met") {
-        rsd_fig <- plot_rsd_comparison_class_met(filtered()$df_filtered,
-                                                 filtered_corrected()$filtered_df)
+        rsd_fig <- plot_rsd_comparison_class_met(filtered()$df,
+                                                 filtered_corrected()$df)
       }
       rsd_path <- file.path(rsd_fig_dir,
                             paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
@@ -766,9 +754,9 @@ server <- function(input, output, session) {
       }
       
       # create metabolite scatter plots
-      raw_cols <- setdiff(names(filtered()$df_filtered),
+      raw_cols <- setdiff(names(filtered()$df),
                           c("sample", "batch", "class", "order"))
-      cor_cols <- setdiff(names(filtered_corrected()$filtered_df),
+      cor_cols <- setdiff(names(filtered_corrected()$df),
                           c("sample", "batch", "class", "order"))
       cols <- intersect(raw_cols, cor_cols)
       n <- length(cols)
@@ -777,14 +765,14 @@ server <- function(input, output, session) {
           metab <- cols[i]
           if (input$corMethod %in% c("RF", "BW_RF")) {
             fig <- met_scatter_rf(
-              data_raw = filtered()$df_filtered,
-              data_cor = filtered_corrected()$filtered_df,
+              data_raw = filtered()$df,
+              data_cor = filtered_corrected()$df,
               i = metab
             )
           } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
             fig <- met_scatter_loess(
-              data_raw = filtered()$df_filtered,
-              data_cor = filtered_corrected()$filtered_df,
+              data_raw = filtered()$df,
+              data_cor = filtered_corrected()$df,
               i = metab
             )
           }

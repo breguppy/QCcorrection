@@ -62,11 +62,15 @@ filter_data <- function(df, metab_cols, Frule) {
   # Return df with only the retained metabolite columns
   df_filtered <- df[, c(setdiff(names(df), metab_cols), keep_cols)]
   
-  return(list(df_filtered = df_filtered, removed_cols = removed_cols))
+  return(list(
+    df = df_filtered,
+    Frule = Frule,
+    removed_cols = removed_cols
+    ))
 }
 
 
-# Impute missing values based on imputeM
+# Impute missing values based on user selected imputation method
 impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   n_missv <- sum(is.na(df[, metab_cols]))
   imputed_df <- df
@@ -75,41 +79,49 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   apply_impute <- function(sub_df, method) {
     if (method == "nothing_to_impute") {
       sub_df <- sub_df
+      str <- "Nothing to Impute"
     } else if (method == "median") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- median(col, na.rm = TRUE)
         col
       })
+      str <- "Metabolite Median"
     } else if (method == "mean") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- mean(col, na.rm = TRUE)
         col
       })
+      str <- "Metabolite Mean"
     } else if (method == "class_median") {
       sub_df <- sub_df %>%
         group_by(.data[["class"]]) %>%
         mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
         ungroup()
+      str <- "Class-Metabolite Median"
     } else if (method == "class_mean") {
       sub_df <- sub_df %>%
         group_by(.data[["class"]]) %>%
         mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
         ungroup()
+      str <- "Class-Metabolite Mean"
     } else if (method == "min") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- min(col, na.rm = TRUE)
         col
       })
+      str <- "Minimum Metabolite Value"
     } else if (method == "minHalf") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- 0.5 * min(col, na.rm = TRUE)
         col
       })
+      str <- "Half the Minimum Metabolite Value"
     } else if (method == "zero") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- 0
         col
       })
+      str <- "Zero"
     } else if (method == "KNN") {
       metab_matrix <- as.matrix(sub_df[metab_cols])
       transposed <- t(metab_matrix)
@@ -119,8 +131,12 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
                                        maxp = 15000)
       imputed_matrix <- t(knn_result$data)
       sub_df[metab_cols] <- as.data.frame(imputed_matrix)
+      str <- "KNN"
     }
-    return(sub_df)
+    return(list(
+      sub_df = sub_df,
+      str = str
+      ))
   }
   
   # Identify QC and Sample rows
@@ -129,15 +145,21 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   sam_df <- imputed_df[!is_qc, ]
   
   # Apply respective imputation methods
-  qc_df <- apply_impute(qc_df, qcImputeM)
-  sam_df <- apply_impute(sam_df, samImputeM)
+  qc_imputed <- apply_impute(qc_df, qcImputeM)
+  qc_df <- qc_imputed$sub_df
+  qc_str <- qc_imputed$str
+  sam_imputed <- apply_impute(sam_df, samImputeM)
+  sam_df <- sam_imputed$sub_df
+  sam_str <- sam_imputed$str
   
   # Combine the results
   imputed_df <- bind_rows(qc_df, sam_df) %>%
     arrange(.data[["order"]])
   
   return(list(
-    df_imputed = imputed_df,
+    df = imputed_df,
+    qc_str = qc_str,
+    sam_str = sam_str,
     n_missv = n_missv
   ))
 }
@@ -384,6 +406,7 @@ bw_loess_correction <- function(df,
 # Correct data
 correct_data <- function(df, metab_cols, corMethod) {
   if (corMethod == "RF") {
+    correction_str <- "Random Forest"
     seeds <- c(42, 31416, 272)
     df_list <- lapply(seeds, function(seed) {
       return (rf_correction(df, metab_cols, ntree = 500, seed = seed))
@@ -392,8 +415,10 @@ correct_data <- function(df, metab_cols, corMethod) {
     metadata_cols <- setdiff(colnames(df), metab_cols)
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "LOESS") {
+    correction_str <- "LOESS"
     df_corrected <- loess_correction(df, metab_cols)
   } else if (corMethod == "BW_RF") {
+    correction_str <- "Batchwise Random Forest"
     seeds <- c(42, 31416, 272)
     df_list <- lapply(seeds, function(seed) {
       return (bw_rf_correction(df, metab_cols, ntree = 500, seed = seed))
@@ -401,10 +426,14 @@ correct_data <- function(df, metab_cols, corMethod) {
     metadata_cols <- setdiff(colnames(df), metab_cols)
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "BW_LOESS") {
+    correction_str <- "Batchwise LOESS"
     df_corrected <- bw_loess_correction(df, metab_cols)
   }
   
-  return(df_corrected)
+  return(list(
+    df = df_corrected,
+    str = correction_str
+    ))
 }
 
 remove_imputed_from_corrected <- function(raw_df, corrected_df) {
@@ -495,7 +524,11 @@ rsd_filter <- function(df,
   filtered_df = df[, final_cols, drop = FALSE]
   
   # Return a list with the filtered data and removed metabolites
-  return(list(filtered_df = filtered_df, removed_metabolites = remove_metabolites))
+  return(list(
+    df = filtered_df,
+    rsd_cutoff = rsd_cutoff,
+    removed_metabolites = remove_metabolites
+    ))
 }
 
 total_ratio_normalization <- function(df, metab_cols) {
@@ -523,11 +556,19 @@ transform_data <- function(df, transform, withheld_cols) {
   
   transformed_df <- df
   
-  if (transform == "log2") {
+  if (transform == "none") {
+    transform_str <- "None"
+  } else if (transform == "log2") {
+    transform_str <- "Log2"
     transformed_df[metab_cols] <- log(transformed_df[metab_cols], base = 2)
   } else if (transform == "TRN") {
+    transform_str <- "TRN"
     metab_cols <- setdiff(metab_cols, withheld_cols)
     transformed_df <- total_ratio_normalization(transformed_df, metab_cols)
   }
-  return (transformed_df)
+  return (list(
+    df = transformed_df,
+    str = transform_str,
+    withheld_cols = withheld_cols
+  ))
 }

@@ -287,6 +287,7 @@ unavailableOptionsUI <- function(df, metab_cols) {
     return(do.call(tagList, unavail_opts))
   }
 }
+
 postCorFilterInfoUI <- function(filtered_corrected_result) {
   n_removed <- length(filtered_corrected_result$removed_metabolites)
   if (n_removed > 0) {
