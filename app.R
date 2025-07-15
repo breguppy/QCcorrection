@@ -620,6 +620,21 @@ server <- function(input, output, session) {
       writeData(wb, sheet = transform_method, x = transformed_df)
       
       # Add Correction Info tab (info depended on user settings)
+      correction_settings_df <- data.frame(
+        id = c("Missing Value Threshold",
+              "QC missing value imputation method",
+              "Sample missing value imputation method",
+              "Correction method",
+              "Scaling/Tranformation Method"
+              ),
+        value = c(filtered()$Frule,
+                  imputed()$qc_str,
+                  imputed()$sam_str,
+                  corrected()$str,
+                  transformed()$str)
+      )
+      addWorksheet(wb, "Correction Settings")
+      writeData(wb, sheet = "Correction Settings", x = correction_settings_df)
       
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
