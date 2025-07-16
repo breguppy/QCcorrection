@@ -64,11 +64,28 @@ ui <- fluidPage(
         ),
         uiOutput("basic_info")
       ), ),
+      card(
+        style = "background-color: #eeeeee;",
+        tags$h4("1.3 Identify Control Group"),
+        tooltip(
+          checkboxInput(
+            inputId = "no_control",
+            label = "No control group.",
+            value = FALSE
+          ),
+          "Check the box if The data does not have a control group.",
+          placement = "right"
+        ),
+        conditionalPanel(
+          "input.no_control == false",
+          uiOutput("control_class_selector")
+        )
+      ),
       #-- Filter data based on missing values
       card(layout_sidebar(
         sidebar = sidebar(
           #--- Filter metabolites
-          tags$h4("1.3 Filter Raw Data"),
+          tags$h4("1.4 Filter Raw Data"),
           tooltip(
             sliderInput(
               inputId = "Frule",
@@ -426,6 +443,25 @@ server <- function(input, output, session) {
     basicInfoUI(cleaned_data$df, cleaned_data$replacement_counts)
   })
   
+ 
+  output$control_class_selector <- renderUI({
+    req(cleaned())
+    df <- cleaned()$df
+    classes <- unique(df$class[df$class != "QC"])
+    dropdown_choices <- c("Select a class..." = "", classes)
+    
+    tooltip(
+      selectInput(
+        "control_class",
+        "Control Group",
+        choices = dropdown_choices,
+        selected = ""
+      ),
+      "Name of control samples in class column.",
+      placement = "right"
+    )
+  })
+  
   #–– filter step
   filtered <- reactive({
     cleaned_data <- cleaned()
@@ -628,12 +664,12 @@ server <- function(input, output, session) {
           input$batch_col,
           input$class_col,
           input$order_col,
-          filtered()$Frule,
+          paste0(filtered()$Frule, "%"),
           imputed()$qc_str,
           imputed()$sam_str,
           corrected()$str,
           input$remove_imputed,
-          filtered_corrected()$rsd_cutoff,
+          paste0(filtered_corrected()$rsd_cutoff, "%"),
           transformed()$str
         ),
         stringsAsFactors = FALSE
@@ -662,24 +698,24 @@ server <- function(input, output, session) {
       
       # Add 2. Drift Normalized tab
       corrected_df <- filtered_corrected()$df
-      # TODO: Remove QCs from corrected data.
+      samples <- corrected_df[corrected_df$class != "QC", ]
       addWorksheet(wb, "2. Drift Normalized")
       # TODO: add description at top of tab.
-      writeData(wb, sheet = "2. Drift Normalized", x = corrected_df, startRow = 3, headerStyle = bold_style)
+      writeData(wb, sheet = "2. Drift Normalized", x = samples, startRow = 3, headerStyle = bold_style)
       
       # Add Scaled Data tab (name depends on method)
       transformed_df <- transformed()$df  
-      transform_method <- transformed()$str 
-      addWorksheet(wb, transform_method)
+      #transform_method <- transformed()$str 
+      addWorksheet(wb, "3. Scaled/Normalized")
       # TODO: add description at top of tab.
-      writeData(wb, sheet = transform_method, x = transformed_df, startRow = 3, headerStyle = bold_style)
+      writeData(wb, sheet = "3. Scaled/Normalized", x = transformed_df, startRow = 3, headerStyle = bold_style)
       
       # Add 4. Grouped Data Organized
       
       # Add. 5. Grouped Data Fold Change
       
       # Add. Appendix1. Metaboanalyst Ready
-      
+       
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
     }
