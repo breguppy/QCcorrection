@@ -601,24 +601,14 @@ server <- function(input, output, session) {
     content = function(file) {
       # Create a new workbook
       wb <- createWorkbook()
+      # make column names bold
+      bold_style <- createStyle(textDecoration = "Bold")
       
-      # Add Raw Data tab
-      addWorksheet(wb, "Raw Data")
-      writeData(wb, sheet = "Raw Data", x = filtered()$df)
+      # Add 0. Raw Data tab
+      addWorksheet(wb, "0. Raw Data")
+      writeData(wb, sheet = "0. Raw Data", x = filtered()$df, startRow = 3, headerStyle = bold_style)
       
-      # Add Corrected Data tab (name depends on method)
-      corrected_df <- filtered_corrected()$df
-      corrected_tab_name <- corrected()$str
-      addWorksheet(wb, corrected_tab_name)
-      writeData(wb, sheet = corrected_tab_name, x = corrected_df)
-      
-      # Add Scaled Data tab (name depends on method)
-      transformed_df <- transformed()$df  
-      transform_method <- transformed()$str 
-      addWorksheet(wb, transform_method)
-      writeData(wb, sheet = transform_method, x = transformed_df)
-      
-      # Add Correction Info tab (info depended on user settings)
+      # Add 1. Correction Settings
       correction_settings_df <- data.frame(
         Settings = c(
           "Sample Column Name",
@@ -648,8 +638,9 @@ server <- function(input, output, session) {
         ),
         stringsAsFactors = FALSE
       )
-      addWorksheet(wb, "Correction Settings")
-      writeData(wb, sheet = "Correction Settings", x = correction_settings_df, startCol = 1)
+      addWorksheet(wb, "1. Correction Settings")
+      # TODO: add description at top of tab.
+      writeData(wb, sheet = "1. Correction Settings", x = correction_settings_df, startRow = 3, startCol = 1, headerStyle = bold_style)
       
       # Append Missing Value Filtered Metabolites
       if (length(filtered()$removed_cols) > 0) {
@@ -657,7 +648,7 @@ server <- function(input, output, session) {
           Missing_Value_Filtered_Metabolites = filtered()$removed_cols,
           stringsAsFactors = FALSE
         )
-        writeData(wb, "Correction Settings", x = mv_df, startCol = 4)
+        writeData(wb, "1. Correction Settings", x = mv_df, startRow = 3, startCol = 4, headerStyle = bold_style)
       }
       
       # Append QC RSD Filtered Metabolites
@@ -666,8 +657,28 @@ server <- function(input, output, session) {
           QC_RSD_Filtered_Metabolites = filtered_corrected()$removed_metabolites,
           stringsAsFactors = FALSE
         )
-        writeData(wb, "Correction Settings", x = rsd_df, startCol = 6)
+        writeData(wb, "1. Correction Settings", x = rsd_df, startRow = 3, startCol = 6, headerStyle = bold_style)
       }
+      
+      # Add 2. Drift Normalized tab
+      corrected_df <- filtered_corrected()$df
+      # TODO: Remove QCs from corrected data.
+      addWorksheet(wb, "2. Drift Normalized")
+      # TODO: add description at top of tab.
+      writeData(wb, sheet = "2. Drift Normalized", x = corrected_df, startRow = 3, headerStyle = bold_style)
+      
+      # Add Scaled Data tab (name depends on method)
+      transformed_df <- transformed()$df  
+      transform_method <- transformed()$str 
+      addWorksheet(wb, transform_method)
+      # TODO: add description at top of tab.
+      writeData(wb, sheet = transform_method, x = transformed_df, startRow = 3, headerStyle = bold_style)
+      
+      # Add 4. Grouped Data Organized
+      
+      # Add. 5. Grouped Data Fold Change
+      
+      # Add. Appendix1. Metaboanalyst Ready
       
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
