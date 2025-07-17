@@ -205,6 +205,18 @@ ui <- fluidPage(
               "input.transform == 'TRN'",
               tooltip(
                 checkboxInput(
+                  inputId = "ex_ISTD",
+                  label = "Exclude Internal Standards from TRN.",
+                  value = TRUE
+                ),
+                "Check this box if you do not want internal standards to be included in the TRN calculation.",
+                placement = "right"
+              )
+            ),
+            conditionalPanel(
+              "input.transform == 'TRN'",
+              tooltip(
+                checkboxInput(
                   inputId = "trn_withhold_checkbox",
                   label = "Withold column(s) from TRN?",
                   value = FALSE
@@ -596,15 +608,16 @@ server <- function(input, output, session) {
   transformed <- reactive({
     req(filtered_corrected())
     withheld_cols <- character(0)
+    
     if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
       for (i in seq_len(input$trn_withhold_n)) {
         col <- input[[paste0("trn_withhold_col_", i)]]
-        if (!is.null(col) && col %in% names(df)) {
+        if (!is.null(col) && col %in% names(filtered_corrected()$df)) {
           withheld_cols <- c(withheld_cols, col)
         }
       }
     }
-    transform_data(filtered_corrected()$df, input$transform, withheld_cols)
+    transform_data(filtered_corrected()$df, input$transform, withheld_cols, input$ex_ISTD)
   })
   
   output$post_cor_filter_info <- renderUI({
@@ -696,6 +709,14 @@ server <- function(input, output, session) {
         writeData(wb, "1. Correction Settings", x = rsd_df, startRow = 3, startCol = 6, headerStyle = bold_style)
       }
       
+      if (transformed()$str == "TRN" && length(transformed()$withheld_cols) > 0) {
+        ex_trn <- data.frame(
+          Exculded_In_TRN = transformed()$withheld_cols,
+          stringsAsFactors = FALSE
+        )
+        writeData(wb, "1. Correction Settings", x = ex_trn, startRow = 3, startCol = 8, headerStyle = bold_style)
+      }
+      
       # Add 2. Drift Normalized tab
       corrected_df <- filtered_corrected()$df
       samples <- corrected_df[corrected_df$class != "QC", ]
@@ -706,9 +727,9 @@ server <- function(input, output, session) {
       # Add Scaled Data tab (name depends on method)
       transformed_df <- transformed()$df  
       #transform_method <- transformed()$str 
-      addWorksheet(wb, "3. Scaled/Normalized")
+      addWorksheet(wb, "3. Normalized")
       # TODO: add description at top of tab.
-      writeData(wb, sheet = "3. Scaled/Normalized", x = transformed_df, startRow = 3, headerStyle = bold_style)
+      writeData(wb, sheet = "3. Normalized", x = transformed_df, startRow = 3, headerStyle = bold_style)
       
       # Add 4. Grouped Data Organized
       

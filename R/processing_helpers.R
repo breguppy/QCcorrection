@@ -531,7 +531,7 @@ rsd_filter <- function(df,
     ))
 }
 
-total_ratio_normalization <- function(df, metab_cols) {
+total_ratio_norm <- function(df, metab_cols) {
   metab_data <- df[, metab_cols, drop = FALSE]
   
   # sum metab_cols values in each row (sample).
@@ -551,7 +551,8 @@ total_ratio_normalization <- function(df, metab_cols) {
 }
 
 
-transform_data <- function(df, transform, withheld_cols) {
+transform_data <- function(df, transform, withheld_cols, ex_ISTD = FALSE) {
+  
   metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
   
   transformed_df <- df
@@ -563,8 +564,13 @@ transform_data <- function(df, transform, withheld_cols) {
     transformed_df[metab_cols] <- log(transformed_df[metab_cols], base = 2)
   } else if (transform == "TRN") {
     transform_str <- "TRN"
+    if (ex_ISTD) {
+      # Get column names containing ISTD and add them to withheld columns
+      istd <- grep("ISTD", metab_cols, value = TRUE)
+      withheld_cols <- c(withheld_cols, istd)
+    }
     metab_cols <- setdiff(metab_cols, withheld_cols)
-    transformed_df <- total_ratio_normalization(transformed_df, metab_cols)
+    transformed_df <- total_ratio_norm(transformed_df, metab_cols)
   }
   return (list(
     df = transformed_df,
