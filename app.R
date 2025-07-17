@@ -94,7 +94,7 @@ ui <- fluidPage(
               max = 100,
               value = 20
             ),
-            "Metabolites with more then the acceptable % of missing values will be removed from the data.",
+            "Metabolites with more than the acceptable % of missing values will be removed from the data.",
             placement = "right"
           ),
           width = 400
@@ -318,7 +318,7 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   data_raw <- reactive({
     req(input$file1)
-    colnames_original <- names(read.csv(input$file1$datapath, nrows = 1, check.names = FALSE))
+    #colnames_original <- names(read.csv(input$file1$datapath, nrows = 1, check.names = FALSE))
     df <- read.csv(input$file1$datapath, header = TRUE, check.names = FALSE)
   })
   
@@ -725,8 +725,9 @@ server <- function(input, output, session) {
       writeData(wb, sheet = "2. Drift Normalized", x = samples, startRow = 3, headerStyle = bold_style)
       
       # Add Scaled Data tab (name depends on method)
-      transformed_df <- transformed()$df  
-      #transform_method <- transformed()$str 
+      transformed_df <- transformed()$df
+      keep_cols <- setdiff(names(transformed_df), transformed()$withheld_cols)
+      transformed_df <- transformed_df[ , keep_cols]
       addWorksheet(wb, "3. Normalized")
       # TODO: add description at top of tab.
       writeData(wb, sheet = "3. Normalized", x = transformed_df, startRow = 3, headerStyle = bold_style)
