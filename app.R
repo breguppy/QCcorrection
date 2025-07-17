@@ -727,12 +727,25 @@ server <- function(input, output, session) {
       # Add Scaled Data tab (name depends on method)
       transformed_df <- transformed()$df
       keep_cols <- setdiff(names(transformed_df), transformed()$withheld_cols)
-      transformed_df <- transformed_df[ , keep_cols]
+      transformed_df <- transformed_df[transformed_df$class != "QC" , keep_cols]
       addWorksheet(wb, "3. Normalized")
       # TODO: add description at top of tab.
       writeData(wb, sheet = "3. Normalized", x = transformed_df, startRow = 3, headerStyle = bold_style)
       
       # Add 4. Grouped Data Organized
+      grouped_data <- group_stats(transformed_df)
+      addWorksheet(wb, "4. Grouped Data Organized")
+      current_row <- 3
+      for (group_name in names(grouped_data$group_dfs)) {
+        group <- grouped_data$group_dfs[[group_name]]
+        group_size <- nrow(group)
+        
+        writeData(wb, sheet = "4. Grouped Data Organized", x = group, startRow = current_row, headerStyle = bold_style)
+        current_row <- current_row + group_size + 1
+        group_stats <- grouped_data$group_stats_dfs[[group_name]]
+        writeData(wb, sheet = "4. Grouped Data Organized", x = group_stats, startRow = current_row, startCol = 2, headerStyle = bold_style)
+        current_row <- current_row + 6
+      }
       
       # Add. 5. Grouped Data Fold Change
       

@@ -578,3 +578,35 @@ transform_data <- function(df, transform, withheld_cols, ex_ISTD = FALSE) {
     withheld_cols = withheld_cols
   ))
 }
+
+group_stats <- function(df) {
+  metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
+  names(df)[names(df) == "class"] <- "Group"
+  df$batch <- NULL
+  df$order <- NULL
+  
+  group_dfs = list()
+  group_stats_dfs = list()
+  group_names <- unique(df$Group)
+  for (group_name in group_names) {
+    group_df <- df %>% filter(Group == group_name)
+    group_dfs[[group_name]] <- group_df
+    
+    means <- summarise(group_df, across(all_of(metab_cols), ~mean(., na.rm = TRUE))) %>%
+      mutate(` ` = "Mean")
+    ses <- summarise(group_df, across(all_of(metab_cols), ~sd(., na.rm = TRUE) / sqrt(sum(!is.na(.))))) %>%
+      mutate(` ` = "SE")
+    cvs <- summarise(group_df, across(all_of(metab_cols), ~sd(., na.rm = TRUE) / mean(., na.rm = TRUE))) %>%
+      mutate(` ` = "CV")
+    
+    # Bind summary rows
+    group_stats_df <- bind_rows(means, ses, cvs) %>%
+      select(` `, all_of(metab_cols))
+    group_stats_dfs[[group_name]] <- group_stats_df
+  }
+  
+  return (list(
+    group_dfs = group_dfs,
+    group_stats_dfs = group_stats_dfs
+  ))
+}
