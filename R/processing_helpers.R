@@ -610,3 +610,20 @@ group_stats <- function(df) {
     group_stats_dfs = group_stats_dfs
   ))
 }
+
+fold_changes <- function(df, control_mean) {
+  metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
+  
+  if (nrow(control_mean) != 1) {
+    stop("control_mean must contain exactly one row with metabolite means.")
+  }
+  
+  fold_change <- df
+  
+  # Divide each metabolite column by the corresponding control mean
+  for (col in metab_cols) {
+    fold_change[[col]] <- fold_change[[col]] / control_mean[[col]][1]
+  }
+  
+  return(fold_change)
+}

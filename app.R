@@ -67,18 +67,20 @@ ui <- fluidPage(
       card(
         style = "background-color: #eeeeee;",
         tags$h4("1.3 Identify Control Group"),
-        tooltip(
-          checkboxInput(
-            inputId = "no_control",
-            label = "No control group.",
-            value = FALSE
-          ),
-          "Check the box if The data does not have a control group.",
-          placement = "right"
-        ),
-        conditionalPanel(
-          "input.no_control == false",
-          uiOutput("control_class_selector")
+        fluidRow(
+          column(4, tooltip(
+            checkboxInput(
+              inputId = "no_control",
+              label = "No control group.",
+              value = FALSE
+            ),
+            "Check the box if The data does not have a control group.",
+            placement = "right"
+          )),
+          column(4, conditionalPanel(
+            "input.no_control == false",
+            uiOutput("control_class_selector")
+          ))
         )
       ),
       #-- Filter data based on missing values
@@ -728,9 +730,9 @@ server <- function(input, output, session) {
       transformed_df <- transformed()$df
       keep_cols <- setdiff(names(transformed_df), transformed()$withheld_cols)
       transformed_df <- transformed_df[transformed_df$class != "QC" , keep_cols]
-      addWorksheet(wb, "3. Normalized")
+      addWorksheet(wb, "3. Scaled or Normalized")
       # TODO: add description at top of tab.
-      writeData(wb, sheet = "3. Normalized", x = transformed_df, startRow = 3, headerStyle = bold_style)
+      writeData(wb, sheet = "3. Scaled or Normalized", x = transformed_df, startRow = 3, headerStyle = bold_style)
       
       # Add 4. Grouped Data Organized
       grouped_data <- group_stats(transformed_df)
@@ -748,8 +750,29 @@ server <- function(input, output, session) {
       }
       
       # Add. 5. Grouped Data Fold Change
+      control_stats <- grouped_data$group_stats_dfs[[input$control_class]]
+      fold_change <- fold_changes(transformed_df, control_stats[1, ])
+      group_fc_data <- group_stats(fold_change)
+      addWorksheet(wb, "5. Group Data Fold Change")
+      current_row <- 3
+      for (group_name in names(group_fc_data$group_dfs)) {
+        group <- group_fc_data$group_dfs[[group_name]]
+        group_size <- nrow(group)
+        
+        writeData(wb, sheet = "5. Group Data Fold Change", x = group, startRow = current_row, headerStyle = bold_style)
+        current_row <- current_row + group_size + 1
+        group_stats <- group_fc_data$group_stats_dfs[[group_name]]
+        writeData(wb, sheet = "5. Group Data Fold Change", x = group_stats, startRow = current_row, startCol = 2, headerStyle = bold_style)
+        current_row <- current_row + 6
+      }
       
       # Add. Appendix1. Metaboanalyst Ready
+      names(fold_change)[names(fold_change) == "sample"] <- "Sample Name"
+      names(fold_change)[names(fold_change) == "class"] <- "Group"
+      fold_change$batch <- NULL
+      fold_change$order <- NULL
+      addWorksheet(wb, "Appendix1. Metaboanalyst Ready")
+      writeData(wb, sheet = "Appendix1. Metaboanalyst Ready", x = fold_change)
        
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
