@@ -750,30 +750,41 @@ server <- function(input, output, session) {
       }
       
       # Add. 5. Grouped Data Fold Change
-      control_stats <- grouped_data$group_stats_dfs[[input$control_class]]
-      fold_change <- fold_changes(transformed_df, control_stats[1, ])
-      group_fc_data <- group_stats(fold_change)
-      addWorksheet(wb, "5. Group Data Fold Change")
-      current_row <- 3
-      for (group_name in names(group_fc_data$group_dfs)) {
-        group <- group_fc_data$group_dfs[[group_name]]
-        group_size <- nrow(group)
+      if (input$no_control == "FALSE" && input$control_class != "") {
+        control_stats <- grouped_data$group_stats_dfs[[input$control_class]]
+        fold_change <- fold_changes(transformed_df, control_stats[1, ])
+        group_fc_data <- group_stats(fold_change)
+        addWorksheet(wb, "5. Group Data Fold Change")
+        current_row <- 3
+        for (group_name in names(group_fc_data$group_dfs)) {
+          group <- group_fc_data$group_dfs[[group_name]]
+          group_size <- nrow(group)
+          
+          writeData(wb, sheet = "5. Group Data Fold Change", x = group, startRow = current_row, headerStyle = bold_style)
+          current_row <- current_row + group_size + 1
+          group_stats <- group_fc_data$group_stats_dfs[[group_name]]
+          writeData(wb, sheet = "5. Group Data Fold Change", x = group_stats, startRow = current_row, startCol = 2, headerStyle = bold_style)
+          current_row <- current_row + 6
+        }
         
-        writeData(wb, sheet = "5. Group Data Fold Change", x = group, startRow = current_row, headerStyle = bold_style)
-        current_row <- current_row + group_size + 1
-        group_stats <- group_fc_data$group_stats_dfs[[group_name]]
-        writeData(wb, sheet = "5. Group Data Fold Change", x = group_stats, startRow = current_row, startCol = 2, headerStyle = bold_style)
-        current_row <- current_row + 6
+        # Add. Appendix1. Metaboanalyst Ready
+        names(fold_change)[names(fold_change) == "sample"] <- "Sample Name"
+        names(fold_change)[names(fold_change) == "class"] <- "Group"
+        fold_change$batch <- NULL
+        fold_change$order <- NULL
+        addWorksheet(wb, "Appendix1. Metaboanalyst Ready")
+        writeData(wb, sheet = "Appendix1. Metaboanalyst Ready", x = fold_change)
+        
+      } else {
+        # Add. Appendix1. Metaboanalyst Ready
+        names(transformed_df)[names(transformed_df) == "sample"] <- "Sample Name"
+        names(transformed_df)[names(transformed_df) == "class"] <- "Group"
+        transformed_df$batch <- NULL
+        transformed_df$order <- NULL
+        addWorksheet(wb, "Appendix1. Metaboanalyst Ready")
+        writeData(wb, sheet = "Appendix1. Metaboanalyst Ready", x = transformed_df)
       }
       
-      # Add. Appendix1. Metaboanalyst Ready
-      names(fold_change)[names(fold_change) == "sample"] <- "Sample Name"
-      names(fold_change)[names(fold_change) == "class"] <- "Group"
-      fold_change$batch <- NULL
-      fold_change$order <- NULL
-      addWorksheet(wb, "Appendix1. Metaboanalyst Ready")
-      writeData(wb, sheet = "Appendix1. Metaboanalyst Ready", x = fold_change)
-       
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
     }
