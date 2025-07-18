@@ -407,6 +407,7 @@ bw_loess_correction <- function(df,
 correct_data <- function(df, metab_cols, corMethod) {
   if (corMethod == "RF") {
     correction_str <- "Random Forest"
+    parameters <- "3 models with seeds 42, 31416, 272. Final corrected data is the median value of the 3 models."
     seeds <- c(42, 31416, 272)
     df_list <- lapply(seeds, function(seed) {
       return (rf_correction(df, metab_cols, ntree = 500, seed = seed))
@@ -416,9 +417,11 @@ correct_data <- function(df, metab_cols, corMethod) {
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "LOESS") {
     correction_str <- "LOESS"
+    parameters <- "degree = 2 and span = 0.75."
     df_corrected <- loess_correction(df, metab_cols)
   } else if (corMethod == "BW_RF") {
     correction_str <- "Batchwise Random Forest"
+    parameters <- "3 models with seeds 42, 31416, 272. Final corrected data is the median value of the 3 models."
     seeds <- c(42, 31416, 272)
     df_list <- lapply(seeds, function(seed) {
       return (bw_rf_correction(df, metab_cols, ntree = 500, seed = seed))
@@ -427,12 +430,14 @@ correct_data <- function(df, metab_cols, corMethod) {
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "BW_LOESS") {
     correction_str <- "Batchwise LOESS"
+    parameters <- "degree = 2 and span = 0.75."
     df_corrected <- bw_loess_correction(df, metab_cols)
   }
   
   return(list(
     df = df_corrected,
-    str = correction_str
+    str = correction_str,
+    parameters =  parameters
     ))
 }
 

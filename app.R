@@ -654,10 +654,24 @@ server <- function(input, output, session) {
       wb <- createWorkbook()
       # make column names bold
       bold_style <- createStyle(textDecoration = "Bold")
+      # Description text style.
+      style <- createStyle(wrapText = TRUE, valign = "top", fgFill = "#f8cbad")
       
       # Add 0. Raw Data tab
       addWorksheet(wb, "0. Raw Data")
+      
+      # Add raw data
       writeData(wb, sheet = "0. Raw Data", x = filtered()$df, startRow = 3, headerStyle = bold_style)
+      
+      # Add description
+      tab0_description <- paste("Tab 0. This tab contains raw peak areas for stable isotope-labeled (13C, deuterium) internal standards (pre-fix of 0-ISTD) and detected metabolites for both pooled quality control (QC) and experimental samples (S).", 
+                                "Data within this tab are formatted for instrument drift correction using the multiply analyzed pooled QC sample.", 
+                                "Batch, class, and order are identifiers for the correction methods, with batch and class set to 1 unless different batches or sample classes are being analyzed within the same run.", 
+                                "The correction settings are shown on the next tab.")
+      writeData(wb, sheet = "0. Raw Data", x = tab0_description, startCol = 1, startRow = 1)
+      mergeCells(wb, sheet = "0. Raw Data", cols = 1:12, rows = 1)
+      addStyle(wb, sheet = "0. Raw Data", style = style, rows = 1, cols = 1, gridExpand = TRUE)
+      setRowHeights(wb, "0. Raw Data", rows = 1, heights = 60)
       
       # Add 1. Correction Settings
       correction_settings_df <- data.frame(
@@ -672,7 +686,7 @@ server <- function(input, output, session) {
           "Correction Method",
           "Remove Imputed Values After Correction?",
           "QC RSD% Threshold",
-          "Scaling/Tranformation Method"
+          "Scaling/Normalization Method"
         ),
         Values = c(
           input$sample_col,
@@ -690,7 +704,13 @@ server <- function(input, output, session) {
         stringsAsFactors = FALSE
       )
       addWorksheet(wb, "1. Correction Settings")
-      # TODO: add description at top of tab.
+      tab1_description <- paste("Tab 1. This tab contains the correction settings along a list of metabolites that were eliminated throughout the process.",
+                          "The post-QC corrected data are shown on the next tab.")
+      writeData(wb, sheet = "1. Correction Settings", x = tab1_description, startCol = 1, startRow = 1)
+      mergeCells(wb, sheet = "1. Correction Settings", cols = 1:3, rows = 1)
+      addStyle(wb, sheet = "1. Correction Settings", style = style, rows = 1, cols = 1, gridExpand = TRUE)
+      setRowHeights(wb, "1. Correction Settings", rows = 1, heights = 60)
+      
       writeData(wb, sheet = "1. Correction Settings", x = correction_settings_df, startRow = 3, startCol = 1, headerStyle = bold_style)
       
       # Append Missing Value Filtered Metabolites
@@ -700,6 +720,10 @@ server <- function(input, output, session) {
           stringsAsFactors = FALSE
         )
         writeData(wb, "1. Correction Settings", x = mv_df, startRow = 3, startCol = 4, headerStyle = bold_style)
+        width_vec <- apply(mv_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
+        width_vec_header <- nchar(colnames(mv_df)) + 2
+        max_width_vec <- pmax(width_vec, width_vec_header) 
+        setColWidths(wb, sheet = "1. Correction Settings", cols = 4, widths = max_width_vec)
       }
       
       # Append QC RSD Filtered Metabolites
@@ -709,21 +733,47 @@ server <- function(input, output, session) {
           stringsAsFactors = FALSE
         )
         writeData(wb, "1. Correction Settings", x = rsd_df, startRow = 3, startCol = 6, headerStyle = bold_style)
+        width_vec <- apply(rsd_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
+        width_vec_header <- nchar(colnames(rsd_df)) + 2
+        max_width_vec <- pmax(width_vec, width_vec_header) 
+        setColWidths(wb, sheet = "1. Correction Settings", cols = 6, widths = max_width_vec)
       }
       
       if (transformed()$str == "TRN" && length(transformed()$withheld_cols) > 0) {
         ex_trn <- data.frame(
-          Exculded_In_TRN = transformed()$withheld_cols,
+          Exculded_From_TRN = transformed()$withheld_cols,
           stringsAsFactors = FALSE
         )
         writeData(wb, "1. Correction Settings", x = ex_trn, startRow = 3, startCol = 8, headerStyle = bold_style)
+        width_vec <- apply(ex_trn, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
+        width_vec_header <- nchar(colnames(ex_trn)) + 2
+        max_width_vec <- pmax(width_vec, width_vec_header) 
+        setColWidths(wb, sheet = "1. Correction Settings", cols = 8, widths = max_width_vec)
       }
+      
+      width_vec <- apply(correction_settings_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
+      width_vec_header <- nchar(colnames(correction_settings_df)) + 2
+      max_width_vec <- pmax(width_vec, width_vec_header) 
+      setColWidths(wb, sheet = "1. Correction Settings", cols = 1:2, widths = max_width_vec)
       
       # Add 2. Drift Normalized tab
       corrected_df <- filtered_corrected()$df
+      tab2_description <- paste("Tab 2. This tab shows instrument drift corrected values for metabolite levels in experimental samples. The correction method used was", 
+                                corrected()$str,"with parameters", 
+                                corrected()$parameters, 
+                                "This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",  
+                                "This corrects for normal instrument drift during the run.", 
+                                "It produces relative metabolite level values in arbitrary units.",
+                                "For a given metabolite across the entire run, these values average close to 1 for most metabolites.",
+                                "These data are further normalized on the next tab.")
       samples <- corrected_df[corrected_df$class != "QC", ]
       addWorksheet(wb, "2. Drift Normalized")
-      # TODO: add description at top of tab.
+      
+      writeData(wb, sheet = "2. Drift Normalized", x = tab2_description, startCol = 1, startRow = 1)
+      mergeCells(wb, sheet = "2. Drift Normalized", cols = 1:16, rows = 1)
+      addStyle(wb, sheet = "2. Drift Normalized", style = style, rows = 1, cols = 1, gridExpand = TRUE)
+      setRowHeights(wb, "2. Drift Normalized", rows = 1, heights = 60)
+      
       writeData(wb, sheet = "2. Drift Normalized", x = samples, startRow = 3, headerStyle = bold_style)
       
       # Add Scaled Data tab (name depends on method)
@@ -731,12 +781,40 @@ server <- function(input, output, session) {
       keep_cols <- setdiff(names(transformed_df), transformed()$withheld_cols)
       transformed_df <- transformed_df[transformed_df$class != "QC" , keep_cols]
       addWorksheet(wb, "3. Scaled or Normalized")
-      # TODO: add description at top of tab.
-      writeData(wb, sheet = "3. Scaled or Normalized", x = transformed_df, startRow = 3, headerStyle = bold_style)
+      TRN_description <- paste("Tab 3. This tab shows metabolite level values ratiometrically normalized to total metabolite signal on a per sample basis.", 
+                          "This normalization is done by summing all individual post-QC corrected metabolite level values within a sample (total signal) and then dividing each individual metabolite level value within that sample by the total signal.", 
+                          "This normalization quantifies individual metabolite values across samples based on their proportion to total metabolite load, in arbitrary units, within each individual sample.", 
+                          "These values are displayed on this tab after multiplying by the total number of metabolites present in the sample for easier visualization. Data remain in arbitrary units.", 
+                          "Because arbitary units for a given metabolite quantitatively scale across samples, levels of a given metabolite may be quantiatively compared across samples.",
+                          "Because unit scaling is different for each metabolite, different metabolites within in a sample cannot be quantitatively compared.", 
+                          "However, because differences in arbitrary unit scaling between samples cancel out by divsion, within-sample metabolite ratios can be quantitatively compared across samples.")
+      Log2_description <- "Tab 3. This tab shows the log 2 transformed metabolite level values."
+      none_description <- "Tab 3. No scaling or normalization method has been applied to the data."
+      if (input$transform == "TRN") {
+        tab3_description <- TRN_description
+      } else if (input$transform == "Log2") {
+        tab3_description <- Log2_description
+      } else {
+        tab3_description <- none_description
+      }
+      writeData(wb, sheet = "3. Scaled or Normalized", x = tab3_description, startCol = 1, startRow = 1)
+      mergeCells(wb, sheet = "3. Scaled or Normalized", cols = 1:22, rows = 1)
+      addStyle(wb, sheet = "3. Scaled or Normalized", style = style, rows = 1, cols = 1, gridExpand = TRUE)
+      setRowHeights(wb, "3. Scaled or Normalized", rows = 1, heights = 80)
       
+      writeData(wb, sheet = "3. Scaled or Normalized", x = transformed_df, startRow = 3, headerStyle = bold_style)
+
       # Add 4. Grouped Data Organized
       grouped_data <- group_stats(transformed_df)
       addWorksheet(wb, "4. Grouped Data Organized")
+      tab4_description <- paste("Tab 4. This tab shows post-scaled/normalized metabolite level values sorted by group, with group means, standard erorrs (SE), and coefficients of variation (CV) shown.",  
+                          "Because the Metabolomics Core does not perform formal statistical analysis, these statistical analyses are shown for your convenience and quick appraisal of the data.", 
+                          "For publication, data should be analyzed according to the standards of your field, including with the help of a statistician when needed.")
+      writeData(wb, sheet = "4. Grouped Data Organized", x = tab4_description, startCol = 1, startRow = 1)
+      mergeCells(wb, sheet = "4. Grouped Data Organized", cols = 1:12, rows = 1)
+      addStyle(wb, sheet = "4. Grouped Data Organized", style = style, rows = 1, cols = 1, gridExpand = TRUE)
+      setRowHeights(wb, "4. Grouped Data Organized", rows = 1, heights = 60)
+      
       current_row <- 3
       for (group_name in names(grouped_data$group_dfs)) {
         group <- grouped_data$group_dfs[[group_name]]
@@ -754,16 +832,26 @@ server <- function(input, output, session) {
         control_stats <- grouped_data$group_stats_dfs[[input$control_class]]
         fold_change <- fold_changes(transformed_df, control_stats[1, ])
         group_fc_data <- group_stats(fold_change)
-        addWorksheet(wb, "5. Group Data Fold Change")
+        addWorksheet(wb, "5. Grouped Data Fold Change")
+        tab5_description <- paste("Tab 5. This tab shows post-ratiometrically normalized metabolite level values expressed in terms of fold change relative to the", 
+                                  input$control_class, "group mean.",
+                                  "These values have been sorted by group, with group means, standard errors (SE), and coefficients of variation (CV) shown.",
+                                  "Because the Metabolomics Core does not perform formal statistical analysis, these statistical analyses are shown for your convenience and quick appraisal of the data.",
+                                  "For publication, data should be analyzed according to the standards of your field, including with the help of a statistician when needed.")
+        writeData(wb, sheet = "5. Grouped Data Fold Change", x = tab5_description, startCol = 1, startRow = 1)
+        mergeCells(wb, sheet = "5. Grouped Data Fold Change", cols = 1:12, rows = 1)
+        addStyle(wb, sheet = "5. Grouped Data Fold Change", style = style, rows = 1, cols = 1, gridExpand = TRUE)
+        setRowHeights(wb, "5. Grouped Data Fold Change", rows = 1, heights = 60)
+        
         current_row <- 3
         for (group_name in names(group_fc_data$group_dfs)) {
           group <- group_fc_data$group_dfs[[group_name]]
           group_size <- nrow(group)
           
-          writeData(wb, sheet = "5. Group Data Fold Change", x = group, startRow = current_row, headerStyle = bold_style)
+          writeData(wb, sheet = "5. Grouped Data Fold Change", x = group, startRow = current_row, headerStyle = bold_style)
           current_row <- current_row + group_size + 1
           group_stats <- group_fc_data$group_stats_dfs[[group_name]]
-          writeData(wb, sheet = "5. Group Data Fold Change", x = group_stats, startRow = current_row, startCol = 2, headerStyle = bold_style)
+          writeData(wb, sheet = "5. Grouped Data Fold Change", x = group_stats, startRow = current_row, startCol = 2, headerStyle = bold_style)
           current_row <- current_row + 6
         }
         
@@ -774,6 +862,7 @@ server <- function(input, output, session) {
         fold_change$order <- NULL
         addWorksheet(wb, "Appendix1. Metaboanalyst Ready")
         writeData(wb, sheet = "Appendix1. Metaboanalyst Ready", x = fold_change)
+        setColWidths(wb, sheet = "Appendix1. Metaboanalyst Ready", cols = 1:2, widths = "auto")
         
       } else {
         # Add. Appendix1. Metaboanalyst Ready
@@ -783,6 +872,7 @@ server <- function(input, output, session) {
         transformed_df$order <- NULL
         addWorksheet(wb, "Appendix1. Metaboanalyst Ready")
         writeData(wb, sheet = "Appendix1. Metaboanalyst Ready", x = transformed_df)
+        setColWidths(wb, sheet = "Appendix1. Metaboanalyst Ready", cols = 1:2, widths = "auto")
       }
       
       # Save to file
