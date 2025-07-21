@@ -241,7 +241,7 @@ corrected_file_download <- function(input, filtered, imputed, corrected, filtere
 }
 
 #-- Download figure zip
-figure_folder_download <- function(input, filtered, filtered_corrected) {
+figure_folder_download <- function(input, imputed, filtered, filtered_corrected) {
   # create temp folder for figures
   tmp_dir <- tempdir()
   fig_dir <- file.path(tmp_dir, "figures")
@@ -254,7 +254,11 @@ figure_folder_download <- function(input, filtered, filtered_corrected) {
     unlink(rsd_fig_dir, recursive = TRUE)
   dir.create(rsd_fig_dir)
   
-  #TODO: save RSD files in RSD_fig_dir
+  # create PCA figure folder
+  pca_fig_dir <- file.path(fig_dir, "PCA plots")
+  if (dir.exists((pca_fig_dir)))
+    unlink(pca_fig_dir, recursive = TRUE)
+  dir.create(pca_fig_dir)
   
   # create metabolite figure folder
   met_fig_dir <- file.path(fig_dir, "metabolite figures")
@@ -283,6 +287,25 @@ figure_folder_download <- function(input, filtered, filtered_corrected) {
   } else if (input$fig_format == "pdf") {
     ggsave(rsd_path,
            plot = rsd_fig,
+           width = 16,
+           height = 8)
+  }
+  
+  # Create PCA plots
+  pca_fig <- plot_pca(imputed, filtered_corrected, input$color_col)
+  pca_path <- file.path(pca_fig_dir,
+                        paste0("pca_comparison_", input$color_col, ".", input$fig_format))
+  if (input$fig_format == "png") {
+    ggsave(
+      pca_path,
+      plot = pca_fig,
+      width = 16,
+      height = 8,
+      dpi = 300
+    )
+  } else if (input$fig_format == "pdf") {
+    ggsave(pca_path,
+           plot = pca_fig,
            width = 16,
            height = 8)
   }

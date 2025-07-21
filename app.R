@@ -277,6 +277,19 @@ ui <- fluidPage(
       )),
       card(layout_sidebar(
         sidebar = sidebar(
+          tags$h4("3.2 PCA Evaluation"),
+          radioButtons(
+            inputId = "color_col",
+            label = "Color PCA by",
+            choices = list("batch" = "batch", "class" = "class"),
+            selected = "batch"
+          ),
+          width = 400,
+        ),
+        plotOutput("pca_plot", height = "600px", width = "1100px")
+      )),
+      card(layout_sidebar(
+        sidebar = sidebar(
           #--- plot metabolite
           tags$h4("3.2 Metabolite Scatter plots"),
           uiOutput("met_plot_selectors"),
@@ -699,6 +712,12 @@ server <- function(input, output, session) {
     }
   })
   
+  #-- PCA plot
+  output$pca_plot <- renderPlot({
+    req(imputed(), filtered_corrected())
+    plot_pca(imputed(), filtered_corrected(), input$color_col)
+  })
+  
   #-- Let user select which metabolite to display in scatter plot
   output$met_plot_selectors <- renderUI({
     req(filtered(), transformed())
@@ -759,13 +778,12 @@ server <- function(input, output, session) {
       tags$span(sprintf("%.0f%%", progress_reactive() * 100))
     )
   })
-  
   output$download_fig_zip <- downloadHandler(
     filename = function() {
       paste0("figures_", Sys.Date(), ".zip")
     },
     content = function(file) {
-      figs <- figure_folder_download(input, filtered(), filtered_corrected())
+      figs <- figure_folder_download(input, imputed(), filtered(), filtered_corrected())
       
       zipfile <- tempfile(fileext = ".zip")
       old_wd <- setwd(figs$tmp_dir)
