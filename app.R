@@ -263,6 +263,7 @@ ui <- fluidPage(
       title = "3. Evaluation Metrics and Visualization",
       
       card(layout_sidebar(
+        # RSD Plots
         sidebar = sidebar(
           tags$h4("3.1 RSD Evaluation"),
           radioButtons(
@@ -277,6 +278,7 @@ ui <- fluidPage(
       )),
       card(layout_sidebar(
         sidebar = sidebar(
+          #-- PCA plots
           tags$h4("3.2 PCA Evaluation"),
           radioButtons(
             inputId = "color_col",
@@ -291,7 +293,7 @@ ui <- fluidPage(
       card(layout_sidebar(
         sidebar = sidebar(
           #--- plot metabolite
-          tags$h4("3.2 Metabolite Scatter plots"),
+          tags$h4("3.4 Metabolite Scatter plots"),
           uiOutput("met_plot_selectors"),
           width = 400,
         ),
@@ -299,6 +301,7 @@ ui <- fluidPage(
       )),
       card(
         layout_sidebar(
+          #-- select figure format
           sidebar = sidebar(
             tooltip(
               radioButtons(
@@ -715,7 +718,7 @@ server <- function(input, output, session) {
   #-- PCA plot
   output$pca_plot <- renderPlot({
     req(imputed(), filtered_corrected())
-    plot_pca(imputed(), filtered_corrected(), input$color_col)
+    plot_pca(input, imputed(), filtered_corrected(), input$color_col)
   })
   
   #-- Let user select which metabolite to display in scatter plot

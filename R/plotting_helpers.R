@@ -317,12 +317,18 @@ cummulative_met_rsd_auc <- function(df_after) {
 
 
 # PCA plots:
-plot_pca <- function(imputed, filtered_corrected, color_col) {
+plot_pca <- function(input, imputed, filtered_corrected, color_col) {
   meta_cols <- c("sample", "batch", "class", "order")
   metab_cols1 <- setdiff(names(imputed$df), meta_cols)
   metab_cols2 <- setdiff(names(filtered_corrected$df), meta_cols)
   metab_cols <- intersect(metab_cols1, metab_cols2)
   
+  if (any(is.na(filtered_corrected$df[metab_cols]))) {
+    results <- impute_missing(filtered_corrected$df, metab_cols, input$qcImputeM, input$samImputeM)
+    after_df <- results$df
+  } else {
+    after_df <- filtered_corrected$df
+  }
   # before PCA
   before_pca_result <- prcomp(imputed$df[, metab_cols], center = TRUE, scale. = TRUE)
   before_pca_df <- as.data.frame(before_pca_result$x[, 1:2])
@@ -330,10 +336,10 @@ plot_pca <- function(imputed, filtered_corrected, color_col) {
   before_pca_df <- bind_cols(before_pca_df, imputed$df[meta_cols])
   
   # After PCA
-  after_pca_result <- prcomp(filtered_corrected$df[, metab_cols], center = TRUE, scale. = TRUE)
+  after_pca_result <- prcomp(after_df[, metab_cols], center = TRUE, scale. = TRUE)
   after_pca_df <- as.data.frame(after_pca_result$x[, 1:2])
   colnames(after_pca_df) <- c("PC1", "PC2")
-  after_pca_df <- bind_cols(after_pca_df, filtered_corrected$df[meta_cols])
+  after_pca_df <- bind_cols(after_pca_df, after_df[meta_cols])
   
   # Combine scores for consistent axis scaling
   combined <- bind_rows(before_pca_df, after_pca_df)
