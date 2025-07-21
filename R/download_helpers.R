@@ -2,6 +2,7 @@
 library(openxlsx)
 
 
+#-- Downloads corrected data file.
 corrected_file_download <- function(input, filtered, imputed, corrected, filtered_corrected, transformed) {
   # Create a new workbook
   wb <- createWorkbook()
@@ -237,4 +238,101 @@ corrected_file_download <- function(input, filtered, imputed, corrected, filtere
   }
   
   return(wb)
+}
+
+#-- Download figure zip
+figure_folder_download <- function(input, filtered, filtered_corrected) {
+  # create temp folder for figures
+  tmp_dir <- tempdir()
+  fig_dir <- file.path(tmp_dir, "figures")
+  if (dir.exists(fig_dir))
+    unlink(fig_dir, recursive = TRUE)
+  dir.create(fig_dir)
+  # create RSD figure folder
+  rsd_fig_dir <- file.path(fig_dir, "RSD figures")
+  if (dir.exists(rsd_fig_dir))
+    unlink(rsd_fig_dir, recursive = TRUE)
+  dir.create(rsd_fig_dir)
+  
+  #TODO: save RSD files in RSD_fig_dir
+  
+  # create metabolite figure folder
+  met_fig_dir <- file.path(fig_dir, "metabolite figures")
+  if (dir.exists(met_fig_dir))
+    unlink(met_fig_dir, recursive = TRUE)
+  dir.create(met_fig_dir)
+  
+  # create RSD plots
+  if (input$rsd_cal == "met") {
+    rsd_fig <- plot_rsd_comparison(filtered$df,
+                                   filtered_corrected$df)
+  } else if (input$rsd_cal == "class_met") {
+    rsd_fig <- plot_rsd_comparison_class_met(filtered$df,
+                                             filtered_corrected$df)
+  }
+  rsd_path <- file.path(rsd_fig_dir,
+                        paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
+  if (input$fig_format == "png") {
+    ggsave(
+      rsd_path,
+      plot = rsd_fig,
+      width = 16,
+      height = 8,
+      dpi = 300
+    )
+  } else if (input$fig_format == "pdf") {
+    ggsave(rsd_path,
+           plot = rsd_fig,
+           width = 16,
+           height = 8)
+  }
+  
+  # create metabolite scatter plots
+  raw_cols <- setdiff(names(filtered$df),
+                      c("sample", "batch", "class", "order"))
+  cor_cols <- setdiff(names(filtered_corrected$df),
+                      c("sample", "batch", "class", "order"))
+  cols <- intersect(raw_cols, cor_cols)
+  n <- length(cols)
+  withProgress(message = "Creating figures...", value = 0, {
+    for (i in seq_along(cols)) {
+      metab <- cols[i]
+      if (input$corMethod %in% c("RF", "BW_RF")) {
+        fig <- met_scatter_rf(
+          data_raw = filtered$df,
+          data_cor = filtered_corrected$df,
+          i = metab
+        )
+      } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
+        fig <- met_scatter_loess(
+          data_raw = filtered$df,
+          data_cor = filtered_corrected$df,
+          i = metab
+        )
+      }
+      metab <- sanitize_figname(metab)
+      path <- file.path(met_fig_dir, paste0(metab, ".", input$fig_format))
+      if (input$fig_format == "png") {
+        ggsave(
+          path,
+          plot = fig,
+          width = 8,
+          height = 8,
+          dpi = 300
+        )
+      } else if (input$fig_format == "pdf") {
+        ggsave(path,
+               plot = fig,
+               width = 8,
+               height = 8)
+      }
+      incProgress(1 / n, detail = paste("Saved:", metab))
+    }
+  })
+  
+  return (list(
+    tmp_dir = tmp_dir,
+    fig_dir = fig_dir
+  ))
+  
 }

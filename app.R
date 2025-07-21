@@ -328,16 +328,17 @@ ui <- fluidPage(
 
 # Define server
 server <- function(input, output, session) {
+  #-- Import Raw Data
   data_raw <- reactive({
     req(input$file1)
     #colnames_original <- names(read.csv(input$file1$datapath, nrows = 1, check.names = FALSE))
     df <- read.csv(input$file1$datapath, header = TRUE, check.names = FALSE)
   })
   
-  #––  preview
+  #–– View Raw Data
   output$contents <- renderTable(data_raw())
   
-  #–– column selection & warning
+  #–– Column selection & warnings
   output$column_selectors <- renderUI({
     req(data_raw())
     cols <- names(data_raw())
@@ -396,6 +397,7 @@ server <- function(input, output, session) {
     columnWarningUI(data_raw(), selected)
   })
   
+  #-- Option to withhold more columns form correction.
   observe({
     req(data_raw())
     
@@ -413,7 +415,6 @@ server <- function(input, output, session) {
       }
     })
   })
-  
   output$withhold_selectors_ui <- renderUI({
     req(data_raw(), input$withhold_cols, input$n_withhold)
     cols <- names(data_raw())
@@ -426,7 +427,7 @@ server <- function(input, output, session) {
                     ))
     dropdown_choices <- c("Select a column..." = "", cols)
     
-    # Generate list of selectInputs
+    # Generate list of columns to withhold from correction.
     lapply(seq_len(input$n_withhold), function(i) {
       selectInput(
         inputId = paste0("withhold_col_", i),
@@ -437,7 +438,7 @@ server <- function(input, output, session) {
     })
   })
   
-  #–– cleaned data
+  #–– Cleaned data
   cleaned <- reactive({
     sel <- c(input$sample_col,
              input$batch_col,
@@ -460,14 +461,14 @@ server <- function(input, output, session) {
     cleanData(df, sel[1], sel[2], sel[3], sel[4])
   })
   
-  #–– basic info
+  #–– Display Basic Information about data.
   output$basic_info <- renderUI({
     cleaned_data <- cleaned()
     req(cleaned_data)
     basicInfoUI(cleaned_data$df, cleaned_data$replacement_counts)
   })
   
- 
+ #-- Select a control class for fold change comparisons in corrected data.
   output$control_class_selector <- renderUI({
     req(cleaned())
     df <- cleaned()$df
@@ -481,12 +482,12 @@ server <- function(input, output, session) {
         choices = dropdown_choices,
         selected = ""
       ),
-      "Name of control samples in class column.",
+      "Name of control samples in class column. This class's average will be used to compute fold changes in the corrected data file.",
       placement = "right"
     )
   })
   
-  #–– filter step
+  #–– Filter Data based on missing values.
   filtered <- reactive({
     cleaned_data <- cleaned()
     req(cleaned_data)
@@ -505,34 +506,39 @@ server <- function(input, output, session) {
   observeEvent(input$next_correction, {
     updateTabsetPanel(session, "main_steps", "2. Correction Settings")
   })
+  
+  #-- QC missing value warning and impute options.
   output$qc_missing_value_warning <- renderUI({
     req(filtered())
     qcMissingValueWarning(filtered()$df)
   })
-  
   output$qcImpute <- renderUI({
     req(filtered())
     metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
     qcImputeUI(filtered()$df, metab_cols)
   })
   
+  #-- Sample missing value impute options.
   output$sampleImpute <- renderUI({
     req(filtered())
     metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
     sampleImputeUI(filtered()$df, metab_cols)
   })
   
+  #-- Select correction method based on whats available for the data.
   output$correctionMethod <- renderUI({
     req(filtered())
     correctionMethodUI(filtered()$df)
   })
   
+  #-- Display unavailable options
   output$unavailable_options <- renderUI({
     req(filtered())
     metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
     unavailableOptionsUI(filtered()$df, metab_cols)
   })
   
+  #-- Impute missing values
   imputed <- reactive({
     req(filtered())
     metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
@@ -552,6 +558,7 @@ server <- function(input, output, session) {
                    qcImpute, samImpute)
   })
   
+  #-- Corrected data 
   corrected <- eventReactive(input$correct, {
     req(imputed())
     
@@ -563,6 +570,7 @@ server <- function(input, output, session) {
                  input$corMethod)
   })
   
+  #-- Filter corrected data
   filtered_corrected <- reactive({
     req(filtered(), corrected())
     df_corrected <- corrected()$df
@@ -582,6 +590,7 @@ server <- function(input, output, session) {
     }
   })
   
+  #-- Option to withhold columns from TRN
   observe({
     req(corrected(), input$trn_withhold_checkbox)
     
@@ -599,14 +608,13 @@ server <- function(input, output, session) {
       }
     })
   })
-  
   output$trn_withhold_selectors_ui <- renderUI({
     req(corrected(), input$trn_withhold_n)
     cols <- names(corrected()$df)
     cols <- setdiff(cols, c("sample", "batch", "class", "order"))
     dropdown_choices <- c("Select a column..." = "", cols)
     
-    # Generate list of selectInputs
+    # Generate list of columns to withhold
     lapply(seq_len(input$trn_withhold_n), function(i) {
       selectInput(
         inputId = paste0("trn_withhold_col_", i),
@@ -617,6 +625,7 @@ server <- function(input, output, session) {
     })
   })
   
+  #-- Scale/Normalize corrected data.
   transformed <- reactive({
     req(filtered_corrected())
     withheld_cols <- character(0)
@@ -632,16 +641,17 @@ server <- function(input, output, session) {
     transform_data(filtered_corrected()$df, input$transform, withheld_cols, input$ex_ISTD)
   })
   
+  #-- Display corrected/transformed data and information.
   output$post_cor_filter_info <- renderUI({
     req(filtered_corrected())
     postCorFilterInfoUI(filtered_corrected())
   })
-  
   output$cor_data <- renderTable({
     req(transformed())
     transformed()$df
   })
   
+  #-- Download corrected data file only.
   output$download_corr_btn <- renderUI({
     req(transformed())
     
@@ -654,7 +664,6 @@ server <- function(input, output, session) {
       )
     )
   })
-  
   output$download_corr_data <- downloadHandler(
     filename = function() {
       paste0("corrected_data_", Sys.Date(), ".xlsx")
@@ -721,8 +730,9 @@ server <- function(input, output, session) {
       )
     }
   })
+  
+  #-- Download all figures as zip folder.
   output$download_fig_zip_btn <- renderUI({
-    
     req(transformed())
     
     div(
@@ -755,97 +765,12 @@ server <- function(input, output, session) {
       paste0("figures_", Sys.Date(), ".zip")
     },
     content = function(file) {
-      # create temp folder for figures
-      tmp_dir <- tempdir()
-      fig_dir <- file.path(tmp_dir, "figures")
-      if (dir.exists(fig_dir))
-        unlink(fig_dir, recursive = TRUE)
-      dir.create(fig_dir)
-      # create RSD figure folder
-      rsd_fig_dir <- file.path(fig_dir, "RSD figures")
-      if (dir.exists(rsd_fig_dir))
-        unlink(rsd_fig_dir, recursive = TRUE)
-      dir.create(rsd_fig_dir)
+      figs <- figure_folder_download(input, filtered(), filtered_corrected())
       
-      # create metabolite figure folder
-      met_fig_dir <- file.path(fig_dir, "metabolite figures")
-      if (dir.exists(met_fig_dir))
-        unlink(met_fig_dir, recursive = TRUE)
-      dir.create(met_fig_dir)
-      
-      # create RSD plots
-      if (input$rsd_cal == "met") {
-        rsd_fig <- plot_rsd_comparison(filtered()$df,
-                                       filtered_corrected()$df)
-      } else if (input$rsd_cal == "class_met") {
-        rsd_fig <- plot_rsd_comparison_class_met(filtered()$df,
-                                                 filtered_corrected()$df)
-      }
-      rsd_path <- file.path(rsd_fig_dir,
-                            paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
-      if (input$fig_format == "png") {
-        ggsave(
-          rsd_path,
-          plot = rsd_fig,
-          width = 16,
-          height = 8,
-          dpi = 300
-        )
-      } else if (input$fig_format == "pdf") {
-        ggsave(rsd_path,
-               plot = rsd_fig,
-               width = 16,
-               height = 8)
-      }
-      
-      # create metabolite scatter plots
-      raw_cols <- setdiff(names(filtered()$df),
-                          c("sample", "batch", "class", "order"))
-      cor_cols <- setdiff(names(filtered_corrected()$df),
-                          c("sample", "batch", "class", "order"))
-      cols <- intersect(raw_cols, cor_cols)
-      n <- length(cols)
-      withProgress(message = "Creating figures...", value = 0, {
-        for (i in seq_along(cols)) {
-          metab <- cols[i]
-          if (input$corMethod %in% c("RF", "BW_RF")) {
-            fig <- met_scatter_rf(
-              data_raw = filtered()$df,
-              data_cor = filtered_corrected()$df,
-              i = metab
-            )
-          } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
-            fig <- met_scatter_loess(
-              data_raw = filtered()$df,
-              data_cor = filtered_corrected()$df,
-              i = metab
-            )
-          }
-          metab <- sanitize_figname(metab)
-          path <- file.path(met_fig_dir, paste0(metab, ".", input$fig_format))
-          if (input$fig_format == "png") {
-            ggsave(
-              path,
-              plot = fig,
-              width = 8,
-              height = 8,
-              dpi = 300
-            )
-          } else if (input$fig_format == "pdf") {
-            ggsave(path,
-                   plot = fig,
-                   width = 8,
-                   height = 8)
-          }
-          incProgress(1 / n, detail = paste("Saved:", metab))
-        }
-      })
-      
-      # Zip the folder
       zipfile <- tempfile(fileext = ".zip")
-      old_wd <- setwd(tmp_dir)
+      old_wd <- setwd(figs$tmp_dir)
       on.exit({
-        unlink(fig_dir, recursive = TRUE)
+        unlink(figs$fig_dir, recursive = TRUE)
         unlink(zipfile)
         setwd(old_wd)
       }, add = TRUE)
@@ -858,11 +783,16 @@ server <- function(input, output, session) {
       progress_reactive(0)
     }
   )
+  
+  #-- Move to next tab after inspecting the corrected data figures
   observeEvent(input$next_export, {
     updateTabsetPanel(session,
                       "main_steps",
                       "4. Export Corrected Data and Plots")
   })
+  
+  #-- Allow user to download corrected data, figures, and correction report.
+  
 }
 
 
