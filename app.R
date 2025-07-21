@@ -237,6 +237,15 @@ ui <- fluidPage(
             tableOutput("cor_data") %>% withSpinner(color = "#404040")
           ),
           uiOutput("post_cor_filter_info") %>% withSpinner(color = "#404040"),
+          tooltip(
+            checkboxInput(
+              inputId = "keep_corrected_qcs",
+              label = "Include QCs in corrected data file.",
+              value = FALSE
+            ),
+            "Check the box if you want corrected QC values in the downloaded corrected data file.",
+            placement = "right"
+          ),
           uiOutput("download_corr_btn", container = div, style = "position: absolute; bottom: 15px; right: 15px;")
         ),
       ),

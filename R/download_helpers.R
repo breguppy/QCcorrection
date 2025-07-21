@@ -39,7 +39,8 @@ corrected_file_download <- function(input, filtered, imputed, corrected, filtere
       "Correction Method",
       "Remove Imputed Values After Correction?",
       "QC RSD% Threshold",
-      "Scaling/Normalization Method"
+      "Scaling/Normalization Method",
+      "Keep Corrected QCs"
     ),
     Values = c(
       input$sample_col,
@@ -52,7 +53,8 @@ corrected_file_download <- function(input, filtered, imputed, corrected, filtere
       corrected$str,
       input$remove_imputed,
       paste0(filtered_corrected$rsd_cutoff, "%"),
-      transformed$str
+      transformed$str,
+      input$keep_corrected_qcs
     ),
     stringsAsFactors = FALSE
   )
@@ -119,7 +121,9 @@ corrected_file_download <- function(input, filtered, imputed, corrected, filtere
                             "It produces relative metabolite level values in arbitrary units.",
                             "For a given metabolite across the entire run, these values average close to 1 for most metabolites.",
                             "These data are further normalized on the next tab.")
-  samples <- corrected_df[corrected_df$class != "QC", ]
+  if (!input$keep_corrected_qcs) {
+    corrected_df <- corrected_df[corrected_df$class != "QC", ]
+  }
   addWorksheet(wb, "2. Drift Normalized")
   
   writeData(wb, sheet = "2. Drift Normalized", x = tab2_description, startCol = 1, startRow = 1)
@@ -127,12 +131,16 @@ corrected_file_download <- function(input, filtered, imputed, corrected, filtere
   addStyle(wb, sheet = "2. Drift Normalized", style = style, rows = 1, cols = 1, gridExpand = TRUE)
   setRowHeights(wb, "2. Drift Normalized", rows = 1, heights = 60)
   
-  writeData(wb, sheet = "2. Drift Normalized", x = samples, startRow = 3, headerStyle = bold_style)
+  writeData(wb, sheet = "2. Drift Normalized", x = corrected_df, startRow = 3, headerStyle = bold_style)
   
   # Add Scaled Data tab (name depends on method)
   transformed_df <- transformed$df
   keep_cols <- setdiff(names(transformed_df), transformed$withheld_cols)
-  transformed_df <- transformed_df[transformed_df$class != "QC" , keep_cols]
+  if (!input$keep_corrected_qcs) {
+    transformed_df <- transformed_df[transformed_df$class != "QC", keep_cols]
+  } else {
+    transformed_df <- transformed_df[, keep_cols]
+  }
   addWorksheet(wb, "3. Scaled or Normalized")
   TRN_description <- paste("Tab 3. This tab shows metabolite level values ratiometrically normalized to total metabolite signal on a per sample basis.", 
                            "This normalization is done by summing all individual post-QC corrected metabolite level values within a sample (total signal) and then dividing each individual metabolite level value within that sample by the total signal.", 
