@@ -344,7 +344,7 @@ ui <- fluidPage(
       card_title("Download Data and Plots"),
       tags$span("TODO: Describe what will be downloaded and the format."),
       downloadButton(
-        outputId = "download_all",
+        outputId = "download_all_zip",
         label = "Download All",
         class = "btn-primary btn-lg"
       ),
@@ -838,6 +838,52 @@ server <- function(input, output, session) {
   })
   
   #-- Allow user to download corrected data, figures, and correction report.
+  output$download_all_zip <- downloadHandler(
+    filename = function() {
+      paste0("corrected_data_plots_report_", Sys.Date(), ".zip")
+    },
+    content = function(file) {
+      base_dir <- tempfile()
+      dir.create(base_dir)
+      
+      # 1. create and save corrected data file
+      cor_data_filename <- paste0("corrected_data_", Sys.Date(), ".xlsx")
+      cor_data_path <- file.path(base_dir, cor_data_filename)
+      wb <- corrected_file_download(
+        input,
+        cleaned(),
+        filtered(),
+        imputed(),
+        corrected(),
+        filtered_corrected(),
+        transformed()
+      )
+      saveWorkbook(wb, cor_data_path, overwrite = TRUE)
+      
+      # 2. create and save figure folder
+      fig_info <- figure_folder_download(input, imputed(), filtered(), filtered_corrected())
+      fig_dir <- fig_info$fig_dir
+      figures_path <- file.path(base_dir, "figures")
+      dir.create(figures_path)
+      file.copy(from = list.files(fig_dir, full.names = TRUE),
+                to = figures_path,
+                recursive = TRUE)
+      
+      # make zip file
+      zipfile <- tempfile(fileext = ".zip")
+      old_wd <- setwd(base_dir)
+      on.exit({
+        unlink(base_dir, recursive = TRUE)
+        unlink(zipfile)
+        setwd(old_wd)
+      }, add = TRUE)
+      zip(zipfile = zipfile,
+          files = list.files(base_dir),
+          extras = "-r9Xq")
+      
+      file.copy(zipfile, file)
+    }
+  )
   
 }
 
