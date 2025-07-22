@@ -41,6 +41,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
       "Remove Imputed Values After Correction?",
       "QC RSD% Threshold",
       "Scaling/Normalization Method",
+      "Exclude ISTD in Scaling/Normalization",
       "Keep Corrected QCs"
     ),
     Values = c(
@@ -55,6 +56,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
       input$remove_imputed,
       paste0(filtered_corrected$rsd_cutoff, "%"),
       transformed$str,
+      input$ex_ISTD,
       input$keep_corrected_qcs
     ),
     stringsAsFactors = FALSE
@@ -108,9 +110,9 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
     current_col <- current_col + 2
   }
   
-  if (transformed$str == "TRN" && length(transformed$withheld_cols) > 0) {
+  if (length(transformed$withheld_cols) > 0) {
     ex_trn <- data.frame(
-      Exculded_From_TRN = transformed$withheld_cols,
+      Exculded_From_Normalization = transformed$withheld_cols,
       stringsAsFactors = FALSE
     )
     writeData(wb, "1. Correction Settings", x = ex_trn, startRow = 3, startCol = current_col, headerStyle = bold_style)

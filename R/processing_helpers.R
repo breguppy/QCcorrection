@@ -561,11 +561,17 @@ total_ratio_norm <- function(df, metab_cols) {
 }
 
 
-transform_data <- function(df, transform, withheld_cols, ex_ISTD = FALSE) {
+transform_data <- function(df, transform, withheld_cols, ex_ISTD = TRUE) {
+  meta_cols <- c("sample", "batch", "class", "order")
+  metab_cols <- setdiff(names(df), meta_cols)
+  if (ex_ISTD) {
+    # Get column names containing ISTD and add them to withheld columns
+    istd <- grep("ISTD", metab_cols, value = TRUE)
+    withheld_cols <- c(withheld_cols, istd)
+    metab_cols <- setdiff(metab_cols, withheld_cols)
+  }
   
-  metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
-  
-  transformed_df <- df
+  transformed_df <- df[, c(meta_cols, metab_cols)]
   
   if (transform == "none") {
     transform_str <- "None"
@@ -574,12 +580,6 @@ transform_data <- function(df, transform, withheld_cols, ex_ISTD = FALSE) {
     transformed_df[metab_cols] <- log(transformed_df[metab_cols], base = 2)
   } else if (transform == "TRN") {
     transform_str <- "TRN"
-    if (ex_ISTD) {
-      # Get column names containing ISTD and add them to withheld columns
-      istd <- grep("ISTD", metab_cols, value = TRUE)
-      withheld_cols <- c(withheld_cols, istd)
-    }
-    metab_cols <- setdiff(metab_cols, withheld_cols)
     transformed_df <- total_ratio_norm(transformed_df, metab_cols)
   }
   return (list(

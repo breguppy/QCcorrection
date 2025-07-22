@@ -37,9 +37,7 @@ ui <- fluidPage(
                  buttonLabel = "Browse...",
                  placeholder = "No file selected"
                ),
-               tags$h6(
-                 "Raw data must be on the first sheet of the .xls or .xlsx file."
-                 ),
+               tags$h6("Raw data must be on the first sheet of the .xls or .xlsx file."),
                tags$h6(
                  "When sorted by injection order, the data must begin and end with a QC samples."
                ),
@@ -73,8 +71,9 @@ ui <- fluidPage(
       card(
         style = "background-color: #eeeeee;",
         tags$h4("1.3 Identify Control Group"),
-        fluidRow(
-          column(4, tooltip(
+        fluidRow(column(
+          4,
+          tooltip(
             checkboxInput(
               inputId = "no_control",
               label = "No control group.",
@@ -82,12 +81,13 @@ ui <- fluidPage(
             ),
             "Check the box if The data does not have a control group.",
             placement = "right"
-          )),
-          column(4, conditionalPanel(
+          )
+        ), column(
+          4, conditionalPanel(
             "input.no_control == false",
             uiOutput("control_class_selector")
-          ))
-        )
+          )
+        ))
       ),
       #-- Filter data based on missing values
       card(layout_sidebar(
@@ -141,11 +141,7 @@ ui <- fluidPage(
         tags$h4("2.1 Choose Correction Settings"),
         uiOutput("qc_missing_value_warning"),
         fluidRow(
-          column(
-            3,
-            tags$h5("Impute Missing QC Values"),
-            uiOutput("qcImpute")
-          ),
+          column(3, tags$h5("Impute Missing QC Values"), uiOutput("qcImpute")),
           column(
             3,
             tags$h5("Impute Missing Sample Values"),
@@ -176,7 +172,7 @@ ui <- fluidPage(
             # After correction filtering
             tags$h4("2.2 Post-Correction Filtering"),
             tooltip(
-                checkboxInput(
+              checkboxInput(
                 inputId = "remove_imputed",
                 label = "Remove imputed values after correction?",
                 value = FALSE
@@ -189,7 +185,7 @@ ui <- fluidPage(
                 inputId = "post_cor_filter",
                 label = "Don't filter metabolites based on QC RSD%",
                 value = FALSE
-              ), 
+              ),
               "Check this box if you don't want any metabolites removed post-correction.",
               placement = "right"
             ),
@@ -221,17 +217,14 @@ ui <- fluidPage(
               ),
               selected = "none"
             ),
-            conditionalPanel(
-              "input.transform == 'TRN'",
-              tooltip(
-                checkboxInput(
-                  inputId = "ex_ISTD",
-                  label = "Exclude Internal Standards from TRN.",
-                  value = TRUE
-                ),
-                "Check this box if you do not want internal standards to be included in the TRN calculation.",
-                placement = "right"
-              )
+            tooltip(
+              checkboxInput(
+                inputId = "ex_ISTD",
+                label = "Exclude Internal Standards from post-correction transformation/normalization.",
+                value = TRUE
+              ),
+              "Check this box if you do not want internal standards to be included in the transformation or normalization calculation.",
+              placement = "right"
             ),
             conditionalPanel(
               "input.transform == 'TRN'",
@@ -316,26 +309,28 @@ ui <- fluidPage(
         ),
         plotOutput("metab_scatter", height = "600px", width = "600px"),
       )),
-      card(
-        layout_sidebar(
-          #-- select figure format
-          sidebar = sidebar(
-            tooltip(
-              radioButtons(
-                inputId = "fig_format",
-                label = "Select figure format:",
-                choices = c("PDF" = "pdf", "PNG" = "png"),
-                selected = "pdf"
-              ),
-              "All figures will be saved in this format after clicking download button.",
-              placement = "right"
+      card(layout_sidebar(
+        #-- select figure format
+        sidebar = sidebar(
+          tooltip(
+            radioButtons(
+              inputId = "fig_format",
+              label = "Select figure format:",
+              choices = c("PDF" = "pdf", "PNG" = "png"),
+              selected = "pdf"
             ),
-            width = 400,
+            "All figures will be saved in this format after clicking download button.",
+            placement = "right"
           ),
-          uiOutput("download_fig_zip_btn", container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
-          uiOutput("progress_ui"),
-        )
-      ),
+          width = 400,
+        ),
+        uiOutput(
+          "download_fig_zip_btn",
+          container = div,
+          style = "position: absolute; bottom: 15px; right: 15px;"
+        ),
+        uiOutput("progress_ui"),
+      )),
       card(
         actionButton(
           inputId = "next_export",
@@ -345,17 +340,15 @@ ui <- fluidPage(
       )
     ),
     #--- Step 5: Export Data
-    nav_panel(
-      title = "4. Export Corrected Data and Plots", 
-      
-      card(
-        card_title("Download Data and Plots"),
-        tags$span("TODO: Describe what will be downloaded and the format."),
-        downloadButton(outputId = "download_all",
-                       label = "Download All", 
-                       class = "btn-primary btn-lg"),
-      )
-    )
+    nav_panel(title = "4. Export Corrected Data and Plots", card(
+      card_title("Download Data and Plots"),
+      tags$span("TODO: Describe what will be downloaded and the format."),
+      downloadButton(
+        outputId = "download_all",
+        label = "Download All",
+        class = "btn-primary btn-lg"
+      ),
+    ))
   )
 )
 
@@ -373,7 +366,9 @@ server <- function(input, output, session) {
       "csv" = read.csv(file_path, header = TRUE, check.names = FALSE),
       "xls" = read_excel(file_path),
       "xlsx" = read_excel(file_path),
-      stop("Unsupported file type. Please upload a .csv, .xls, or .xlsx file.")
+      stop(
+        "Unsupported file type. Please upload a .csv, .xls, or .xlsx file."
+      )
     )
     
     df
@@ -511,7 +506,7 @@ server <- function(input, output, session) {
     basicInfoUI(cleaned_data$df, cleaned_data$replacement_counts)
   })
   
- #-- Select a control class for fold change comparisons in corrected data.
+  #-- Select a control class for fold change comparisons in corrected data.
   output$control_class_selector <- renderUI({
     req(cleaned())
     df <- cleaned()$df
@@ -557,14 +552,16 @@ server <- function(input, output, session) {
   })
   output$qcImpute <- renderUI({
     req(filtered())
-    metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
+    metab_cols <- setdiff(names(filtered()$df),
+                          c('sample', 'batch', 'class', 'order'))
     qcImputeUI(filtered()$df, metab_cols)
   })
   
   #-- Sample missing value impute options.
   output$sampleImpute <- renderUI({
     req(filtered())
-    metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
+    metab_cols <- setdiff(names(filtered()$df),
+                          c('sample', 'batch', 'class', 'order'))
     sampleImputeUI(filtered()$df, metab_cols)
   })
   
@@ -577,40 +574,39 @@ server <- function(input, output, session) {
   #-- Display unavailable options
   output$unavailable_options <- renderUI({
     req(filtered())
-    metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
+    metab_cols <- setdiff(names(filtered()$df),
+                          c('sample', 'batch', 'class', 'order'))
     unavailableOptionsUI(filtered()$df, metab_cols)
   })
   
   #-- Impute missing values
   imputed <- reactive({
     req(filtered())
-    metab_cols <- setdiff(names(filtered()$df), c('sample', 'batch', 'class', 'order'))
+    metab_cols <- setdiff(names(filtered()$df),
+                          c('sample', 'batch', 'class', 'order'))
     qc_df <- filtered()$df %>% filter(filtered()$df$class == "QC")
     has_qc_na <- any(is.na(qc_df[, metab_cols]))
     sam_df <- filtered()$df %>% filter(filtered()$df$class != "QC")
     has_sam_na <- any(is.na(sam_df[, metab_cols]))
     
-    ifelse(!has_qc_na, qcImpute <- "nothing_to_impute", qcImpute <- input$qcImputeM)
-    ifelse(!has_sam_na, samImpute <- "nothing_to_impute", samImpute <- input$samImputeM)
+    ifelse(!has_qc_na,
+           qcImpute <- "nothing_to_impute",
+           qcImpute <- input$qcImputeM)
+    ifelse(!has_sam_na,
+           samImpute <- "nothing_to_impute",
+           samImpute <- input$samImputeM)
     
-    impute_missing(filtered()$df,
-                   setdiff(
-                     names(filtered()$df),
-                     c("sample", "batch", "class", "order")
-                   ),
-                   qcImpute, samImpute)
+    impute_missing(filtered()$df, setdiff(
+      names(filtered()$df),
+      c("sample", "batch", "class", "order")
+    ), qcImpute, samImpute)
   })
   
-  #-- Corrected data 
+  #-- Corrected data
   corrected <- eventReactive(input$correct, {
     req(imputed())
     
-    correct_data(imputed()$df,
-                 setdiff(
-                   names(imputed()$df),
-                   c("sample", "batch", "class", "order")
-                 ),
-                 input$corMethod)
+    correct_data(imputed()$df, setdiff(names(imputed()$df), c("sample", "batch", "class", "order")), input$corMethod)
   })
   
   #-- Filter corrected data
@@ -673,15 +669,20 @@ server <- function(input, output, session) {
     req(filtered_corrected())
     withheld_cols <- character(0)
     
-    if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
+    if (isTRUE(input$trn_withhold_checkbox) &&
+        !is.null(input$trn_withhold_n)) {
       for (i in seq_len(input$trn_withhold_n)) {
         col <- input[[paste0("trn_withhold_col_", i)]]
-        if (!is.null(col) && col %in% names(filtered_corrected()$df)) {
+        if (!is.null(col) &&
+            col %in% names(filtered_corrected()$df)) {
           withheld_cols <- c(withheld_cols, col)
         }
       }
     }
-    transform_data(filtered_corrected()$df, input$transform, withheld_cols, input$ex_ISTD)
+    transform_data(filtered_corrected()$df,
+                   input$transform,
+                   withheld_cols,
+                   input$ex_ISTD)
   })
   
   #-- Display corrected/transformed data and information.
@@ -737,11 +738,9 @@ server <- function(input, output, session) {
   output$rsd_comparison_plot <- renderPlot({
     req(filtered(), filtered_corrected(), input$rsd_cal)
     if (input$rsd_cal == "met") {
-      plot_rsd_comparison(filtered()$df,
-                          filtered_corrected()$df)
+      plot_rsd_comparison(filtered()$df, filtered_corrected()$df)
     } else if (input$rsd_cal == "class_met") {
-      plot_rsd_comparison_class_met(filtered()$df,
-                                    filtered_corrected()$df)
+      plot_rsd_comparison_class_met(filtered()$df, filtered_corrected()$df)
     }
   })
   
@@ -789,9 +788,7 @@ server <- function(input, output, session) {
     
     div(
       style = "max-width: 300px; display: inline-block;",
-      downloadButton("download_fig_zip", 
-                     "Download All Figures", 
-                     class = "btn-primary")
+      downloadButton("download_fig_zip", "Download All Figures", class = "btn-primary")
     )
   })
   # -- progress bar
@@ -837,9 +834,7 @@ server <- function(input, output, session) {
   
   #-- Move to next tab after inspecting the corrected data figures
   observeEvent(input$next_export, {
-    updateTabsetPanel(session,
-                      "main_steps",
-                      "4. Export Corrected Data and Plots")
+    updateTabsetPanel(session, "main_steps", "4. Export Corrected Data and Plots")
   })
   
   #-- Allow user to download corrected data, figures, and correction report.
