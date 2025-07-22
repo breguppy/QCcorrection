@@ -107,19 +107,19 @@ ui <- fluidPage(
           ),
           tooltip(
             sliderInput(
-              inputId = "min_median_abundance",
-              label = "Minimum median intensity tolerance",
+              inputId = "min_avg_intensity",
+              label = "Minimum average intensity tolerance",
               min = 50000,
               max = 500000,
               step = 50000,
               value = 50000
             ),
-            "Metabolites with median intensity will be displayed for the user to decide if they should be inculded in the corrected data.",
+            "Metabolites with average intensity below this value will be removed from the data.",
             placement = "right"
           ),
           width = 400
         ),
-        uiOutput("filter_info")
+        uiOutput("filter_info"),
       ), ),
       #-- move on to step 2 button
       card(
@@ -532,12 +532,12 @@ server <- function(input, output, session) {
     filter_data(cleaned_data$df, setdiff(
       names(cleaned_data$df),
       c("sample", "batch", "class", "order")
-    ), input$Frule)
+    ), input$Frule, input$min_avg_intensity)
   })
   output$filter_info <- renderUI({
     filtered_data <- filtered()
     req(filtered_data)
-    filterInfoUI(filtered_data$removed_cols)
+    filterInfoUI(filtered_data$mv_removed_cols, filtered_data$ai_removed_cols)
   })
   
   #-- Move to next panel after inspecting the raw data

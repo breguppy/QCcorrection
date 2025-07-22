@@ -138,21 +138,42 @@ basicInfoUI <- function(df, replacement_counts) {
 }
 
 # 1.5 Filter‐info panel
-filterInfoUI <- function(removed) {
-  if (length(removed) == 0) {
-    tags$span(style = "color:darkgreen;font-weight:bold;", "No metabolites removed.")
+filterInfoUI <- function(mv_removed, ai_removed) {
+  mv_text <- if (length(mv_removed) == 0) {
+    tags$div(
+      style = "flex: 1; padding-right: 10px;",
+      tags$span(style = "color:darkgreen;font-weight:bold;",
+                "No metabolites removed due to missing value threshold.")
+    )
   } else {
-    tagList(
-      tags$span(
-        style = "color:darkorange;font-weight:bold;",
-        paste(
-          length(removed),
-          "metabolites removed based on missing value threshold:"
-        )
-      ),
-      tags$ul(lapply(removed, tags$li))
+    tags$div(
+      style = "flex: 1; padding-right: 10px;",
+      tags$span(style = "color:darkorange;font-weight:bold;",
+                paste(length(mv_removed), "metabolites removed based on missing value threshold:")),
+      tags$ul(lapply(mv_removed, tags$li))
     )
   }
+  
+  ai_text <- if (length(ai_removed) == 0) {
+    tags$div(
+      style = "flex: 1; padding-left: 10px;",
+      tags$span(style = "color:darkgreen;font-weight:bold;",
+                "No metabolites removed due to average intensity threshold.")
+    )
+  } else {
+    tags$div(
+      style = "flex: 1; padding-left: 10px;",
+      tags$span(style = "color:darkorange;font-weight:bold;",
+                paste(length(ai_removed), "metabolites removed based on average intensity threshold:")),
+      tags$ul(lapply(ai_removed, tags$li))
+    )
+  }
+  
+  return(tags$div(
+    style = "display: flex; flex-wrap: wrap; justify-content: space-between;",
+    mv_text,
+    ai_text
+  ))
 }
 
 qcMissingValueWarning <- function(df) {

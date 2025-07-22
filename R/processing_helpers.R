@@ -8,21 +8,32 @@ library(stats)
 #–– Data cleaning helpers ––#
 
 # Clean & track replacements
-cleanData <- function(df, sample, batch, class, order, withheld_cols) {
+cleanData <- function(df,
+                      sample,
+                      batch,
+                      class,
+                      order,
+                      withheld_cols) {
+  # Remove columns that will not be corrected and are not metadata
   df <- df[, setdiff(names(df), withheld_cols), drop = FALSE]
+  
+  # Rename metadata columns
   names(df)[names(df) == sample] <- "sample"
   names(df)[names(df) == batch]  <- "batch"
   names(df)[names(df) == class]  <- "class"
   names(df)[names(df) == order]  <- "order"
   
+  # make sure data is in injection order
   df <- df[order(df$order), ]
   metab <- setdiff(names(df), c("sample", "batch", "class", "order"))
+  
+  # replace any non-numeric values or exactly 0 values with NA
+  # count them as missing values
   repl <- tibble(
     metabolite = metab,
     non_numeric_replaced = 0L,
     zero_replaced = 0L
   )
-  
   for (i in seq_along(metab)) {
     col <- metab[i]
     orig <- df[[col]]
@@ -35,9 +46,11 @@ cleanData <- function(df, sample, batch, class, order, withheld_cols) {
     repl$zero_replaced[i]        <- cnt2
   }
   
+  # Rename qc samples to be "QC" in class column
   df$class[is.na(df$class)] <- "QC"
   df$class[df$class %in% c("qc", "Qc")] <- "QC"
   
+  # make sure data starts and ends with a QC
   if (df$class[1] != "QC") {
     stop("Data sorted by injection order must begin with a QC sample.")
   } else if (df$class[nrow(df)] != "QC") {
@@ -45,15 +58,16 @@ cleanData <- function(df, sample, batch, class, order, withheld_cols) {
   }
   
   return(list(
-    df = df, 
-    replacement_counts = repl, 
+    df = df,
+    replacement_counts = repl,
     withheld_cols = withheld_cols
-    ))
+  ))
 }
 
-# Remove metabolites based on Frule
-filter_data <- function(df, metab_cols, Frule) {
-  # remove any metabolite column that has more than Frule% missing values
+#-- Remove metabolites based on Frule and selected below average intensity columns
+filter_data <- function(df, metab_cols, Frule, intensity_treshold) {
+  # get metadata columns
+  meta_cols <- setdiff(names(df), metab_cols)
   
   # Compute percentage of missing values per metabolite column
   missing_pct <- sapply(df[metab_cols], function(col) {
@@ -61,26 +75,44 @@ filter_data <- function(df, metab_cols, Frule) {
   })
   
   # Keep only columns with missing percentage <= Frule
-  keep_cols <- metab_cols[missing_pct <= Frule]
-  removed_cols <- setdiff(metab_cols, keep_cols)
+  mv_keep_cols <- metab_cols[missing_pct <= Frule]
+  # list columns removed due to missing value %
+  mv_removed_cols <- setdiff(metab_cols, mv_keep_cols)
   
-  # Return df with only the retained metabolite columns
-  df_filtered <- df[, c(setdiff(names(df), metab_cols), keep_cols)]
+  # filter data frame by metabolite missing value
+  df_filtered <- df[, c(meta_cols, mv_keep_cols)]
   
-  return(list(
-    df = df_filtered,
-    Frule = Frule,
-    removed_cols = removed_cols
-    ))
+  # compute average intensity of remaining columns
+  avg_intensity <- sapply(df_filtered[mv_keep_cols], function(col) {
+    mean(col, na.rm = TRUE)
+  })
+  
+  # keep columns with average intensity > threshold
+  ai_keep_cols <- mv_keep_cols[avg_intensity > intensity_treshold]
+  # list columns removed due to intensity threshold
+  ai_removed_cols <- setdiff(mv_keep_cols, ai_keep_cols)
+  
+  # filter data frame by metabolite intensity.
+  df_filtered <- df_filtered[, c(meta_cols, ai_keep_cols)]
+  
+  return(
+    list(
+      df = df_filtered,
+      Frule = Frule,
+      intensity_treshold = intensity_treshold,
+      mv_removed_cols = mv_removed_cols,
+      ai_removed_cols = ai_removed_cols
+    )
+  )
 }
 
 
-# Impute missing values based on user selected imputation method
+#-- Impute missing values based on user selected imputation method
 impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   n_missv <- sum(is.na(df[, metab_cols]))
   imputed_df <- df
   
-  # Helper to apply an imputation strategy to a subset of rows
+  # function to apply an imputation strategy to a subset of data 
   apply_impute <- function(sub_df, method) {
     if (method == "nothing_to_impute") {
       sub_df <- sub_df
@@ -138,10 +170,7 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
       sub_df[metab_cols] <- as.data.frame(imputed_matrix)
       str <- "KNN"
     }
-    return(list(
-      sub_df = sub_df,
-      str = str
-      ))
+    return(list(sub_df = sub_df, str = str))
   }
   
   # Identify QC and Sample rows
@@ -149,7 +178,7 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   qc_df <- imputed_df[is_qc, ]
   sam_df <- imputed_df[!is_qc, ]
   
-  # Apply respective imputation methods
+  # Apply user chosen imputation methods
   qc_imputed <- apply_impute(qc_df, qcImputeM)
   qc_df <- qc_imputed$sub_df
   qc_str <- qc_imputed$str
@@ -157,7 +186,7 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   sam_df <- sam_imputed$sub_df
   sam_str <- sam_imputed$str
   
-  # Combine the results
+  # Combine the results and make sure its in order
   imputed_df <- bind_rows(qc_df, sam_df) %>%
     arrange(.data[["order"]])
   
@@ -172,7 +201,7 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
 
 #–– Data correction helpers ––#
 
-# 3 by 500 random forest correction
+#-- 3 by 500 random forest correction
 rf_correction <- function(df,
                           metab_cols,
                           ntree = 500,
@@ -262,9 +291,9 @@ compute_median_dataframe <- function(df_list,
 }
 
 bw_rf_correction <- function(df,
-                            metab_cols,
-                            ntree = 500,
-                            seed = NULL) {
+                             metab_cols,
+                             ntree = 500,
+                             seed = NULL) {
   if (!is.null(seed)) {
     set.seed(seed)
   }
@@ -285,7 +314,11 @@ bw_rf_correction <- function(df,
       
       # Skip if not enough QCs in this batch
       if (length(qc_idx) < 5) {
-        warning(sprintf("Skipping %s in batch %s - too few QC samples.", metab, batch_id))
+        warning(sprintf(
+          "Skipping %s in batch %s - too few QC samples.",
+          metab,
+          batch_id
+        ))
         next
       }
       
@@ -443,7 +476,7 @@ correct_data <- function(df, metab_cols, corMethod) {
     df = df_corrected,
     str = correction_str,
     parameters =  parameters
-    ))
+  ))
 }
 
 remove_imputed_from_corrected <- function(raw_df, corrected_df) {
@@ -534,11 +567,13 @@ rsd_filter <- function(df,
   filtered_df = df[, final_cols, drop = FALSE]
   
   # Return a list with the filtered data and removed metabolites
-  return(list(
-    df = filtered_df,
-    rsd_cutoff = rsd_cutoff,
-    removed_metabolites = remove_metabolites
-    ))
+  return(
+    list(
+      df = filtered_df,
+      rsd_cutoff = rsd_cutoff,
+      removed_metabolites = remove_metabolites
+    )
+  )
 }
 
 total_ratio_norm <- function(df, metab_cols) {
@@ -602,11 +637,16 @@ group_stats <- function(df) {
     group_df <- df %>% filter(Group == group_name)
     group_dfs[[group_name]] <- group_df
     
-    means <- summarise(group_df, across(all_of(metab_cols), ~mean(., na.rm = TRUE))) %>%
+    means <- summarise(group_df, across(all_of(metab_cols), ~ mean(., na.rm = TRUE))) %>%
       mutate(` ` = "Mean")
-    ses <- summarise(group_df, across(all_of(metab_cols), ~sd(., na.rm = TRUE) / sqrt(sum(!is.na(.))))) %>%
+    ses <- summarise(group_df, across(all_of(metab_cols), ~ sd(., na.rm = TRUE) / sqrt(sum(!is.na(
+      .
+    ))))) %>%
       mutate(` ` = "SE")
-    cvs <- summarise(group_df, across(all_of(metab_cols), ~sd(., na.rm = TRUE) / mean(., na.rm = TRUE))) %>%
+    cvs <- summarise(group_df, across(
+      all_of(metab_cols),
+      ~ sd(., na.rm = TRUE) / mean(., na.rm = TRUE)
+    )) %>%
       mutate(` ` = "CV")
     
     # Bind summary rows
@@ -615,10 +655,7 @@ group_stats <- function(df) {
     group_stats_dfs[[group_name]] <- group_stats_df
   }
   
-  return (list(
-    group_dfs = group_dfs,
-    group_stats_dfs = group_stats_dfs
-  ))
+  return (list(group_dfs = group_dfs, group_stats_dfs = group_stats_dfs))
 }
 
 fold_changes <- function(df, control_mean) {

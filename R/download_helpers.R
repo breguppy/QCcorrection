@@ -35,6 +35,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
       "Class Column Name",
       "Order Column Name",
       "Missing Value Threshold",
+      "Average Intensity Threshold",
       "QC Missing Value Imputation Method",
       "Sample Missing Value Imputation Method",
       "Correction Method",
@@ -50,6 +51,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
       input$class_col,
       input$order_col,
       paste0(filtered$Frule, "%"),
+      input$min_avg_intensity,
       imputed$qc_str,
       imputed$sam_str,
       corrected$str,
@@ -84,14 +86,26 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
     current_col <- current_col + 2
   }
   # Append Missing Value Filtered Metabolites
-  if (length(filtered$removed_cols) > 0) {
+  if (length(filtered$mv_removed_cols) > 0) {
     mv_df <- data.frame(
-      Missing_Value_Filtered_Metabolites = filtered$removed_cols,
+      Missing_Value_Filtered_Metabolites = filtered$mv_removed_cols,
       stringsAsFactors = FALSE
     )
     writeData(wb, "1. Correction Settings", x = mv_df, startRow = 3, startCol = current_col, headerStyle = bold_style)
     width_vec <- apply(mv_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
     width_vec_header <- nchar(colnames(mv_df)) + 2
+    setColWidths(wb, sheet = "1. Correction Settings", cols = current_col, widths = pmax(width_vec, width_vec_header))
+    current_col <- current_col + 2
+  }
+  # Append average intensity Filtered Metabolites
+  if (length(filtered$ai_removed_cols) > 0) {
+    ai_df <- data.frame(
+      Average_Intensity_Filtered_Metabolites = filtered$ai_removed_cols,
+      stringsAsFactors = FALSE
+    )
+    writeData(wb, "1. Correction Settings", x = ai_df, startRow = 3, startCol = current_col, headerStyle = bold_style)
+    width_vec <- apply(ai_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
+    width_vec_header <- nchar(colnames(ai_df)) + 2
     setColWidths(wb, sheet = "1. Correction Settings", cols = current_col, widths = pmax(width_vec, width_vec_header))
     current_col <- current_col + 2
   }
