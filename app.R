@@ -4,6 +4,8 @@ library(bslib)
 library(dplyr)
 library(shinycssloaders)
 library(openxlsx)
+library(readxl)
+library(tools)
 source("R/helpers.R")
 source("R/processing_helpers.R")
 source("R/met_scatter_rf.R")
@@ -28,15 +30,18 @@ ui <- fluidPage(
              sidebar = sidebar(
                #--- Upload raw data
                tags$h4("1.1 Upload Raw Data"),
-               tags$h6(
-                 "When sorted by injection order, the data must begin and end with a QC samples."
-               ),
                fileInput(
                  inputId = "file1",
-                 label = "Choose CSV File",
-                 accept = ".csv",
+                 label = "Choose Raw Data File (.csv, .xls, or .xlsx)",
+                 accept = c(".csv", ".xls", ".xlsx"),
                  buttonLabel = "Browse...",
                  placeholder = "No file selected"
+               ),
+               tags$h6(
+                 "Raw data must be on the first sheet of the .xls or .xlsx file."
+                 ),
+               tags$h6(
+                 "When sorted by injection order, the data must begin and end with a QC samples."
                ),
                width = 400
              ),
@@ -359,8 +364,19 @@ server <- function(input, output, session) {
   #-- Import Raw Data
   data_raw <- reactive({
     req(input$file1)
-    #colnames_original <- names(read.csv(input$file1$datapath, nrows = 1, check.names = FALSE))
-    df <- read.csv(input$file1$datapath, header = TRUE, check.names = FALSE)
+    
+    file_path <- input$file1$datapath
+    file_ext <- tools::file_ext(file_path)
+    
+    df <- switch(
+      tolower(file_ext),
+      "csv" = read.csv(file_path, header = TRUE, check.names = FALSE),
+      "xls" = read_excel(file_path),
+      "xlsx" = read_excel(file_path),
+      stop("Unsupported file type. Please upload a .csv, .xls, or .xlsx file.")
+    )
+    
+    df
   })
   
   #–– View Raw Data
