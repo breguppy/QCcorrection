@@ -116,7 +116,7 @@ ui <- fluidPage(
         ),
         uiOutput("filter_info")
       ), ),
-      #-- move on to step 2
+      #-- move on to step 2 button
       card(
         actionButton(
           inputId = "next_correction",
@@ -476,17 +476,16 @@ server <- function(input, output, session) {
     req(!any(sel == ""), length(unique(sel)) == 4)
     
     df <- data_raw()
+    withheld_cols <- character(0)
     if (isTRUE(input$withhold_cols) && !is.null(input$n_withhold)) {
-      withheld_cols <- character(0)
       for (i in seq_len(input$n_withhold)) {
         col <- input[[paste0("withhold_col_", i)]]
         if (!is.null(col) && col %in% names(df)) {
           withheld_cols <- c(withheld_cols, col)
         }
       }
-      df <- df[, setdiff(names(df), withheld_cols), drop = FALSE]
     }
-    cleanData(df, sel[1], sel[2], sel[3], sel[4])
+    cleanData(df, sel[1], sel[2], sel[3], sel[4], withheld_cols)
   })
   
   #–– Display Basic Information about data.
@@ -697,12 +696,15 @@ server <- function(input, output, session) {
       paste0("corrected_data_", Sys.Date(), ".xlsx")
     },
     content = function(file) {
-      wb <- corrected_file_download(input, 
-                              filtered(), 
-                              imputed(), 
-                              corrected(), 
-                              filtered_corrected(), 
-                              transformed())
+      wb <- corrected_file_download(
+        input,
+        cleaned(),
+        filtered(),
+        imputed(),
+        corrected(),
+        filtered_corrected(),
+        transformed()
+      )
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
     }

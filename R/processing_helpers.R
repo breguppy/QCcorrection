@@ -8,7 +8,8 @@ library(stats)
 #–– Data cleaning helpers ––#
 
 # Clean & track replacements
-cleanData <- function(df, sample, batch, class, order) {
+cleanData <- function(df, sample, batch, class, order, withheld_cols) {
+  df <- df[, setdiff(names(df), withheld_cols), drop = FALSE]
   names(df)[names(df) == sample] <- "sample"
   names(df)[names(df) == batch]  <- "batch"
   names(df)[names(df) == class]  <- "class"
@@ -43,7 +44,11 @@ cleanData <- function(df, sample, batch, class, order) {
     stop("Data sorted by injection order must end with a QC sample.")
   }
   
-  list(df = df, replacement_counts = repl)
+  return(list(
+    df = df, 
+    replacement_counts = repl, 
+    withheld_cols = withheld_cols
+    ))
 }
 
 # Remove metabolites based on Frule

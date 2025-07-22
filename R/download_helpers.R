@@ -3,7 +3,7 @@ library(openxlsx)
 
 
 #-- Downloads corrected data file.
-corrected_file_download <- function(input, filtered, imputed, corrected, filtered_corrected, transformed) {
+corrected_file_download <- function(input, cleaned, filtered, imputed, corrected, filtered_corrected, transformed) {
   # Create a new workbook
   wb <- createWorkbook()
   # make column names bold
@@ -69,17 +69,29 @@ corrected_file_download <- function(input, filtered, imputed, corrected, filtere
   
   writeData(wb, sheet = "1. Correction Settings", x = correction_settings_df, startRow = 3, startCol = 1, headerStyle = bold_style)
   
+  current_col <- 4
+  if (isTRUE(input$withhold_cols) && !is.null(input$n_withhold)) {
+    withheld_df <- data.frame(
+      Columns_Withheld_From_Correction = cleaned$withheld_cols,
+      stringsAsFactors = FALSE
+    )
+    writeData(wb, "1. Correction Settings", x = withheld_df, startRow = 3, startCol = current_col, headerStyle = bold_style)
+    width_vec <- apply(withheld_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE))
+    width_vec_header <- nchar(colnames(withheld_df)) + 2
+    setColWidths(wb, sheet = "1. Correction Settings", cols = current_col, widths = pmax(width_vec, width_vec_header))
+    current_col <- current_col + 2
+  }
   # Append Missing Value Filtered Metabolites
   if (length(filtered$removed_cols) > 0) {
     mv_df <- data.frame(
       Missing_Value_Filtered_Metabolites = filtered$removed_cols,
       stringsAsFactors = FALSE
     )
-    writeData(wb, "1. Correction Settings", x = mv_df, startRow = 3, startCol = 4, headerStyle = bold_style)
+    writeData(wb, "1. Correction Settings", x = mv_df, startRow = 3, startCol = current_col, headerStyle = bold_style)
     width_vec <- apply(mv_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
     width_vec_header <- nchar(colnames(mv_df)) + 2
-    max_width_vec <- pmax(width_vec, width_vec_header) 
-    setColWidths(wb, sheet = "1. Correction Settings", cols = 4, widths = max_width_vec)
+    setColWidths(wb, sheet = "1. Correction Settings", cols = current_col, widths = pmax(width_vec, width_vec_header))
+    current_col <- current_col + 2
   }
   
   # Append QC RSD Filtered Metabolites
@@ -88,11 +100,12 @@ corrected_file_download <- function(input, filtered, imputed, corrected, filtere
       QC_RSD_Filtered_Metabolites = filtered_corrected$removed_metabolites,
       stringsAsFactors = FALSE
     )
-    writeData(wb, "1. Correction Settings", x = rsd_df, startRow = 3, startCol = 6, headerStyle = bold_style)
+    writeData(wb, "1. Correction Settings", x = rsd_df, startRow = 3, startCol = current_col, headerStyle = bold_style)
     width_vec <- apply(rsd_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
     width_vec_header <- nchar(colnames(rsd_df)) + 2
     max_width_vec <- pmax(width_vec, width_vec_header) 
-    setColWidths(wb, sheet = "1. Correction Settings", cols = 6, widths = max_width_vec)
+    setColWidths(wb, sheet = "1. Correction Settings", cols = current_col, widths = max_width_vec)
+    current_col <- current_col + 2
   }
   
   if (transformed$str == "TRN" && length(transformed$withheld_cols) > 0) {
@@ -100,11 +113,11 @@ corrected_file_download <- function(input, filtered, imputed, corrected, filtere
       Exculded_From_TRN = transformed$withheld_cols,
       stringsAsFactors = FALSE
     )
-    writeData(wb, "1. Correction Settings", x = ex_trn, startRow = 3, startCol = 8, headerStyle = bold_style)
+    writeData(wb, "1. Correction Settings", x = ex_trn, startRow = 3, startCol = current_col, headerStyle = bold_style)
     width_vec <- apply(ex_trn, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
     width_vec_header <- nchar(colnames(ex_trn)) + 2
     max_width_vec <- pmax(width_vec, width_vec_header) 
-    setColWidths(wb, sheet = "1. Correction Settings", cols = 8, widths = max_width_vec)
+    setColWidths(wb, sheet = "1. Correction Settings", cols = current_col, widths = max_width_vec)
   }
   
   width_vec <- apply(correction_settings_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
