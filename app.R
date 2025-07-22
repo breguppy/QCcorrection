@@ -100,6 +100,18 @@ ui <- fluidPage(
             "Metabolites with more than the acceptable % of missing values will be removed from the data.",
             placement = "right"
           ),
+          tooltip(
+            sliderInput(
+              inputId = "min_median_abundance",
+              label = "Minimum median intensity tolerance",
+              min = 50000,
+              max = 500000,
+              step = 50000,
+              value = 50000
+            ),
+            "Metabolites with median intensity will be displayed for the user to decide if they should be inculded in the corrected data.",
+            placement = "right"
+          ),
           width = 400
         ),
         uiOutput("filter_info")
