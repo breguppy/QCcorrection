@@ -64,8 +64,8 @@ cleanData <- function(df,
   ))
 }
 
-#-- Remove metabolites based on Frule and selected below average intensity columns
-filter_data <- function(df, metab_cols, Frule, intensity_treshold) {
+#-- Remove metabolites based on Frule
+filter_data <- function(df, metab_cols, Frule) {
   # get metadata columns
   meta_cols <- setdiff(names(df), metab_cols)
   
@@ -82,26 +82,11 @@ filter_data <- function(df, metab_cols, Frule, intensity_treshold) {
   # filter data frame by metabolite missing value
   df_filtered <- df[, c(meta_cols, mv_keep_cols)]
   
-  # compute average intensity of remaining columns
-  avg_intensity <- sapply(df_filtered[mv_keep_cols], function(col) {
-    mean(col, na.rm = TRUE)
-  })
-  
-  # keep columns with average intensity > threshold
-  ai_keep_cols <- mv_keep_cols[avg_intensity > intensity_treshold]
-  # list columns removed due to intensity threshold
-  ai_removed_cols <- setdiff(mv_keep_cols, ai_keep_cols)
-  
-  # filter data frame by metabolite intensity.
-  df_filtered <- df_filtered[, c(meta_cols, ai_keep_cols)]
-  
   return(
     list(
       df = df_filtered,
       Frule = Frule,
-      intensity_treshold = intensity_treshold,
-      mv_removed_cols = mv_removed_cols,
-      ai_removed_cols = ai_removed_cols
+      mv_removed_cols = mv_removed_cols
     )
   )
 }

@@ -105,18 +105,6 @@ ui <- fluidPage(
             "Metabolites with more than the acceptable % of missing values will be removed from the data.",
             placement = "right"
           ),
-          tooltip(
-            sliderInput(
-              inputId = "min_avg_intensity",
-              label = "Minimum average intensity tolerance",
-              min = 50000,
-              max = 500000,
-              step = 50000,
-              value = 50000
-            ),
-            "Metabolites with average intensity below this value will be removed from the data.",
-            placement = "right"
-          ),
           width = 400
         ),
         uiOutput("filter_info"),
@@ -532,12 +520,12 @@ server <- function(input, output, session) {
     filter_data(cleaned_data$df, setdiff(
       names(cleaned_data$df),
       c("sample", "batch", "class", "order")
-    ), input$Frule, input$min_avg_intensity)
+    ), input$Frule)
   })
   output$filter_info <- renderUI({
     filtered_data <- filtered()
     req(filtered_data)
-    filterInfoUI(filtered_data$mv_removed_cols, filtered_data$ai_removed_cols)
+    filterInfoUI(filtered_data$mv_removed_cols)
   })
   
   #-- Move to next panel after inspecting the raw data
