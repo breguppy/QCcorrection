@@ -313,9 +313,9 @@ ui <- fluidPage(
           width = 400,
         ),
         uiOutput(
-          "download_fig_zip_btn",
-          container = div,
-          style = "position: absolute; bottom: 15px; right: 15px;"
+          "download_fig_zip_btn"
+          #container = div,
+          #style = "position: absolute; bottom: 15px; right: 15px;"
         ),
         uiOutput("progress_ui"),
       )),
@@ -331,11 +331,7 @@ ui <- fluidPage(
     nav_panel(title = "4. Export Corrected Data and Plots", card(
       card_title("Download Data and Plots"),
       tags$span("TODO: Describe what will be downloaded and the format."),
-      downloadButton(
-        outputId = "download_all_zip",
-        label = "Download All",
-        class = "btn-primary btn-lg"
-      ),
+      uiOutput("download_all_ui")
     ))
   )
 )
@@ -785,7 +781,7 @@ server <- function(input, output, session) {
   output$progress_ui <- renderUI({
     req(progress_reactive() > 0, progress_reactive() <= 1)
     
-    tags$div(
+    div(
       style = "margin-top: 10px;",
       tags$label("Progress:"),
       tags$progress(
@@ -796,6 +792,7 @@ server <- function(input, output, session) {
       tags$span(sprintf("%.0f%%", progress_reactive() * 100))
     )
   })
+  
   output$download_fig_zip <- downloadHandler(
     filename = function() {
       paste0("figures_", Sys.Date(), ".zip")
@@ -823,6 +820,15 @@ server <- function(input, output, session) {
   #-- Move to next tab after inspecting the corrected data figures
   observeEvent(input$next_export, {
     updateTabsetPanel(session, "main_steps", "4. Export Corrected Data and Plots")
+  })
+  
+  output$download_all_ui <- renderUI({
+    req(transformed())
+    downloadButton(
+      outputId = "download_all_zip",
+      label = "Download All",
+      class = "btn-primary btn-lg"
+    )
   })
   
   #-- Allow user to download corrected data, figures, and correction report.

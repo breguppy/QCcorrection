@@ -602,7 +602,7 @@ transform_data <- function(df, transform, withheld_cols, ex_ISTD = TRUE) {
     transform_str <- "TRN"
     transformed_df <- total_ratio_norm(transformed_df, metab_cols)
   }
-  return (list(
+  return(list(
     df = transformed_df,
     str = transform_str,
     withheld_cols = withheld_cols
@@ -640,7 +640,7 @@ group_stats <- function(df) {
     group_stats_dfs[[group_name]] <- group_stats_df
   }
   
-  return (list(group_dfs = group_dfs, group_stats_dfs = group_stats_dfs))
+  return(list(group_dfs = group_dfs, group_stats_dfs = group_stats_dfs))
 }
 
 fold_changes <- function(df, control_mean) {

@@ -308,7 +308,7 @@ figure_folder_download <- function(input, imputed, filtered, filtered_corrected)
   }
   
   # Create PCA plots
-  pca_fig <- plot_pca(imputed, filtered_corrected, input$color_col)
+  pca_fig <- plot_pca(input, imputed, filtered_corrected, input$color_col)
   pca_path <- file.path(pca_fig_dir,
                         paste0("pca_comparison_", input$color_col, ".", input$fig_format))
   if (input$fig_format == "png") {
@@ -369,9 +369,8 @@ figure_folder_download <- function(input, imputed, filtered, filtered_corrected)
     }
   })
   
-  return (list(
+  return(list(
     tmp_dir = tmp_dir,
     fig_dir = fig_dir
   ))
-  
 }
