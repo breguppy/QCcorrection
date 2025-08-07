@@ -79,7 +79,7 @@ filter_data <- function(df, metab_cols, Frule) {
   # list columns removed due to missing value %
   mv_removed_cols <- setdiff(metab_cols, mv_keep_cols)
   
-  # filter data frame by metabolite missing value
+  # filter data by metabolite missing value
   df_filtered <- df[, c(meta_cols, mv_keep_cols)]
   
   return(
@@ -97,7 +97,7 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   n_missv <- sum(is.na(df[, metab_cols]))
   imputed_df <- df
   
-  # function to apply an imputation strategy to a subset of data 
+  # helper function to apply an imputation strategy to a subset of data 
   apply_impute <- function(sub_df, method) {
     if (method == "nothing_to_impute") {
       sub_df <- sub_df
