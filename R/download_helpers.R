@@ -8,16 +8,12 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
   wb <- createWorkbook()
   # make column names bold
   bold_style <- createStyle(textDecoration = "Bold")
-  # Description text style.
+  # Description text style with orange background.
   style <- createStyle(wrapText = TRUE, valign = "top", fgFill = "#f8cbad")
   
   # Add 0. Raw Data tab
   addWorksheet(wb, "0. Raw Data")
-  
-  # Add raw data
   writeData(wb, sheet = "0. Raw Data", x = filtered$df, startRow = 3, headerStyle = bold_style)
-  
-  # Add description
   tab0_description <- paste("Tab 0. This tab contains raw peak areas for stable isotope-labeled (13C, deuterium) internal standards (pre-fix of 0-ISTD) and detected metabolites for both pooled quality control (QC) and experimental samples (S).", 
                             "Data within this tab are formatted for instrument drift correction using the multiply analyzed pooled QC sample.", 
                             "Batch, class, and order are identifiers for the correction methods, with batch and class set to 1 unless different batches or sample classes are being analyzed within the same run.", 
@@ -27,7 +23,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
   addStyle(wb, sheet = "0. Raw Data", style = style, rows = 1, cols = 1, gridExpand = TRUE)
   setRowHeights(wb, "0. Raw Data", rows = 1, heights = 60)
   
-  # Add 1. Correction Settings
+  # Add 1. Correction Settings tab
   correction_settings_df <- data.frame(
     Settings = c(
       "Sample Column Name",
@@ -69,9 +65,8 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
   mergeCells(wb, sheet = "1. Correction Settings", cols = 1:3, rows = 1)
   addStyle(wb, sheet = "1. Correction Settings", style = style, rows = 1, cols = 1, gridExpand = TRUE)
   setRowHeights(wb, "1. Correction Settings", rows = 1, heights = 60)
-  
   writeData(wb, sheet = "1. Correction Settings", x = correction_settings_df, startRow = 3, startCol = 1, headerStyle = bold_style)
-  
+  # Append withheld from correction columns
   current_col <- 4
   if (isTRUE(input$withhold_cols) && !is.null(input$n_withhold)) {
     withheld_df <- data.frame(
@@ -96,7 +91,6 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
     setColWidths(wb, sheet = "1. Correction Settings", cols = current_col, widths = pmax(width_vec, width_vec_header))
     current_col <- current_col + 2
   }
-  
   # Append QC RSD Filtered Metabolites
   if (length(filtered_corrected$removed_metabolites) > 0) {
     rsd_df <- data.frame(
@@ -110,7 +104,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
     setColWidths(wb, sheet = "1. Correction Settings", cols = current_col, widths = max_width_vec)
     current_col <- current_col + 2
   }
-  
+  # Append withheld from transformation columns
   if (length(transformed$withheld_cols) > 0) {
     ex_trn <- data.frame(
       Exculded_From_Normalization = transformed$withheld_cols,
@@ -122,7 +116,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
     max_width_vec <- pmax(width_vec, width_vec_header) 
     setColWidths(wb, sheet = "1. Correction Settings", cols = current_col, widths = max_width_vec)
   }
-  
+  # Adjust with of correction settings columns.
   width_vec <- apply(correction_settings_df, 2, function(x) max(nchar(as.character(x)) + 2, na.rm = TRUE)) 
   width_vec_header <- nchar(colnames(correction_settings_df)) + 2
   max_width_vec <- pmax(width_vec, width_vec_header) 
@@ -142,15 +136,13 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
     corrected_df <- corrected_df[corrected_df$class != "QC", ]
   }
   addWorksheet(wb, "2. Drift Normalized")
-  
   writeData(wb, sheet = "2. Drift Normalized", x = tab2_description, startCol = 1, startRow = 1)
   mergeCells(wb, sheet = "2. Drift Normalized", cols = 1:16, rows = 1)
   addStyle(wb, sheet = "2. Drift Normalized", style = style, rows = 1, cols = 1, gridExpand = TRUE)
   setRowHeights(wb, "2. Drift Normalized", rows = 1, heights = 60)
-  
   writeData(wb, sheet = "2. Drift Normalized", x = corrected_df, startRow = 3, headerStyle = bold_style)
   
-  # Add Scaled Data tab (name depends on method)
+  # Add Scaled or Normalized
   transformed_df <- transformed$df
   keep_cols <- setdiff(names(transformed_df), transformed$withheld_cols)
   if (!input$keep_corrected_qcs) {
@@ -192,7 +184,6 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
   mergeCells(wb, sheet = "4. Grouped Data Organized", cols = 1:12, rows = 1)
   addStyle(wb, sheet = "4. Grouped Data Organized", style = style, rows = 1, cols = 1, gridExpand = TRUE)
   setRowHeights(wb, "4. Grouped Data Organized", rows = 1, heights = 60)
-  
   current_row <- 3
   for (group_name in names(grouped_data$group_dfs)) {
     group <- grouped_data$group_dfs[[group_name]]
@@ -205,7 +196,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
     current_row <- current_row + 6
   }
   
-  # Add. 5. Grouped Data Fold Change
+  # Add. 5. Grouped Data Fold Change (If control group exisits)
   if (input$no_control == "FALSE" && input$control_class != "") {
     control_stats <- grouped_data$group_stats_dfs[[input$control_class]]
     fold_change <- fold_changes(transformed_df, control_stats[1, ])
@@ -220,7 +211,6 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
     mergeCells(wb, sheet = "5. Grouped Data Fold Change", cols = 1:12, rows = 1)
     addStyle(wb, sheet = "5. Grouped Data Fold Change", style = style, rows = 1, cols = 1, gridExpand = TRUE)
     setRowHeights(wb, "5. Grouped Data Fold Change", rows = 1, heights = 60)
-    
     current_row <- 3
     for (group_name in names(group_fc_data$group_dfs)) {
       group <- group_fc_data$group_dfs[[group_name]]
@@ -233,7 +223,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
       current_row <- current_row + 6
     }
     
-    # Add. Appendix1. Metaboanalyst Ready
+    # Add. Appendix1. Metaboanalyst Ready as fold change data (if control group exisits)
     names(fold_change)[names(fold_change) == "sample"] <- "Sample Name"
     names(fold_change)[names(fold_change) == "class"] <- "Group"
     fold_change$batch <- NULL
@@ -243,7 +233,7 @@ corrected_file_download <- function(input, cleaned, filtered, imputed, corrected
     setColWidths(wb, sheet = "Appendix1. Metaboanalyst Ready", cols = 1:2, widths = "auto")
     
   } else {
-    # Add. Appendix1. Metaboanalyst Ready
+    # Add. Appendix1. Metaboanalyst Ready as normalized data (if there is no control group)
     names(transformed_df)[names(transformed_df) == "sample"] <- "Sample Name"
     names(transformed_df)[names(transformed_df) == "class"] <- "Group"
     transformed_df$batch <- NULL
@@ -326,7 +316,7 @@ figure_folder_download <- function(input, imputed, filtered, filtered_corrected)
            height = 8)
   }
   
-  # create metabolite scatter plots
+  # Create metabolite scatter plots
   raw_cols <- setdiff(names(filtered$df),
                       c("sample", "batch", "class", "order"))
   cor_cols <- setdiff(names(filtered_corrected$df),
