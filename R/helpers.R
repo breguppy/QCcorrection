@@ -6,7 +6,7 @@ library(shinycssloaders)
 library(purrr)
 
 #–– UI snippets ––#
-# 1.2 Column-warning text
+# Column-warning text for section 1.2 Select non-metabolite columns
 columnWarningUI <- function(data, selected) {
   warnings <- list()
   
@@ -46,7 +46,7 @@ columnWarningUI <- function(data, selected) {
   }
 }
 
-# 1.3 Metric card
+# Metric card for 1.2 Select non-metabolite columns
 metric_card <- function(label, value) {
   div(
     style = "background:#f8f9fa; padding:10px; border-radius:8px; flex:1;",
@@ -55,7 +55,7 @@ metric_card <- function(label, value) {
   )
 }
 
-# 1.4 Basic‐info panel
+# Basic info for section 1.2 Select non-metabolite columns
 basicInfoUI <- function(df, replacement_counts) {
   metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
   n_metab = length(metab_cols)
@@ -137,25 +137,33 @@ basicInfoUI <- function(df, replacement_counts) {
   )
 }
 
-# 1.5 Filter‐info panel
+# Filter info for section 1.4 Filter Raw Data
 filterInfoUI <- function(mv_removed) {
   if (length(mv_removed) == 0) {
     tags$div(
       style = "flex: 1; padding-right: 10px;",
-      tags$span(style = "color:darkgreen;font-weight:bold;",
-                "No metabolites removed due to missing value threshold.")
+      tags$span(
+        style = "color:darkgreen;font-weight:bold;",
+        "No metabolites removed due to missing value threshold."
+      )
     )
   } else {
     tags$div(
       style = "flex: 1; padding-right: 10px;",
-      tags$span(style = "color:darkorange;font-weight:bold;",
-                paste(length(mv_removed), "metabolites removed based on missing value threshold:")),
+      tags$span(
+        style = "color:darkorange;font-weight:bold;",
+        paste(
+          length(mv_removed),
+          "metabolites removed based on missing value threshold:"
+        )
+      ),
       tags$ul(lapply(mv_removed, tags$li))
     )
   }
   
 }
 
+# QC missing value warning for section 2.1 Choose Correction settings
 qcMissingValueWarning <- function(df) {
   metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
   qc_idx <- which(df$class == "QC")
@@ -173,6 +181,7 @@ qcMissingValueWarning <- function(df) {
   
 }
 
+# Impute missing QC value options for section 2.1 Choose Correction settings
 qcImputeUI <- function(df, metab_cols) {
   qc_df <- df %>% filter(df$class == "QC")
   has_qc_na <- any(is.na(qc_df[, metab_cols]))
@@ -195,13 +204,12 @@ qcImputeUI <- function(df, metab_cols) {
       inline = FALSE
     )
   } else {
-    tags$div(
-      icon("check-circle", class = "text-success"),
-      span("No QC missing values")
-    )
+    tags$div(icon("check-circle", class = "text-success"),
+             span("No QC missing values"))
   }
 }
 
+# Impute missing sample value options for section 2.1 Choose Correction settings
 sampleImputeUI <- function(df, metab_cols) {
   sam_df <- df %>% filter(df$class != "QC")
   has_sam_na <- any(is.na(sam_df[, metab_cols]))
@@ -224,12 +232,12 @@ sampleImputeUI <- function(df, metab_cols) {
       inline = FALSE
     )
   } else {
-    tags$div(
-      icon("check-circle", class = "text-success"),
-      span("No Sample missing values")
-    )
+    tags$div(icon("check-circle", class = "text-success"),
+             span("No Sample missing values"))
   }
 }
+
+# Correction method selection options for section 2.1 Choose Correction settings
 correctionMethodUI <- function(df) {
   qc_per_batch <- df %>%
     group_by(batch) %>%
@@ -259,6 +267,9 @@ correctionMethodUI <- function(df) {
     )
   }
 }
+
+# Unavailable correction option description for section 2.1 Choose Correction settings
+# TODO: Add on to this.
 unavailableOptionsUI <- function(df, metab_cols) {
   # If there is only 1 class: class/metabolite impute for samples not available
   # If there is only 1 batch: no batchwise options
@@ -272,12 +283,14 @@ unavailableOptionsUI <- function(df, metab_cols) {
   if (any(qc_per_batch$qc_in_class < 5)) {
     unavail_opts[[length(unavail_opts) + 1]] <- tags$h6("Unavailable Correction Methods:")
     unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
-                                                      icon("circle-xmark", class = "text-danger-emphasis"),
-                                                      " Batchwise Random Forest requires at least 5 QCs per batch.")
+      icon("circle-xmark", class = "text-danger-emphasis"),
+      " Batchwise Random Forest requires at least 5 QCs per batch."
+    )
     unavail_opts[[length(unavail_opts) + 1]] <- tags$br()
     unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
       icon("circle-xmark", class = "text-danger-emphasis"),
-      " Batchwise LOESS requires at least 5 QCs per batch.")
+      " Batchwise LOESS requires at least 5 QCs per batch."
+    )
   }
   
   if (length(unavail_opts) == 0) {
@@ -289,6 +302,7 @@ unavailableOptionsUI <- function(df, metab_cols) {
   }
 }
 
+# Post-correction filtering info for section 2.2 Post-Correction Filtering
 postCorFilterInfoUI <- function(filtered_corrected_result) {
   n_removed <- length(filtered_corrected_result$removed_metabolites)
   if (n_removed > 0) {
