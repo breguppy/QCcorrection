@@ -481,35 +481,35 @@ remove_imputed_from_corrected <- function(raw_df, corrected_df) {
 # compute metabolite RSD
 metabolite_rsd <- function(df,
                            metadata_cols = c("sample", "batch", "class", "order")) {
-  metab_cols <- setdiff(names(df), metadata_cols)
+  nm <- names(df)
+  md_idx <- tolower(nm) %in% tolower(metadata_cols)
+  class_col <- nm[tolower(nm) == "class"]
+  if (!length(class_col)) stop("Expected a 'class' column (any case).")
+  class_col <- class_col[1]
+  metab_cols <- nm[!md_idx]
+  is_num <- vapply(df[metab_cols], is.numeric, logical(1))
+  metab_cols <- metab_cols[is_num]
+  if (!length(metab_cols)) stop("No numeric metabolite columns detected.")
   
   # Separate QC and non-QC samples
-  qc_df <- df[df$class == "QC", metab_cols, drop = FALSE]
-  nonqc_df <- df[df$class != "QC", metab_cols, drop = FALSE]
+  qc_df <- df[df[[class_col]] == "QC", metab_cols, drop = FALSE]
+  nonqc_df <- df[df[[class_col]] != "QC", metab_cols, drop = FALSE]
   
   # RSD function ignoring NA
   rsd_fun <- function(x) {
     mu <- mean(x, na.rm = TRUE)
-    sigma <- sd(x, na.rm = TRUE)
-    if (mu == 0 || is.na(mu))
-      return(NA)
+    sigma <- stats::sd(x, na.rm = TRUE)
+    if (mu == 0 || !is.finite(mu))
+      return(NA_real_)
     return(100 * sigma / mu)
   }
   
-  # Compute RSDs
-  qc_rsd <- sapply(qc_df, rsd_fun)
-  nonqc_rsd <- sapply(nonqc_df, rsd_fun)
-  
-  # Return as data frame
-  result <- data.frame(
-    Metabolite = names(qc_rsd),
-    RSD_QC = qc_rsd,
-    RSD_NonQC = nonqc_rsd,
-    row.names = NULL,
+  data.frame(
+    Metabolite = metab_cols,
+    RSD_QC     = vapply(qc_df, rsd_fun, numeric(1)),
+    RSD_NonQC  = vapply(nonqc_df, rsd_fun, numeric(1)),
     check.names = FALSE
   )
-  
-  return(result)
 }
 
 # compute metabolite RSD

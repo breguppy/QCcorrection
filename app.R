@@ -721,12 +721,26 @@ server <- function(input, output, session) {
   #-- display RSD comparison plot
   output$rsd_comparison_plot <- renderPlot({
     req(filtered(), filtered_corrected(), input$rsd_cal)
-    if (input$rsd_cal == "met") {
-      plot_rsd_comparison(filtered()$df, filtered_corrected()$df)
-    } else if (input$rsd_cal == "class_met") {
-      plot_rsd_comparison_class_met(filtered()$df, filtered_corrected()$df)
-    }
-  })
+    
+    df_before <- filtered()$df
+    df_after <- filtered_corrected()$df
+    validate(
+      need(is.data.frame(df_before) && nrow(df_before) > 0, "No 'before' data."),
+      need(is.data.frame(df_after)  && nrow(df_after)  > 0, "No 'after' data.")
+    )
+    
+    tryCatch(
+      if (input$rsd_cal == "met") {
+        plot_rsd_comparison(df_before, df_after)
+      } else if (input$rsd_cal == "class_met") {
+        plot_rsd_comparison_class_met(df_before, df_after)
+      },
+      error = function(e) {
+        showNotification(paste("RSD comparison failed:", e$message), type = "error", duration = 6)
+        ggplot2::ggplot() + ggplot2::labs(title = "RSD comparison failed — see notification")
+      }
+    )
+  }, res = 120)
   
   #-- PCA plot
   output$pca_plot <- renderPlot({
