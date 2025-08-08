@@ -82,13 +82,11 @@ filter_data <- function(df, metab_cols, Frule) {
   # filter data by metabolite missing value
   df_filtered <- df[, c(meta_cols, mv_keep_cols)]
   
-  return(
-    list(
-      df = df_filtered,
-      Frule = Frule,
-      mv_removed_cols = mv_removed_cols
-    )
-  )
+  return(list(
+    df = df_filtered,
+    Frule = Frule,
+    mv_removed_cols = mv_removed_cols
+  ))
 }
 
 
@@ -97,7 +95,7 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   n_missv <- sum(is.na(df[, metab_cols]))
   imputed_df <- df
   
-  # helper function to apply an imputation strategy to a subset of data 
+  # helper function to apply an imputation strategy to a subset of data
   apply_impute <- function(sub_df, method) {
     if (method == "nothing_to_impute") {
       sub_df <- sub_df
@@ -223,6 +221,7 @@ rf_correction <- function(df,
     # Apply correction
     df_corrected[[metab]] <- df[[metab]] / predicted
     
+    # increase printed progress bar
     setTxtProgressBar(pb, i)
   }
   
@@ -321,6 +320,7 @@ bw_rf_correction <- function(df,
       df_corrected[[metab]][batch_idx] <- df[[metab]][batch_idx] / predicted
     }
     
+    # increase printed progress bar
     setTxtProgressBar(pb, i)
   }
   
@@ -361,12 +361,14 @@ loess_correction <- function(df,
     # Apply correction
     df_corrected[[metab]] <- df[[metab]] / predicted
     
+    # increase printed progress bar
     setTxtProgressBar(pb, i)
   }
   
   close(pb)
   return(df_corrected)
 }
+
 bw_loess_correction <- function(df,
                                 metab_cols,
                                 degree = 2,
@@ -418,6 +420,7 @@ bw_loess_correction <- function(df,
       # Apply correction only to this batch
       df_corrected[[metab]][batch_idx] <- df[[metab]][batch_idx] / predicted
       
+      # increase printed progress bar
       progress_counter <- progress_counter + 1
       setTxtProgressBar(pb, progress_counter)
     }
