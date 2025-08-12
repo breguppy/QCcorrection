@@ -6,6 +6,21 @@ library(purrr)
 library(stats)
 
 #–– Data cleaning helpers ––#
+read_raw_data <- function(file_path) {
+  file_ext <- tools::file_ext(file_path)
+  
+  df <- switch(
+    tolower(file_ext),
+    "csv" = read.csv(file_path, header = TRUE, check.names = FALSE),
+    "xls" = read_excel(file_path),
+    "xlsx" = read_excel(file_path),
+    stop(
+      "Unsupported file type. Please upload a .csv, .xls, or .xlsx file."
+    )
+  )
+  
+  return(df)
+}
 
 # Clean & track replacements
 cleanData <- function(df,

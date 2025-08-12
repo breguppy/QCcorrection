@@ -6,6 +6,54 @@ library(shinycssloaders)
 library(purrr)
 
 #–– UI snippets ––#
+# Non-metabolite column selection for meta data.
+nonMetColSelectionUI <- function(cols) {
+  dropdown_choices <- c("Select a column..." = "", cols)
+  
+  tagList(
+    tooltip(
+      selectInput(
+        "sample_col",
+        "sample column",
+        choices = dropdown_choices,
+        selected = ""
+      ),
+      "Column that contains unique sample names.",
+      placement = "right"
+    ),
+    tooltip(
+      selectInput(
+        "batch_col",
+        "batch column",
+        choices = dropdown_choices,
+        selected = ""
+      ),
+      "Column that contains batch information.",
+      placement = "right"
+    ),
+    tooltip(
+      selectInput(
+        "class_col",
+        "class column",
+        choices = dropdown_choices,
+        selected = ""
+      ),
+      "Column that indicates the type of sample. Must contain QC samples labeled as 'NA', 'QC', 'Qc', or 'qc'.",
+      placement = "right"
+    ),
+    tooltip(
+      selectInput(
+        "order_col",
+        "order column",
+        choices = dropdown_choices,
+        selected = ""
+      ),
+      "Column that indicates injection order.",
+      placement = "right"
+    )
+  )
+}
+
 # Column-warning text for section 1.2 Select non-metabolite columns
 columnWarningUI <- function(data, selected) {
   warnings <- list()

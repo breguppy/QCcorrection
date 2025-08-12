@@ -338,89 +338,62 @@ ui <- fluidPage(
 
 # Define server
 server <- function(input, output, session) {
+  # Define reactive values so we can save a snapshot after each tab.
+  # This ensure we have finalized versions for plotting after correction.
+  rv <- reactiveValues(cleaned = NULL, 
+                       filtered = NULL, 
+                       imputed = NULL, 
+                       filtered_corrected = NULL, 
+                       params = NULL)
+  
   #-- Import Raw Data
   data_raw <- reactive({
     req(input$file1)
-    
-    file_path <- input$file1$datapath
-    file_ext <- tools::file_ext(file_path)
-    
-    df <- switch(
-      tolower(file_ext),
-      "csv" = read.csv(file_path, header = TRUE, check.names = FALSE),
-      "xls" = read_excel(file_path),
-      "xlsx" = read_excel(file_path),
-      stop(
-        "Unsupported file type. Please upload a .csv, .xls, or .xlsx file."
-      )
-    )
-    
-    df
-  })
+    read_raw_data(input$file1$datapath)
+  }) %>% bindCache(input$file1$datapath)
   
   #–– View Raw Data
   output$contents <- renderTable(data_raw())
   
+  #-- reactive for metadata column selection
+  selections_r <- reactive({
+    list(
+      sample   = input$sample_col %||% "",
+      batch    = input$batch_col  %||% "",
+      class    = input$class_col  %||% "",
+      order    = input$order_col  %||% ""
+    )
+  }) %>% debounce(200)
   #–– Column selection & warnings
   output$column_selectors <- renderUI({
     req(data_raw())
     cols <- names(data_raw())
-    
-    dropdown_choices <- c("Select a column..." = "", cols)
-    
-    tagList(
-      tooltip(
-        selectInput(
-          "sample_col",
-          "sample column",
-          choices = dropdown_choices,
-          selected = ""
-        ),
-        "Column that contains unique sample names.",
-        placement = "right"
-      ),
-      tooltip(
-        selectInput(
-          "batch_col",
-          "batch column",
-          choices = dropdown_choices,
-          selected = ""
-        ),
-        "Column that contains batch information.",
-        placement = "right"
-      ),
-      tooltip(
-        selectInput(
-          "class_col",
-          "class column",
-          choices = dropdown_choices,
-          selected = ""
-        ),
-        "Column that indicates the type of sample. Must contain QC samples labeled as 'NA', 'QC', 'Qc', or 'qc'.",
-        placement = "right"
-      ),
-      tooltip(
-        selectInput(
-          "order_col",
-          "order column",
-          choices = dropdown_choices,
-          selected = ""
-        ),
-        "Column that indicates injection order.",
-        placement = "right"
-      )
-    )
+    nonMetColSelectionUI(cols)
   })
   output$column_warning <- renderUI({
     req(data_raw())
-    selected <- c(input$sample_col,
-                  input$batch_col,
-                  input$class_col,
-                  input$order_col)
+    sel <- selections_r()
+    selected <- c(sel$sample, sel$batch, sel$class, sel$order)
     columnWarningUI(data_raw(), selected)
   })
   
-  #-- Option to withhold more columns form correction.
+  #-- Option to withhold more columns from correction.
+  withheld_ids_r <- reactive({
+    if (!isTRUE(input$withhold_cols)) return(character(0))
+    n <- input$n_withhold %||% 0
+    if (n <= 0) return(character(0))
+    paste0("withhold_col_", seq_len(n))
+  })
+  withheld_r <- reactive({
+    ids <- withheld_ids_r()
+    if (!length(ids)) return(character(0))
+    vals <- vapply(ids, function(id) input[[id]] %||% "", character(1))
+    vals <- unique(vals[nzchar(vals)])
+    
+    sel <- selections_r()
+    metadata <- c(sel$sample, sel$batch, sel$class, sel$order)
+    setdiff(vals, metadata)
+  }) %>% debounce(200)
   observe({
     req(data_raw())
     
@@ -439,61 +412,55 @@ server <- function(input, output, session) {
     })
   })
   output$withhold_selectors_ui <- renderUI({
-    req(data_raw(), input$withhold_cols, input$n_withhold)
-    cols <- names(data_raw())
-    cols <- setdiff(cols,
-                    c(
-                      input$sample_col,
-                      input$batch_col,
-                      input$class_col,
-                      input$order_col
-                    ))
-    dropdown_choices <- c("Select a column..." = "", cols)
+    req(data_raw(), input$n_withhold)
+    sel <- selections_r()
+    cols <- setdiff(names(data_raw()), c(sel$sample, sel$batch, sel$class, sel$order))
+    ids <- withheld_ids_r()
+    if (!length(ids)) return(NULL)
     
-    # Generate list of columns to withhold from correction.
-    lapply(seq_len(input$n_withhold), function(i) {
+    # snapshot previous selections **without** creating a dependency
+    prev_all <- isolate(vapply(ids, function(id) input[[id]] %||% "", character(1)))
+    
+    lapply(seq_along(ids), function(i) {
+      id   <- ids[i]
+      prev <- prev_all[i]
+      # prevent duplicates: exclude other picks, but keep this input's current value
+      other_picks <- setdiff(prev_all, prev)
+      choices_i <- c("Select a column..." = "", setdiff(cols, other_picks))
+      
       selectInput(
-        inputId = paste0("withhold_col_", i),
-        label = paste("Select column to withhold #", i),
-        choices = dropdown_choices,
-        selected = ""
+        inputId  = id,
+        label    = paste("Select column to withhold #", i),
+        choices  = choices_i,
+        selected = if (nzchar(prev) && prev %in% choices_i) prev else ""
       )
     })
   })
   
   #–– Cleaned data
-  cleaned <- reactive({
-    sel <- c(input$sample_col,
-             input$batch_col,
-             input$class_col,
-             input$order_col)
+  cleaned_r <- reactive({
+    df  <- req(data_raw())
+    sel <- selections_r()
+    withheld <- withheld_r()
     
-    req(!any(sel == ""), length(unique(sel)) == 4)
+    # require 4 unique and  non-empty columns
+    req(all(nzchar(c(sel$sample, sel$batch, sel$class, sel$order))))
+    req(length(unique(c(sel$sample, sel$batch, sel$class, sel$order))) == 4)
     
-    df <- data_raw()
-    withheld_cols <- character(0)
-    if (isTRUE(input$withhold_cols) && !is.null(input$n_withhold)) {
-      for (i in seq_len(input$n_withhold)) {
-        col <- input[[paste0("withhold_col_", i)]]
-        if (!is.null(col) && col %in% names(df)) {
-          withheld_cols <- c(withheld_cols, col)
-        }
-      }
-    }
-    cleanData(df, sel[1], sel[2], sel[3], sel[4], withheld_cols)
-  })
+    cleanData(df, sel$sample, sel$batch, sel$class, sel$order, withheld)
+  }) %>% bindCache(input$file1$datapath, selections_r(), withheld_r())
   
   #–– Display Basic Information about data.
   output$basic_info <- renderUI({
-    cleaned_data <- cleaned()
+    cleaned_data <- cleaned_r()
     req(cleaned_data)
     basicInfoUI(cleaned_data$df, cleaned_data$replacement_counts)
   })
   
   #-- Select a control class for fold change comparisons in corrected data.
   output$control_class_selector <- renderUI({
-    req(cleaned())
-    df <- cleaned()$df
+    req(cleaned_r())
+    df <- cleaned_r()$df
     classes <- unique(df$class[df$class != "QC"])
     dropdown_choices <- c("Select a class..." = "", classes)
     
@@ -510,67 +477,82 @@ server <- function(input, output, session) {
   })
   
   #–– Filter Data based on missing values.
-  filtered <- reactive({
-    cleaned_data <- cleaned()
-    req(cleaned_data)
+  filtered_r <- reactive({
+    cleaned_data <- req(cleaned_r())
     filter_data(cleaned_data$df, setdiff(
       names(cleaned_data$df),
       c("sample", "batch", "class", "order")
     ), input$Frule)
-  })
+  }) %>% bindCache(input$file1$datapath, selections_r(), input$Frule)
   output$filter_info <- renderUI({
-    filtered_data <- filtered()
+    filtered_data <- filtered_r()
     req(filtered_data)
     filterInfoUI(filtered_data$mv_removed_cols)
   })
   
   #-- Move to next panel after inspecting the raw data
   observeEvent(input$next_correction, {
+    req(cleaned_r(), filtered_r())
+    
+    # snapshot cleaned, filtered, and user inputs from Tab 1:
+    rv$cleaned <- cleaned_r()
+    rv$filtered <- filtered_r()
+    sel <- selections_r()
+    rv$params <- list(
+      sample_col    = sel$sample,
+      batch_col     = sel$batch,
+      class_col     = sel$class,
+      order_col     = sel$order,
+      withheld_cols = sel$withheld,
+      Frule         = input$Frule,
+      control_class = input$control_class %||% NULL
+    )
+    
     updateTabsetPanel(session, "main_steps", "2. Correction Settings")
   })
   
   #-- QC missing value warning and impute options.
   output$qc_missing_value_warning <- renderUI({
-    req(filtered())
-    qcMissingValueWarning(filtered()$df)
+    req(rv$filtered)
+    qcMissingValueWarning(rv$filtered$df)
   })
   output$qcImpute <- renderUI({
-    req(filtered())
-    metab_cols <- setdiff(names(filtered()$df),
+    req(rv$filtered)
+    metab_cols <- setdiff(names(rv$filtered$df),
                           c('sample', 'batch', 'class', 'order'))
-    qcImputeUI(filtered()$df, metab_cols)
+    qcImputeUI(rv$filtered$df, metab_cols)
   })
   
   #-- Sample missing value impute options.
   output$sampleImpute <- renderUI({
-    req(filtered())
-    metab_cols <- setdiff(names(filtered()$df),
+    req(rv$filtered)
+    metab_cols <- setdiff(names(rv$filtered$df),
                           c('sample', 'batch', 'class', 'order'))
-    sampleImputeUI(filtered()$df, metab_cols)
+    sampleImputeUI(rv$filtered$df, metab_cols)
   })
   
   #-- Select correction method based on whats available for the data.
   output$correctionMethod <- renderUI({
-    req(filtered())
-    correctionMethodUI(filtered()$df)
+    req(rv$filtered)
+    correctionMethodUI(rv$filtered$df)
   })
   
   #-- Display unavailable options
   output$unavailable_options <- renderUI({
-    req(filtered())
-    metab_cols <- setdiff(names(filtered()$df),
+    req(rv$filtered)
+    metab_cols <- setdiff(names(rv$filtered$df),
                           c('sample', 'batch', 'class', 'order'))
-    unavailableOptionsUI(filtered()$df, metab_cols)
+    unavailableOptionsUI(rv$filtered$df, metab_cols)
   })
   
   #-- Impute missing values
   imputed <- reactive({
-    req(filtered())
-    metab_cols <- setdiff(names(filtered()$df),
+    req(rv$filtered)
+    metab_cols <- setdiff(names(rv$filtered$df),
                           c('sample', 'batch', 'class', 'order'))
-    qc_df <- filtered()$df %>% filter(filtered()$df$class == "QC")
+    qc_df <- rv$filtered$df %>% filter(rv$filtered$df$class == "QC")
     has_qc_na <- any(is.na(qc_df[, metab_cols]))
-    sam_df <- filtered()$df %>% filter(filtered()$df$class != "QC")
+    sam_df <- rv$filtered$df %>% filter(rv$filtered$df$class != "QC")
     has_sam_na <- any(is.na(sam_df[, metab_cols]))
     
     ifelse(!has_qc_na,
@@ -580,8 +562,8 @@ server <- function(input, output, session) {
            samImpute <- "nothing_to_impute",
            samImpute <- input$samImputeM)
     
-    impute_missing(filtered()$df, setdiff(
-      names(filtered()$df),
+    impute_missing(rv$filtered$df, setdiff(
+      names(rv$filtered$df),
       c("sample", "batch", "class", "order")
     ), qcImpute, samImpute)
   })
@@ -595,11 +577,11 @@ server <- function(input, output, session) {
   
   #-- Filter corrected data
   filtered_corrected <- reactive({
-    req(filtered(), corrected())
+    req(rv$filtered, corrected())
     df_corrected <- corrected()$df
     
     if (isTRUE(input$remove_imputed)) {
-      df <- remove_imputed_from_corrected(filtered()$df, df_corrected)
+      df <- remove_imputed_from_corrected(rv$filtered$df, df_corrected)
     } else {
       df <- df_corrected
     }
@@ -699,8 +681,8 @@ server <- function(input, output, session) {
     content = function(file) {
       wb <- corrected_file_download(
         input,
-        cleaned(),
-        filtered(),
+        rv$cleaned,
+        rv$filtered,
         imputed(),
         corrected(),
         filtered_corrected(),
@@ -720,9 +702,9 @@ server <- function(input, output, session) {
   
   #-- display RSD comparison plot
   output$rsd_comparison_plot <- renderPlot({
-    req(filtered(), filtered_corrected(), input$rsd_cal)
+    req(rv$filtered, filtered_corrected(), input$rsd_cal)
     
-    df_before <- filtered()$df
+    df_before <- rv$filtered$df
     df_after <- filtered_corrected()$df
     validate(
       need(is.data.frame(df_before) && nrow(df_before) > 0, "No 'before' data."),
@@ -750,8 +732,8 @@ server <- function(input, output, session) {
   
   #-- Let user select which metabolite to display in scatter plot
   output$met_plot_selectors <- renderUI({
-    req(filtered(), transformed())
-    raw_cols <- setdiff(names(filtered()$df),
+    req(rv$filtered, transformed())
+    raw_cols <- setdiff(names(rv$filtered$df),
                         c("sample", "batch", "class", "order"))
     cor_cols <- setdiff(names(transformed()$df),
                         c("sample", "batch", "class", "order"))
@@ -764,16 +746,16 @@ server <- function(input, output, session) {
     ))
   })
   output$metab_scatter <- renderPlot({
-    req(input$met_col, filtered(), transformed(), input$corMethod)
+    req(input$met_col, rv$filtered, transformed(), input$corMethod)
     if (input$corMethod %in% c("RF", "BW_RF")) {
       met_scatter_rf(
-        data_raw = filtered()$df,
+        data_raw = rv$filtered$df,
         data_cor = transformed()$df,
         i = input$met_col
       )
     } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
       met_scatter_loess(
-        data_raw = filtered()$df,
+        data_raw = rv$filtered$df,
         data_cor = transformed()$df,
         i = input$met_col
       )
@@ -812,7 +794,7 @@ server <- function(input, output, session) {
       paste0("figures_", Sys.Date(), ".zip")
     },
     content = function(file) {
-      figs <- figure_folder_download(input, imputed(), filtered(), filtered_corrected())
+      figs <- figure_folder_download(input, imputed(), rv$filtered, filtered_corrected())
       
       zipfile <- tempfile(fileext = ".zip")
       old_wd <- setwd(figs$tmp_dir)
@@ -859,8 +841,8 @@ server <- function(input, output, session) {
       cor_data_path <- file.path(base_dir, cor_data_filename)
       wb <- corrected_file_download(
         input,
-        cleaned(),
-        filtered(),
+        rv$cleaned,
+        rv$filtered,
         imputed(),
         corrected(),
         filtered_corrected(),
@@ -869,7 +851,7 @@ server <- function(input, output, session) {
       saveWorkbook(wb, cor_data_path, overwrite = TRUE)
       
       # 2. create and save figure folder
-      fig_info <- figure_folder_download(input, imputed(), filtered(), filtered_corrected())
+      fig_info <- figure_folder_download(input, imputed(), rv$filtered, filtered_corrected())
       fig_dir <- fig_info$fig_dir
       figures_path <- file.path(base_dir, "figures")
       dir.create(figures_path)
