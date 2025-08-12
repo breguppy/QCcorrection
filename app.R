@@ -343,7 +343,8 @@ server <- function(input, output, session) {
   rv <- reactiveValues(cleaned = NULL, 
                        filtered = NULL, 
                        imputed = NULL, 
-                       filtered_corrected = NULL, 
+                       filtered_corrected = NULL,
+                       transformed = NULL,
                        params = NULL)
   
   #-- Import Raw Data
@@ -511,6 +512,8 @@ server <- function(input, output, session) {
     updateTabsetPanel(session, "main_steps", "2. Correction Settings")
   })
   
+  ########################## TAB 2
+  
   #-- QC missing value warning and impute options.
   output$qc_missing_value_warning <- renderUI({
     req(rv$filtered)
@@ -545,40 +548,59 @@ server <- function(input, output, session) {
     unavailableOptionsUI(rv$filtered$df, metab_cols)
   })
   
-  #-- Impute missing values
-  imputed <- reactive({
+  #-- reactive value for metab cols
+  metab_cols_r <- reactive({
     req(rv$filtered)
-    metab_cols <- setdiff(names(rv$filtered$df),
-                          c('sample', 'batch', 'class', 'order'))
-    qc_df <- rv$filtered$df %>% filter(rv$filtered$df$class == "QC")
-    has_qc_na <- any(is.na(qc_df[, metab_cols]))
-    sam_df <- rv$filtered$df %>% filter(rv$filtered$df$class != "QC")
-    has_sam_na <- any(is.na(sam_df[, metab_cols]))
-    
-    ifelse(!has_qc_na,
-           qcImpute <- "nothing_to_impute",
-           qcImpute <- input$qcImputeM)
-    ifelse(!has_sam_na,
-           samImpute <- "nothing_to_impute",
-           samImpute <- input$samImputeM)
-    
-    impute_missing(rv$filtered$df, setdiff(
-      names(rv$filtered$df),
-      c("sample", "batch", "class", "order")
-    ), qcImpute, samImpute)
+    setdiff(names(rv$filtered$df), c("sample","batch","class","order"))
   })
+  
+  #-- reactives for NA value check
+  has_qc_na_r <- reactive({
+    req(rv$filtered)
+    df <- rv$filtered$df
+    mc <- metab_cols_r()
+    any(is.na(dplyr::filter(df, .data$class == "QC")[, mc, drop = FALSE]))
+  }) %>% bindCache(input$file1$datapath, input$Frule)
+  has_sam_na_r <- reactive({
+    req(rv$filtered)
+    df <- rv$filtered$df
+    mc <- metab_cols_r()
+    any(is.na(dplyr::filter(df, .data$class != "QC")[, mc, drop = FALSE]))
+  }) %>% bindCache(input$file1$datapath, input$Frule)
+  
+  #-- Impute missing values
+  imputed_r <- reactive({
+    req(rv$filtered)
+    mc <- metab_cols_r()
+    
+    qcImpute  <- if (isTRUE(!has_qc_na_r()))  "nothing_to_impute" else input$qcImputeM
+    samImpute <- if (isTRUE(!has_sam_na_r())) "nothing_to_impute" else input$samImputeM
+    
+    impute_missing(rv$filtered$df, mc, qcImpute, samImpute)
+  }) %>% bindCache(rv$filtered$df, input$qcImputeM, input$samImputeM) %>% identity()
   
   #-- Corrected data
-  corrected <- eventReactive(input$correct, {
-    req(imputed())
+  corrected_r <- eventReactive(input$correct, {
+    req(imputed_r(), input$corMethod)
     
-    correct_data(imputed()$df, setdiff(names(imputed()$df), c("sample", "batch", "class", "order")), input$corMethod)
+    # Isolate the current imputed result & inputs to "freeze" the snapshot at click time
+    imputed <- isolate(imputed_r())
+    cor_method <- isolate(input$corMethod)
+    mc <- isolate(metab_cols_r())
+    
+    # take snapshot of imputed
+    rv$imputed <- imputed
+    rv$corrected <- correct_data(imputed$df, 
+                              mc,
+                              cor_method)
   })
   
+  observeEvent(input$correct, { corrected_r()})
+  
   #-- Filter corrected data
-  filtered_corrected <- reactive({
-    req(rv$filtered, corrected())
-    df_corrected <- corrected()$df
+  filtered_corrected_r <- reactive({
+    req(rv$filtered, rv$corrected)
+    df_corrected <- rv$corrected$df
     
     if (isTRUE(input$remove_imputed)) {
       df <- remove_imputed_from_corrected(rv$filtered$df, df_corrected)
@@ -597,9 +619,9 @@ server <- function(input, output, session) {
   
   #-- Option to withhold columns from TRN
   observe({
-    req(corrected(), input$trn_withhold_checkbox)
+    req(rv$corrected, input$trn_withhold_checkbox)
     
-    max_withhold <- max(ncol(corrected()$df) - 4, 0)
+    max_withhold <- max(ncol(rv$corrected$df) - 4, 0)
     
     output$trn_withhold_ui <- renderUI({
       if (input$transform == "TRN") {
@@ -614,8 +636,8 @@ server <- function(input, output, session) {
     })
   })
   output$trn_withhold_selectors_ui <- renderUI({
-    req(corrected(), input$trn_withhold_n)
-    cols <- names(corrected()$df)
+    req(rv$corrected, input$trn_withhold_n)
+    cols <- names(rv$corrected$df)
     cols <- setdiff(cols, c("sample", "batch", "class", "order"))
     dropdown_choices <- c("Select a column..." = "", cols)
     
@@ -631,8 +653,8 @@ server <- function(input, output, session) {
   })
   
   #-- Scale/Normalize corrected data.
-  transformed <- reactive({
-    req(filtered_corrected())
+  transformed_r <- reactive({
+    req(filtered_corrected_r())
     withheld_cols <- character(0)
     
     if (isTRUE(input$trn_withhold_checkbox) &&
@@ -640,12 +662,12 @@ server <- function(input, output, session) {
       for (i in seq_len(input$trn_withhold_n)) {
         col <- input[[paste0("trn_withhold_col_", i)]]
         if (!is.null(col) &&
-            col %in% names(filtered_corrected()$df)) {
+            col %in% names(filtered_corrected_r()$df)) {
           withheld_cols <- c(withheld_cols, col)
         }
       }
     }
-    transform_data(filtered_corrected()$df,
+    transform_data(filtered_corrected_r()$df,
                    input$transform,
                    withheld_cols,
                    input$ex_ISTD)
@@ -653,17 +675,17 @@ server <- function(input, output, session) {
   
   #-- Display corrected/transformed data and information.
   output$post_cor_filter_info <- renderUI({
-    req(filtered_corrected())
-    postCorFilterInfoUI(filtered_corrected())
+    req(filtered_corrected_r())
+    postCorFilterInfoUI(filtered_corrected_r())
   })
   output$cor_data <- renderTable({
-    req(transformed())
-    transformed()$df
+    req(transformed_r())
+    transformed_r()$df
   })
   
   #-- Download corrected data file only.
   output$download_corr_btn <- renderUI({
-    req(transformed())
+    req(transformed_r())
     
     div(
       style = "max-width: 300px; display: inline-block;",
@@ -679,14 +701,17 @@ server <- function(input, output, session) {
       paste0("corrected_data_", Sys.Date(), ".xlsx")
     },
     content = function(file) {
+      fc <- isolate(filtered_corrected_r())
+      tr <- isolate(transformed_r())
+      
       wb <- corrected_file_download(
         input,
         rv$cleaned,
         rv$filtered,
-        imputed(),
-        corrected(),
-        filtered_corrected(),
-        transformed()
+        rv$imputed,
+        rv$corrected,
+        fc,
+        tr
       )
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
@@ -695,6 +720,10 @@ server <- function(input, output, session) {
   
   #-- Move to next tab after inspecting the corrected data
   observeEvent(input$next_visualization, {
+    # snapshot filtered corrected and transformed before making figures.
+    rv$filtered_corrected <- isolate(filtered_corrected_r())
+    rv$transformed <- isolate(transformed_r())
+    
     updateTabsetPanel(session,
                       "main_steps",
                       "3. Evaluation Metrics and Visualization")
@@ -702,69 +731,98 @@ server <- function(input, output, session) {
   
   #-- display RSD comparison plot
   output$rsd_comparison_plot <- renderPlot({
-    req(rv$filtered, filtered_corrected(), input$rsd_cal)
+    req(rv$filtered, rv$filtered_corrected, input$rsd_cal)
     
     df_before <- rv$filtered$df
-    df_after <- filtered_corrected()$df
+    df_after <- rv$filtered_corrected$df
+    # Need at least 1 metabolite column
+    num_before <- ncol(df_before) - 4L
+    num_after  <- ncol(df_after)  - 4L
     validate(
-      need(is.data.frame(df_before) && nrow(df_before) > 0, "No 'before' data."),
-      need(is.data.frame(df_after)  && nrow(df_after)  > 0, "No 'after' data.")
+      need(num_before >= 1, "No metabolites left before correction."),
+      need(num_after  >= 1, "No metabolites left after correction.")
     )
     
-    tryCatch(
+    # Need at least 2 QC rows to compute RSD reliably
+    qc_before <- sum(df_before$class == "QC", na.rm = TRUE)
+    qc_after  <- sum(df_after$class  == "QC", na.rm = TRUE)
+    validate(
+      need(qc_before >= 2, "Not enough QC samples before correction (need ≥ 2)."),
+      need(qc_after  >= 2, "Not enough QC samples after correction (need ≥ 2).")
+    )
+    
+    tryCatch({
       if (input$rsd_cal == "met") {
         plot_rsd_comparison(df_before, df_after)
-      } else if (input$rsd_cal == "class_met") {
+      } else {
         plot_rsd_comparison_class_met(df_before, df_after)
-      },
-      error = function(e) {
-        showNotification(paste("RSD comparison failed:", e$message), type = "error", duration = 6)
-        ggplot2::ggplot() + ggplot2::labs(title = "RSD comparison failed — see notification")
       }
-    )
+    }, error = function(e) {
+      showNotification(paste("RSD comparison failed:", e$message),
+                       type = "error", duration = 8)
+      ggplot2::ggplot() + ggplot2::labs(title = "RSD comparison failed — see notification")
+    })
   }, res = 120)
   
   #-- PCA plot
   output$pca_plot <- renderPlot({
-    req(imputed(), filtered_corrected())
-    plot_pca(input, imputed(), filtered_corrected(), input$color_col)
-  })
+    req(rv$imputed, rv$filtered_corrected)
+    df <- rv$filtered_corrected$df
+    mets <- setdiff(names(df), c("sample","batch","class","order"))
+    validate(
+      need(length(mets) >= 2, "Need at least 2 metabolite columns for PCA."),
+      need(nrow(df) >= 3, "Need at least 3 samples for PCA.")
+    )
+    
+    # Also ensure non-constant / non-NA columns
+    X <- df[, mets, drop = FALSE]
+    keep <- vapply(X, function(v) {
+      v <- suppressWarnings(as.numeric(v))
+      ok <- all(is.finite(v))
+      nz <- (length(unique(v)) >= 2)
+      ok && nz
+    }, logical(1))
+    validate(need(any(keep), "All metabolite columns are constant/invalid after filtering."))
+    
+    tryCatch({
+      plot_pca(input, rv$imputed, rv$filtered_corrected, input$color_col)
+    }, error = function(e) {
+      showNotification(paste("PCA failed:", e$message),
+                       type = "error", duration = 8)
+      ggplot2::ggplot() + ggplot2::labs(title = "PCA failed — see notification")
+    })
+  }, res = 120)
   
   #-- Let user select which metabolite to display in scatter plot
   output$met_plot_selectors <- renderUI({
-    req(rv$filtered, transformed())
-    raw_cols <- setdiff(names(rv$filtered$df),
-                        c("sample", "batch", "class", "order"))
-    cor_cols <- setdiff(names(transformed()$df),
-                        c("sample", "batch", "class", "order"))
+    req(rv$filtered, rv$transformed)
+    raw_cols <- setdiff(names(rv$filtered$df),    c("sample","batch","class","order"))
+    cor_cols <- setdiff(names(rv$transformed$df), c("sample","batch","class","order"))
     cols <- intersect(raw_cols, cor_cols)
-    tagList(selectInput(
-      "met_col",
-      "Metabolite column",
-      choices = cols,
-      selected = cols[1]
-    ))
+    validate(need(length(cols) >= 1, "No overlapping metabolites between raw and corrected data."))
+    selectInput("met_col", "Metabolite column", choices = cols, selected = cols[1])
   })
+  
   output$metab_scatter <- renderPlot({
-    req(input$met_col, rv$filtered, transformed(), input$corMethod)
-    if (input$corMethod %in% c("RF", "BW_RF")) {
-      met_scatter_rf(
-        data_raw = rv$filtered$df,
-        data_cor = transformed()$df,
-        i = input$met_col
-      )
-    } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
-      met_scatter_loess(
-        data_raw = rv$filtered$df,
-        data_cor = transformed()$df,
-        i = input$met_col
-      )
-    }
+    req(input$met_col, rv$filtered, rv$transformed, input$corMethod)
+    tryCatch({
+      if (input$corMethod %in% c("RF","BW_RF")) {
+        met_scatter_rf(rv$filtered$df, rv$transformed$df, i = input$met_col)
+      } else if (input$corMethod %in% c("LOESS","BW_LOESS")) {
+        met_scatter_loess(rv$filtered$df, rv$transformed$df, i = input$met_col)
+      } else {
+        ggplot2::ggplot() + ggplot2::labs(title = "No correction method selected.")
+      }
+    }, error = function(e) {
+      showNotification(paste("Scatter failed:", e$message),
+                       type = "error", duration = 8)
+      ggplot2::ggplot() + ggplot2::labs(title = "Scatter failed — see notification")
+    })
   })
   
   #-- Download all figures as zip folder.
   output$download_fig_zip_btn <- renderUI({
-    req(transformed())
+    req(rv$transformed)
     
     div(
       style = "max-width: 300px; display: inline-block;",
@@ -794,7 +852,7 @@ server <- function(input, output, session) {
       paste0("figures_", Sys.Date(), ".zip")
     },
     content = function(file) {
-      figs <- figure_folder_download(input, imputed(), rv$filtered, filtered_corrected())
+      figs <- figure_folder_download(input, rv$imputed, rv$filtered, rv$filtered_corrected)
       
       zipfile <- tempfile(fileext = ".zip")
       old_wd <- setwd(figs$tmp_dir)
@@ -819,7 +877,7 @@ server <- function(input, output, session) {
   })
   
   output$download_all_ui <- renderUI({
-    req(transformed())
+    req(rv$transformed)
     downloadButton(
       outputId = "download_all_zip",
       label = "Download All",
@@ -843,15 +901,15 @@ server <- function(input, output, session) {
         input,
         rv$cleaned,
         rv$filtered,
-        imputed(),
-        corrected(),
-        filtered_corrected(),
-        transformed()
+        rv$imputed,
+        rv$corrected,
+        rv$filtered_corrected,
+        rv$transformed
       )
       saveWorkbook(wb, cor_data_path, overwrite = TRUE)
       
       # 2. create and save figure folder
-      fig_info <- figure_folder_download(input, imputed(), rv$filtered, filtered_corrected())
+      fig_info <- figure_folder_download(input, rv$imputed, rv$filtered, rv$filtered_corrected)
       fig_dir <- fig_info$fig_dir
       figures_path <- file.path(base_dir, "figures")
       dir.create(figures_path)
