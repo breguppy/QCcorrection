@@ -296,7 +296,7 @@ corrected_file_download <- function(input,
     "This normalization is done by summing all individual post-QC corrected metabolite level values within a sample (total signal) and then dividing each individual metabolite level value within that sample by the total signal.",
     "This normalization quantifies individual metabolite values across samples based on their proportion to total metabolite load, in arbitrary units, within each individual sample.",
     "These values are displayed on this tab after multiplying by the total number of metabolites present in the sample for easier visualization. Data remain in arbitrary units.",
-    "Because arbitary units for a given metabolite quantitatively scale across samples, levels of a given metabolite may be quantiatively compared across samples.",
+    "Because arbitary units for a given metabolite quantitatively scale across samples, levels of a given metabolite may be quantitatively compared across samples.",
     "Because unit scaling is different for each metabolite, different metabolites within in a sample cannot be quantitatively compared.",
     "However, because differences in arbitrary unit scaling between samples cancel out by divsion, within-sample metabolite ratios can be quantitatively compared across samples."
   )
