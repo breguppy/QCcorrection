@@ -1,12 +1,12 @@
 # rsd comparison plots
 
-library(ggplot2)
-library(patchwork)
-library(dplyr)
-library(tidyr)
-library(tidyverse)
-library(grid)
-library(gridExtra)
+#library(ggplot2)
+#library(patchwork)
+#library(dplyr)
+#library(tidyr)
+#library(tidyverse)
+#library(grid)
+#library(gridExtra)
 source("R/processing_helpers.R")
 
 lab_levels   <- c("Increased","No Change","Decreased")
@@ -61,7 +61,7 @@ pct_tbl <- function(d) {
 
 # compute legend percentages
 label_map <- function(perc) setNames(
-  paste0(c("Increased RSD: ","No change: ","Decreased RSD: "), perc$percent, "%"),
+  paste0(c("Increased: ","No change: ","Decreased: "), perc$percent, "%"),
   lab_levels
 )
 
@@ -103,11 +103,15 @@ plot_rsd_comparison <- function(df_before, df_after) {
   
   print("INDIVIDUAL PLOTS MADE")
   # patch them together
-  patchwork::wrap_plots(p1, p2, nrow = 1) +
+  plot <- patchwork::wrap_plots(p1, p2, nrow = 1) +
     patchwork::plot_annotation(
       "Comparison of RSD Before and After Correction",
       theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 18, face = "bold", hjust = 0.5))
     )
+  
+  print("COMBINED PLOT MADE")
+  
+  return(plot)
 }
 
 # RSD comparison scatter plot when computing RSD by metabolite-class

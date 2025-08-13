@@ -6,6 +6,11 @@ library(shinycssloaders)
 library(openxlsx)
 library(readxl)
 library(tools)
+library(ggplot2)
+library(tidyr)
+library(patchwork)
+#library(grid)
+#library(gridExtra)
 source("R/helpers.R")
 source("R/processing_helpers.R")
 source("R/met_scatter_rf.R")
@@ -274,7 +279,7 @@ ui <- fluidPage(
           ),
           width = 400,
         ),
-        plotOutput("rsd_comparison_plot", height = "600px", width = "1100px")
+        plotOutput("rsd_comparison_plot", height = "500px", width = "900px")
       )),
       card(layout_sidebar(
         sidebar = sidebar(
@@ -288,7 +293,7 @@ ui <- fluidPage(
           ),
           width = 400,
         ),
-        plotOutput("pca_plot", height = "600px", width = "1100px")
+        plotOutput("pca_plot", height = "500px", width = "1100px")
       )),
       card(layout_sidebar(
         sidebar = sidebar(
@@ -745,38 +750,42 @@ server <- function(input, output, session) {
     
     df_before <- rv$filtered$df
     df_after <- rv$filtered_corrected$df
+    rsd_mode  <- input$rsd_cal
+    
+    
     # Need at least 1 metabolite column
-    num_before <- ncol(df_before) - 4L
-    num_after  <- ncol(df_after)  - 4L
     validate(
-      need(num_before >= 1, "No metabolites left before correction."),
-      need(num_after  >= 1, "No metabolites left after correction.")
+      need(ncol(df_before) > 4L, "No metabolites left before correction."),
+      need(ncol(df_after)  > 4L, "No metabolites left after correction."),
+      need(sum(df_before$class == "QC", na.rm = TRUE) >= 2, "Not enough QC samples before correction (need >= 2)."),
+      need(sum(df_after$class  == "QC",  na.rm = TRUE) >= 2, "Not enough QC samples after correction (need >= 2).")
     )
     
     print("POST-VALIDATE CALL 1")
     
-    # Need at least 2 QC rows to compute RSD reliably
-    qc_before <- sum(df_before$class == "QC", na.rm = TRUE)
-    qc_after  <- sum(df_after$class  == "QC", na.rm = TRUE)
-    validate(
-      need(qc_before >= 2, "Not enough QC samples before correction (need >= 2)."),
-      need(qc_after  >= 2, "Not enough QC samples after correction (need >= 2).")
-    )
+    grDevices::dev.hold(); on.exit(grDevices::dev.flush(), add = TRUE)
     
-    print("POST-VALIDATE CALL 2")
-    
-    tryCatch({
-      print(input$rsd_cal)
-      if (input$rsd_cal == "met") {
+    # 3) Run all heavy work in isolate so any writes inside helpers cannot create deps.
+    p <- isolate({
+      if (identical(rsd_mode, "met")) {
         plot_rsd_comparison(df_before, df_after)
+        print("plot made")
       } else {
         plot_rsd_comparison_class_met(df_before, df_after)
+        print("other plot made")
       }
-    }, error = function(e) {
-      showNotification(paste("RSD comparison failed:", e$message),
-                       type = "error", duration = 8)
-      ggplot2::ggplot() + ggplot2::labs(title = "RSD comparison failed — see notification")
     })
+    
+    # 4) Enforce a drawable object.
+    if (inherits(p, c("patchwork", "gg", "ggplot"))) {
+      print(p)
+    } else if (is.list(p) && length(p) > 0 && inherits(p[[1]], c("patchwork", "gg", "ggplot"))) {
+      print(p[[1]])
+    } else if (inherits(p, c("grob", "gTree", "gList", "gtable", "gTable"))) {
+      grid::grid.newpage(); grid::grid.draw(p)
+    } else {
+      validate(need(FALSE, paste("Unsupported plot type:", paste(class(p), collapse = ", "))))
+    }
   }, res = 120)
   
   #-- PCA plot
@@ -799,8 +808,11 @@ server <- function(input, output, session) {
     }, logical(1))
     validate(need(any(keep), "All metabolite columns are constant/invalid after filtering."))
     
+    before <- rv$imputed
+    after <- rv$filtered_corrected
+    
     tryCatch({
-      plot_pca(input, rv$imputed, rv$filtered_corrected, input$color_col)
+      plot_pca(input, before, after, input$color_col)
     }, error = function(e) {
       showNotification(paste("PCA failed:", e$message),
                        type = "error", duration = 8)
@@ -820,12 +832,14 @@ server <- function(input, output, session) {
   
   output$metab_scatter <- renderPlot({
     req(input$met_col, rv$filtered, rv$transformed, rv$corrected)
+    f_df <- rv$filtered$df
+    t_df <- rv$transformed$df
     cor_method <- rv$corrected$str
     tryCatch({
       if (cor_method %in% c("Random Forest","Batchwise Random Forest")) {
-        met_scatter_rf(rv$filtered$df, rv$transformed$df, i = input$met_col)
+        met_scatter_rf(f_df, t_df, i = input$met_col)
       } else if (cor_method %in% c("LOESS","Batchwise LOESS")) {
-        met_scatter_loess(rv$filtered$df, rv$transformed$df, i = input$met_col)
+        met_scatter_loess(f_df, t_df, i = input$met_col)
       } else {
         ggplot2::ggplot() + ggplot2::labs(title = "No correction method selected.")
       }
