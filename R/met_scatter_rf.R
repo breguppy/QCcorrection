@@ -97,7 +97,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
     geom_hline(data = sd_df_after, aes(yintercept = y, linetype = sd),
-               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#950606"), size = 1.25) +
+               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#950606"), linewidth = 1.25) +
     geom_point(data = data_cor %>% filter(type == "Sample"),
                aes(order, .data[[i]], color = type), size = 3) +
     geom_point(data = data_cor %>% filter(type == "QC"),

@@ -338,6 +338,10 @@ ui <- fluidPage(
 
 # Define server
 server <- function(input, output, session) {
+  session$onSessionEnded(function() {
+    message("Session ended; calling stopApp()")
+    stopApp()
+  })
   # Define reactive values so we can save a snapshot after each tab.
   # This ensure we have finalized versions for plotting after correction.
   rv <- reactiveValues(cleaned = NULL, 
@@ -351,7 +355,7 @@ server <- function(input, output, session) {
   data_raw <- reactive({
     req(input$file1)
     read_raw_data(input$file1$datapath)
-  }) %>% bindCache(input$file1$datapath)
+  }) #%>% bindCache(input$file1$datapath)
   
   #–– View Raw Data
   output$contents <- renderTable(data_raw())
@@ -484,7 +488,7 @@ server <- function(input, output, session) {
       names(cleaned_data$df),
       c("sample", "batch", "class", "order")
     ), input$Frule)
-  }) %>% bindCache(input$file1$datapath, selections_r(), input$Frule)
+  }) #%>% bindCache(input$file1$datapath, selections_r(), input$Frule)
   output$filter_info <- renderUI({
     filtered_data <- filtered_r()
     req(filtered_data)
@@ -560,13 +564,13 @@ server <- function(input, output, session) {
     df <- rv$filtered$df
     mc <- metab_cols_r()
     any(is.na(dplyr::filter(df, .data$class == "QC")[, mc, drop = FALSE]))
-  }) %>% bindCache(input$file1$datapath, input$Frule)
+  }) #%>% bindCache(input$file1$datapath, input$Frule)
   has_sam_na_r <- reactive({
     req(rv$filtered)
     df <- rv$filtered$df
     mc <- metab_cols_r()
     any(is.na(dplyr::filter(df, .data$class != "QC")[, mc, drop = FALSE]))
-  }) %>% bindCache(input$file1$datapath, input$Frule)
+  }) #%>% bindCache(input$file1$datapath, input$Frule)
   
   #-- Impute missing values
   imputed_r <- reactive({
@@ -577,7 +581,7 @@ server <- function(input, output, session) {
     samImpute <- if (isTRUE(!has_sam_na_r())) "nothing_to_impute" else input$samImputeM
     
     impute_missing(rv$filtered$df, mc, qcImpute, samImpute)
-  }) %>% bindCache(rv$filtered$df, input$qcImputeM, input$samImputeM) %>% identity()
+  }) #%>% bindCache(rv$filtered$df, input$qcImputeM, input$samImputeM) %>% identity()
   
   #-- Corrected data
   corrected_r <- eventReactive(input$correct, {
@@ -720,6 +724,7 @@ server <- function(input, output, session) {
   
   #-- Move to next tab after inspecting the corrected data
   observeEvent(input$next_visualization, {
+    req(filtered_corrected_r(), transformed_r())
     # snapshot filtered corrected and transformed before making figures.
     rv$filtered_corrected <- isolate(filtered_corrected_r())
     rv$transformed <- isolate(transformed_r())
@@ -731,7 +736,10 @@ server <- function(input, output, session) {
   
   #-- display RSD comparison plot
   output$rsd_comparison_plot <- renderPlot({
+    print("RSD_COMPARISON_PLOT_ENTERED")
     req(rv$filtered, rv$filtered_corrected, input$rsd_cal)
+    
+    print("REQ CALL")
     
     df_before <- rv$filtered$df
     df_after <- rv$filtered_corrected$df
@@ -743,6 +751,8 @@ server <- function(input, output, session) {
       need(num_after  >= 1, "No metabolites left after correction.")
     )
     
+    print("POST-VALIDATE CALL 1")
+    
     # Need at least 2 QC rows to compute RSD reliably
     qc_before <- sum(df_before$class == "QC", na.rm = TRUE)
     qc_after  <- sum(df_after$class  == "QC", na.rm = TRUE)
@@ -751,9 +761,13 @@ server <- function(input, output, session) {
       need(qc_after  >= 2, "Not enough QC samples after correction (need ≥ 2).")
     )
     
+    print("POST-VALIDATE CALL 2")
+    
     tryCatch({
+      print(input$rsd_cal)
       if (input$rsd_cal == "met") {
         plot_rsd_comparison(df_before, df_after)
+        print("Plot created")
       } else {
         plot_rsd_comparison_class_met(df_before, df_after)
       }
@@ -804,11 +818,12 @@ server <- function(input, output, session) {
   })
   
   output$metab_scatter <- renderPlot({
-    req(input$met_col, rv$filtered, rv$transformed, input$corMethod)
+    req(input$met_col, rv$filtered, rv$transformed, rv$corrected)
+    cor_method <- rv$corrected$str
     tryCatch({
-      if (input$corMethod %in% c("RF","BW_RF")) {
+      if (input$corMethod %in% c("Random Forest","Batchwise Random Forest")) {
         met_scatter_rf(rv$filtered$df, rv$transformed$df, i = input$met_col)
-      } else if (input$corMethod %in% c("LOESS","BW_LOESS")) {
+      } else if (input$corMethod %in% c("LOESS","Batchwise LOESS")) {
         met_scatter_loess(rv$filtered$df, rv$transformed$df, i = input$met_col)
       } else {
         ggplot2::ggplot() + ggplot2::labs(title = "No correction method selected.")
