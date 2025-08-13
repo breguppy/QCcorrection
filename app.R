@@ -11,6 +11,8 @@ source("R/processing_helpers.R")
 source("R/met_scatter_rf.R")
 source("R/met_scatter_loess.R")
 source("R/download_helpers.R")
+source("R/plotting_helpers.R")
+source("R/plotting_rsd_comparisons.R")
 
 
 ui <- fluidPage(
@@ -757,8 +759,8 @@ server <- function(input, output, session) {
     qc_before <- sum(df_before$class == "QC", na.rm = TRUE)
     qc_after  <- sum(df_after$class  == "QC", na.rm = TRUE)
     validate(
-      need(qc_before >= 2, "Not enough QC samples before correction (need ≥ 2)."),
-      need(qc_after  >= 2, "Not enough QC samples after correction (need ≥ 2).")
+      need(qc_before >= 2, "Not enough QC samples before correction (need >= 2)."),
+      need(qc_after  >= 2, "Not enough QC samples after correction (need >= 2).")
     )
     
     print("POST-VALIDATE CALL 2")
@@ -767,7 +769,6 @@ server <- function(input, output, session) {
       print(input$rsd_cal)
       if (input$rsd_cal == "met") {
         plot_rsd_comparison(df_before, df_after)
-        print("Plot created")
       } else {
         plot_rsd_comparison_class_met(df_before, df_after)
       }
@@ -821,9 +822,9 @@ server <- function(input, output, session) {
     req(input$met_col, rv$filtered, rv$transformed, rv$corrected)
     cor_method <- rv$corrected$str
     tryCatch({
-      if (input$corMethod %in% c("Random Forest","Batchwise Random Forest")) {
+      if (cor_method %in% c("Random Forest","Batchwise Random Forest")) {
         met_scatter_rf(rv$filtered$df, rv$transformed$df, i = input$met_col)
-      } else if (input$corMethod %in% c("LOESS","Batchwise LOESS")) {
+      } else if (cor_method %in% c("LOESS","Batchwise LOESS")) {
         met_scatter_loess(rv$filtered$df, rv$transformed$df, i = input$met_col)
       } else {
         ggplot2::ggplot() + ggplot2::labs(title = "No correction method selected.")
