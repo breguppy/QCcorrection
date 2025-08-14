@@ -74,32 +74,11 @@ ui <- fluidPage(
         ),
         uiOutput("basic_info")
       ), ),
-      card(
-        style = "background-color: #eeeeee;",
-        tags$h4("1.3 Identify Control Group"),
-        fluidRow(column(
-          4,
-          tooltip(
-            checkboxInput(
-              inputId = "no_control",
-              label = "No control group.",
-              value = FALSE
-            ),
-            "Check the box if The data does not have a control group.",
-            placement = "right"
-          )
-        ), column(
-          4, conditionalPanel(
-            "input.no_control == false",
-            uiOutput("control_class_selector")
-          )
-        ))
-      ),
       #-- Filter data based on missing values
       card(layout_sidebar(
         sidebar = sidebar(
           #--- Filter metabolites
-          tags$h4("1.4 Filter Raw Data"),
+          tags$h4("1.3 Filter Raw Data"),
           tooltip(
             sliderInput(
               inputId = "Frule",
@@ -241,17 +220,40 @@ ui <- fluidPage(
             tableOutput("cor_data") %>% withSpinner(color = "#404040")
           ),
           uiOutput("post_cor_filter_info") %>% withSpinner(color = "#404040"),
+        ),
+      ),
+      card(
+        style = "background-color: #eeeeee;",
+        fluidRow(column(
+          4,
+          tags$h4("2.3 Identify Control Group"),
           tooltip(
             checkboxInput(
-              inputId = "keep_corrected_qcs",
-              label = "Include QCs in corrected data file.",
+              inputId = "no_control",
+              label = "No control group.",
               value = FALSE
             ),
-            "Check the box if you want corrected QC values in the downloaded corrected data file.",
+            "Check the box if The data does not have a control group.",
             placement = "right"
           ),
-          uiOutput("download_corr_btn", container = div, style = "position: absolute; bottom: 15px; right: 15px;")
+          conditionalPanel(
+            "input.no_control == false",
+            uiOutput("control_class_selector")
+          )
         ),
+        column(4,
+               tags$h4("2.5 Download Corrected Data"),
+               tooltip(
+                 checkboxInput(
+                   inputId = "keep_corrected_qcs",
+                   label = "Include QCs in corrected data file.",
+                   value = FALSE
+                 ),
+                 "Check the box if you want corrected QC values in the downloaded corrected data file.",
+                 placement = "right"
+               ),
+               uiOutput("download_corr_btn", container = div, style = "position: absolute; bottom: 15px; right: 15px;")
+        ))
       ),
       card(
         actionButton(
