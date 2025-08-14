@@ -1,12 +1,4 @@
 # rsd comparison plots
-
-#library(ggplot2)
-#library(patchwork)
-#library(dplyr)
-#library(tidyr)
-#library(tidyverse)
-#library(grid)
-#library(gridExtra)
 source("R/processing_helpers.R")
 
 lab_levels   <- c("Increased","No Change","Decreased")
@@ -14,6 +6,21 @@ color_values <- c("Increased"="#B22222",
                   "No Change"="gray25",
                   "Decreased"="#234F1E")
 
+# facet strip labels with percents helper
+facet_label_map <- function(df) {
+  by_type <- df %>%
+    dplyr::group_split(Type) %>%
+    purrr::map(~{
+      pt <- pct_tbl(.x)
+      paste0(
+        unique(.x$Type), " — ",
+        "Increased ",  pt$percent[pt$change=="Increased"],  "% · ",
+        "No change ",  pt$percent[pt$change=="No Change"],   "% · ",
+        "Decreased ",  pt$percent[pt$change=="Decreased"],   "%"
+      )
+    }) %>% unlist()
+  stats::setNames(by_type, unique(df$Type))
+}
 
 # comparison scatter plot helper
 mk_plot <- function(d, x, y, labs_title) {
@@ -84,34 +91,56 @@ plot_rsd_comparison <- function(df_before, df_after) {
   }
   
   print("DATA MERGED")
-  # Get only finite data:
-  df_samples <- dplyr::filter(df, is.finite(rsd_nonqc_before), is.finite(rsd_nonqc_after))
-  df_qcs     <- dplyr::filter(df, is.finite(rsd_qc_before),    is.finite(rsd_qc_after))
+  # Get only finite data and categorize changes
+  df_samples <- df %>%
+    dplyr::filter(is.finite(rsd_nonqc_before), is.finite(rsd_nonqc_after)) %>%
+    tag_changes("rsd_nonqc_before", "rsd_nonqc_after") %>%
+    dplyr::transmute(Type = "Samples", before = rsd_nonqc_before, after = rsd_nonqc_after, change)
   
-  # categorize changes
-  df_samples <- tag_changes(df_samples, "rsd_nonqc_before", "rsd_nonqc_after")
-  df_qcs     <- tag_changes(df_qcs,     "rsd_qc_before",    "rsd_qc_after")
+  df_qcs <- df %>%
+    dplyr::filter(is.finite(rsd_qc_before), is.finite(rsd_qc_after)) %>%
+    tag_changes("rsd_qc_before", "rsd_qc_after") %>%
+    dplyr::transmute(Type = "QCs", before = rsd_qc_before, after = rsd_qc_after, change)
+  
+  d_all <- dplyr::bind_rows(df_samples, df_qcs) %>%
+    dplyr::mutate(Type = factor(Type, levels = c("Samples","QCs")),
+                  change = factor(change, levels = lab_levels))
   
   # make legend map
-  label_samples <- label_map(pct_tbl(df_samples))
-  label_qcs     <- label_map(pct_tbl(df_qcs))
+  facet_labs <- facet_label_map(d_all)
   
   print("DATA CATEGORIZED")
-  # before and after plots
-  p1 <- mk_plot(df_samples, "rsd_nonqc_before", "rsd_nonqc_after", label_samples) + ggplot2::labs(title="Samples")
-  p2 <- mk_plot(df_qcs,     "rsd_qc_before",    "rsd_qc_after",    label_qcs)     + ggplot2::labs(title="QCs")
-  
-  print("INDIVIDUAL PLOTS MADE")
-  # patch them together
-  plot <- patchwork::wrap_plots(p1, p2, nrow = 1) +
-    patchwork::plot_annotation(
-      "Comparison of RSD Before and After Correction",
-      theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 18, face = "bold", hjust = 0.5))
+  # single faceted ggplot
+  p <- ggplot2::ggplot(d_all, ggplot2::aes(x = before, y = after, color = change)) +
+    ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+    ggplot2::geom_point(size = 3, na.rm = TRUE) +
+    ggplot2::scale_color_manual(
+      values = color_values,
+      breaks = lab_levels,
+      labels = c("Increased","No change","Decreased"),
+      name   = "RSD Change"
+    ) +
+    ggplot2::facet_wrap(~ Type, nrow = 1, labeller = ggplot2::as_labeller(facet_labs)) +
+    ggplot2::theme_minimal(base_size = 10) +
+    ggplot2::theme(
+      plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
+      axis.title   = ggplot2::element_text(size = 12),
+      axis.text    = ggplot2::element_text(size = 10),
+      legend.text  = ggplot2::element_text(size = 10),
+      legend.position = "inside",
+      legend.position.inside = c(0, 1),
+      legend.justification   = c(0, 1),
+      legend.background      = ggplot2::element_rect(fill = "white", linewidth = 0.5, linetype = "solid"),
+      panel.border           = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1)
+    ) +
+    ggplot2::labs(
+      title = "Comparison of RSD Before and After Correction",
+      x = "RSD Before",
+      y = "RSD After"
     )
   
   print("COMBINED PLOT MADE")
-  
-  return(plot)
+  return(p)
 }
 
 # RSD comparison scatter plot when computing RSD by metabolite-class

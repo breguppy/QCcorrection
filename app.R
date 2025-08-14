@@ -8,9 +8,12 @@ library(readxl)
 library(tools)
 library(ggplot2)
 library(tidyr)
-library(patchwork)
+#library(cowplot)
+library(purrr)
+#library(patchwork)
 #library(grid)
 #library(gridExtra)
+library(tidyverse)
 source("R/helpers.R")
 source("R/processing_helpers.R")
 source("R/met_scatter_rf.R")
@@ -742,7 +745,7 @@ server <- function(input, output, session) {
   })
   
   #-- display RSD comparison plot
-  output$rsd_comparison_plot <- renderPlot({
+  output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
     print("RSD_COMPARISON_PLOT_ENTERED")
     req(rv$filtered, rv$filtered_corrected, input$rsd_cal)
     
@@ -763,30 +766,23 @@ server <- function(input, output, session) {
     
     print("POST-VALIDATE CALL 1")
     
-    grDevices::dev.hold(); on.exit(grDevices::dev.flush(), add = TRUE)
+    #grDevices::dev.hold(); on.exit(grDevices::dev.flush(), add = TRUE)
+    
+    #if ("package:gridExtra" %in% search()) detach("package:gridExtra", unload = TRUE, character.only = TRUE)
     
     # 3) Run all heavy work in isolate so any writes inside helpers cannot create deps.
-    p <- isolate({
+    isolate({
       if (identical(rsd_mode, "met")) {
-        plot_rsd_comparison(df_before, df_after)
-        print("plot made")
+        p <- plot_rsd_comparison(df_before, df_after)
+        print(paste("plot made:", class(p)))
       } else {
-        plot_rsd_comparison_class_met(df_before, df_after)
-        print("other plot made")
+        p <- plot_rsd_comparison_class_met(df_before, df_after)
+        print(paste("other plot made", class(p)))
       }
     })
     
-    # 4) Enforce a drawable object.
-    if (inherits(p, c("patchwork", "gg", "ggplot"))) {
-      print(p)
-    } else if (is.list(p) && length(p) > 0 && inherits(p[[1]], c("patchwork", "gg", "ggplot"))) {
-      print(p[[1]])
-    } else if (inherits(p, c("grob", "gTree", "gList", "gtable", "gTable"))) {
-      grid::grid.newpage(); grid::grid.draw(p)
-    } else {
-      validate(need(FALSE, paste("Unsupported plot type:", paste(class(p), collapse = ", "))))
-    }
-  }, res = 120)
+    print(p)
+  })
   
   #-- PCA plot
   output$pca_plot <- renderPlot({
