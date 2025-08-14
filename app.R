@@ -762,15 +762,11 @@ server <- function(input, output, session) {
   
   #-- display RSD comparison plot
   output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
-    print("RSD_COMPARISON_PLOT_ENTERED")
     req(rv$filtered, rv$filtered_corrected, input$rsd_cal)
-    
-    print("REQ CALL")
     
     df_before <- rv$filtered$df
     df_after <- rv$filtered_corrected$df
     rsd_mode  <- input$rsd_cal
-    
     
     # Need at least 1 metabolite column
     validate(
@@ -780,13 +776,6 @@ server <- function(input, output, session) {
       need(sum(df_after$class  == "QC",  na.rm = TRUE) >= 2, "Not enough QC samples after correction (need >= 2).")
     )
     
-    print("POST-VALIDATE CALL 1")
-    
-    #grDevices::dev.hold(); on.exit(grDevices::dev.flush(), add = TRUE)
-    
-    #if ("package:gridExtra" %in% search()) detach("package:gridExtra", unload = TRUE, character.only = TRUE)
-    
-    # 3) Run all heavy work in isolate so any writes inside helpers cannot create deps.
     isolate({
       if (identical(rsd_mode, "met")) {
         p <- plot_rsd_comparison(df_before, df_after)

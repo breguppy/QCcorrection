@@ -74,8 +74,7 @@ label_map <- function(perc) setNames(
 
 # RSD comparison scatter plots when computing RSD by metabolite
 plot_rsd_comparison <- function(df_before, df_after) {
-  
-  print("IN PLOTTING FUNCTION")
+
   rsdBefore <- metabolite_rsd(df_before)
   rsdAfter <- metabolite_rsd(df_after)
   
@@ -90,7 +89,6 @@ plot_rsd_comparison <- function(df_before, df_after) {
     return(ggplot2::ggplot() + ggplot2::labs(title = "No overlapping metabolites"))
   }
   
-  print("DATA MERGED")
   # Get only finite data and categorize changes
   df_samples <- df %>%
     dplyr::filter(is.finite(rsd_nonqc_before), is.finite(rsd_nonqc_after)) %>%
@@ -109,7 +107,6 @@ plot_rsd_comparison <- function(df_before, df_after) {
   # make legend map
   facet_labs <- facet_label_map(d_all)
   
-  print("DATA CATEGORIZED")
   # single faceted ggplot
   p <- ggplot2::ggplot(d_all, ggplot2::aes(x = before, y = after, color = change)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
@@ -127,9 +124,6 @@ plot_rsd_comparison <- function(df_before, df_after) {
       axis.title   = ggplot2::element_text(size = 12),
       axis.text    = ggplot2::element_text(size = 10),
       legend.text  = ggplot2::element_text(size = 10),
-      #legend.position = "inside",
-      #legend.position.inside = c(0, 1),
-      #legend.justification   = c(0, 1),
       legend.background      = ggplot2::element_rect(fill = "white", linewidth = 0.5, linetype = "solid"),
       panel.border           = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1)
     ) +
@@ -139,7 +133,6 @@ plot_rsd_comparison <- function(df_before, df_after) {
       y = "RSD After"
     )
   
-  print("COMBINED PLOT MADE")
   return(p)
 }
 
