@@ -73,12 +73,6 @@ pct_tbl <- function(d) {
     dplyr::mutate(percent = round(100 * n / total, 1)) %>% dplyr::select(change, percent)
 }
 
-# compute legend percentages
-label_map <- function(perc) setNames(
-  paste0(c("Increased: ","No change: ","Decreased: "), perc$percent, "%"),
-  lab_levels
-)
-
 # RSD comparison scatter plots when computing RSD by metabolite
 plot_rsd_comparison <- function(df_before, df_after) {
 
@@ -114,33 +108,8 @@ plot_rsd_comparison <- function(df_before, df_after) {
   # make legend map
   facet_labs <- facet_label_map(d_all)
   
-  # single faceted ggplot
-  p <- ggplot2::ggplot(d_all, ggplot2::aes(x = before, y = after, color = change)) +
-    ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
-    ggplot2::geom_point(size = 3, na.rm = TRUE) +
-    ggplot2::scale_color_manual(
-      values = color_values,
-      breaks = lab_levels,
-      labels = c("Increased","No change","Decreased"),
-      name   = "RSD Change"
-    ) +
-    ggplot2::facet_wrap(~ Type, nrow = 1, labeller = ggplot2::as_labeller(facet_labs)) +
-    ggplot2::theme_minimal(base_size = 10) +
-    ggplot2::theme(
-      plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title   = ggplot2::element_text(size = 12),
-      axis.text    = ggplot2::element_text(size = 10),
-      legend.text  = ggplot2::element_text(size = 10),
-      legend.background      = ggplot2::element_rect(fill = "white", linewidth = 0.5, linetype = "solid"),
-      panel.border           = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1)
-    ) +
-    ggplot2::labs(
-      title = "Comparison of RSD Before and After Correction",
-      x = "RSD Before",
-      y = "RSD After"
-    )
-  
-  return(p)
+  # sing faceted ggplot
+  mk_plot(d_all, "before", "after", facet_labs)
 }
 
 # RSD comparison scatter plot when computing RSD by metabolite-class
