@@ -127,9 +127,9 @@ plot_rsd_comparison <- function(df_before, df_after) {
       axis.title   = ggplot2::element_text(size = 12),
       axis.text    = ggplot2::element_text(size = 10),
       legend.text  = ggplot2::element_text(size = 10),
-      legend.position = "inside",
-      legend.position.inside = c(0, 1),
-      legend.justification   = c(0, 1),
+      #legend.position = "inside",
+      #legend.position.inside = c(0, 1),
+      #legend.justification   = c(0, 1),
       legend.background      = ggplot2::element_rect(fill = "white", linewidth = 0.5, linetype = "solid"),
       panel.border           = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1)
     ) +

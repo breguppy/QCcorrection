@@ -289,9 +289,32 @@ sampleImputeUI <- function(df, metab_cols) {
 correctionMethodUI <- function(df) {
   qc_per_batch <- df %>%
     group_by(batch) %>%
-    summarise(qc_in_class = sum(class == "QC"), .groups = "drop")
+    summarise(qc_in_batch = sum(class == "QC"), .groups = "drop")
+  num_batches <- length(unique(df$batch))
   
-  if (any(qc_per_batch$qc_in_class < 5)) {
+  if (num_batches == 1) {
+    if (any(qc_per_batch$qc_in_batch <= 5)) {
+      radioButtons(
+        inputId = "corMethod",
+        label = "Method",
+        choices = list(
+          "Local Polynomial Fit (LOESS)" = "LOESS"
+        ),
+        selected = "LOESS"
+      )
+    } else {
+      radioButtons(
+        inputId = "corMethod",
+        label = "Method",
+        choices = list(
+          "Random Forest" = "RF",
+          "Local Polynomial Fit (LOESS)" = "LOESS"
+        ),
+        selected = "RF"
+      )
+    }
+  } else {
+    if (any(qc_per_batch$qc_in_batch < 5)) {
     radioButtons(
       inputId = "corMethod",
       label = "Method",
@@ -314,6 +337,7 @@ correctionMethodUI <- function(df) {
       selected = "RF"
     )
   }
+  }
 }
 
 # Unavailable correction option description for section 2.1 Choose Correction settings
@@ -325,20 +349,42 @@ unavailableOptionsUI <- function(df, metab_cols) {
   # If there is only 1 batch and less than 5 QCs no RF option
   qc_per_batch <- df %>%
     group_by(batch) %>%
-    summarise(qc_in_class = sum(class == "QC"), .groups = "drop")
+    summarise(qc_in_batch = sum(class == "QC"), .groups = "drop")
+  num_batches <- length(unique(df$batch))
   
   unavail_opts <- list()
-  if (any(qc_per_batch$qc_in_class < 5)) {
-    unavail_opts[[length(unavail_opts) + 1]] <- tags$h6("Unavailable Correction Methods:")
-    unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
-      icon("circle-xmark", class = "text-danger-emphasis"),
-      " Batchwise Random Forest requires at least 5 QCs per batch."
-    )
-    unavail_opts[[length(unavail_opts) + 1]] <- tags$br()
-    unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
-      icon("circle-xmark", class = "text-danger-emphasis"),
-      " Batchwise LOESS requires at least 5 QCs per batch."
-    )
+  if (num_batches == 1) {
+    if (any(qc_per_batch$qc_in_batch <= 5)) {
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$h6("Unavailable Correction Methods:")
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
+        icon("circle-xmark", class = "text-danger-emphasis"),
+        " Random Forest requires more QC samples."
+      )
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$br()
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
+        icon("circle-xmark", class = "text-danger-emphasis"),
+        " Batchwise options (Random Forest and LOESS) require more than 1 batch."
+      )
+    } else {
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$h6("Unavailable Correction Methods:")
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
+        icon("circle-xmark", class = "text-danger-emphasis"),
+        " Batchwise options (Random Forest and LOESS) require more than 1 batch."
+      )
+    }
+  } else {
+    if (any(qc_per_batch$qc_in_batch < 5)) {
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$h6("Unavailable Correction Methods:")
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
+        icon("circle-xmark", class = "text-danger-emphasis"),
+        " Batchwise Random Forest requires at least 5 QCs per batch."
+      )
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$br()
+      unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
+        icon("circle-xmark", class = "text-danger-emphasis"),
+        " Batchwise LOESS requires at least 5 QCs per batch."
+      )
+    }
   }
   
   if (length(unavail_opts) == 0) {
