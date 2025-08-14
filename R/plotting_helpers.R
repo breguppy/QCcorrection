@@ -199,10 +199,8 @@ plot_pca <- function(input,
     big_font_theme +
     theme(legend.position = "none")
   
-  # Combine using patchwork with shared legend
   p <- p1 + p2 + plot_layout(guides = "collect") &
     theme(legend.position = "right")
   
-  # Step 5: Combine the plots
   return(p)
 }

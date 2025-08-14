@@ -779,10 +779,8 @@ server <- function(input, output, session) {
     isolate({
       if (identical(rsd_mode, "met")) {
         p <- plot_rsd_comparison(df_before, df_after)
-        print(paste("plot made:", class(p)))
       } else {
         p <- plot_rsd_comparison_class_met(df_before, df_after)
-        print(paste("other plot made", class(p)))
       }
     })
     

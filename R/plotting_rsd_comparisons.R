@@ -23,25 +23,32 @@ facet_label_map <- function(df) {
 }
 
 # comparison scatter plot helper
-mk_plot <- function(d, x, y, labs_title) {
-  if (!nrow(d)) return(ggplot2::ggplot() + ggplot2::labs(title = paste0(labs_title, " (no points)")))
-  ggplot2::ggplot(d, ggplot2::aes(x=.data[[x]], y=.data[[y]], color=change)) +
-    ggplot2::geom_abline(slope=1, intercept=0, linetype="dashed") +
-    ggplot2::geom_point(size=3, na.rm=TRUE) +
-    ggplot2::scale_color_manual(values=color_values, breaks=names(labs_title), labels=labs_title, name="RSD Change") +
-    ggplot2::theme_minimal(base_size=10) +
-    ggplot2::theme(
-      plot.title = ggplot2::element_text(size=14, hjust=0.5, face="bold"),
-      axis.title = ggplot2::element_text(size=12),
-      axis.text  = ggplot2::element_text(size=10),
-      legend.text = ggplot2::element_text(size=10),
-      legend.position = "inside",
-      legend.position.inside = c(0, 1),
-      legend.justification = c(0, 1),
-      legend.background = ggplot2::element_rect(fill="white", linewidth=0.5, linetype="solid"),
-      panel.border = ggplot2::element_rect(color="black", fill=NA, linewidth=1)
+mk_plot <- function(d_all, x, y, facet_labs) {
+  if (!nrow(d_all)) return(ggplot2::ggplot() + ggplot2::labs(title = paste0(labs_title, " (no points)")))
+  ggplot2::ggplot(d_all, ggplot2::aes(x=.data[[x]], y=.data[[y]], color = change)) +
+    ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+    ggplot2::geom_point(size = 3, na.rm = TRUE) +
+    ggplot2::scale_color_manual(
+      values = color_values,
+      breaks = lab_levels,
+      labels = c("Increased","No change","Decreased"),
+      name   = "RSD Change"
     ) +
-    ggplot2::labs(x="RSD Before", y="RSD After")
+    ggplot2::facet_wrap(~ Type, nrow = 1, labeller = ggplot2::as_labeller(facet_labs)) +
+    ggplot2::theme_minimal(base_size = 10) +
+    ggplot2::theme(
+      plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
+      axis.title   = ggplot2::element_text(size = 12),
+      axis.text    = ggplot2::element_text(size = 10),
+      legend.text  = ggplot2::element_text(size = 10),
+      legend.background      = ggplot2::element_rect(fill = "white", linewidth = 0.5, linetype = "solid"),
+      panel.border           = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1)
+    ) +
+    ggplot2::labs(
+      title = "Comparison of RSD Before and After Correction",
+      x = "RSD Before",
+      y = "RSD After"
+    )
 }
 
 # categorize changes helper function
@@ -155,26 +162,24 @@ plot_rsd_comparison_class_met <- function(df_before, df_after) {
   df_samples <- df[df$class != "QC", ]
   df_qcs <- df[df$class == "QC", ]
   
-  # Get only finite data:
-  df_samples <- dplyr::filter(df_samples, is.finite(rsd_before), is.finite(rsd_after))
-  df_qcs     <- dplyr::filter(df_qcs, is.finite(rsd_before),    is.finite(rsd_after))
+  # Get only finite data and Categorize changes
+  df_samples <- df_samples %>%
+    dplyr::filter(is.finite(rsd_before), is.finite(rsd_after)) %>%
+    tag_changes("rsd_before", "rsd_after") %>%
+    dplyr::transmute(Type = "Samples", before = rsd_before, after = rsd_after, change)
   
-  # Categorize changes in CV
-  df_samples <- tag_changes(df_samples, "rsd_before", "rsd_after")
-  df_qcs     <- tag_changes(df_qcs,     "rsd_before",    "rsd_after")
+  df_qcs <- df_qcs %>%
+    dplyr::filter(is.finite(rsd_before), is.finite(rsd_after)) %>%
+    tag_changes("rsd_before", "rsd_after") %>%
+    dplyr::transmute(Type = "QCs", before = rsd_before, after = rsd_after, change)
+  
+  d_all <- dplyr::bind_rows(df_samples, df_qcs) %>%
+    dplyr::mutate(Type = factor(Type, levels = c("Samples","QCs")),
+                  change = factor(change, levels = lab_levels))
   
   # make legend map
-  label_samples <- label_map(pct_tbl(df_samples))
-  label_qcs     <- label_map(pct_tbl(df_qcs))
+  facet_labs <- facet_label_map(d_all)
   
-  # before and after plots
-  p1 <- mk_plot(df_samples, "rsd_before", "rsd_after", label_samples) + ggplot2::labs(title="Samples")
-  p2 <- mk_plot(df_qcs,     "rsd_before",    "rsd_after",    label_qcs)     + ggplot2::labs(title="QCs")
-  
-  # patch them together
-  patchwork::wrap_plots(p1, p2, nrow = 1) +
-    patchwork::plot_annotation(
-      "Comparison of RSD Before and After Correction",
-      theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 18, face = "bold", hjust = 0.5))
-    )
+  # single faceted ggplot
+  mk_plot(d_all, "before", "after", facet_labs)
 }

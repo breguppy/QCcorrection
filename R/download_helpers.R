@@ -529,15 +529,16 @@ figure_folder_download <- function(input,
     ggsave(
       rsd_path,
       plot = rsd_fig,
-      width = 16,
-      height = 8,
-      dpi = 300
+      width = 8,
+      height = 4,
+      dpi = 300,
+      bg = "white"
     )
   } else if (input$fig_format == "pdf") {
     ggsave(rsd_path,
            plot = rsd_fig,
-           width = 16,
-           height = 8)
+           width = 8,
+           height = 4)
   }
   
   # Create PCA plots
@@ -548,15 +549,16 @@ figure_folder_download <- function(input,
     ggsave(
       pca_path,
       plot = pca_fig,
-      width = 16,
-      height = 8,
-      dpi = 300
+      width = 9,
+      height = 4,
+      dpi = 300,
+      bg = "white"
     )
   } else if (input$fig_format == "pdf") {
     ggsave(pca_path,
            plot = pca_fig,
-           width = 16,
-           height = 8)
+           width = 9,
+           height = 4)
   }
   
   # Create metabolite scatter plots
