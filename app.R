@@ -8,11 +8,7 @@ library(readxl)
 library(tools)
 library(ggplot2)
 library(tidyr)
-#library(cowplot)
 library(purrr)
-#library(patchwork)
-#library(grid)
-#library(gridExtra)
 library(tidyverse)
 source("R/helpers.R")
 source("R/processing_helpers.R")
@@ -210,7 +206,7 @@ ui <- fluidPage(
               label = "Method",
               choices = list(
                 "Log 2 Transformation" = "log2",
-                "Total Ratio Normalization (TRN)" = "TRN",
+                "Total Ratiometically Normalized (TRN)" = "TRN",
                 "None" = "none"
               ),
               selected = "none"
@@ -340,7 +336,25 @@ ui <- fluidPage(
     #--- Step 5: Export Data
     nav_panel(title = "4. Export Corrected Data and Plots", card(
       card_title("Download Data and Plots"),
-      tags$span("TODO: Describe what will be downloaded and the format."),
+      tags$span("Download all to get a ", icon("folder"), " zipped folder containing:"),
+      fluidRow(
+        column(4, tags$span(icon("file-excel"), "corrected_data_today's date.xlsx"),
+               tags$ul(
+                 tags$li("0. Raw Data"),
+                 tags$li("1. Correction Settings"),
+                 tags$li("2. Drift Normalized"),
+                 tags$li("3. Scaled or Normalized"),
+                 tags$li("4. Grouped Data Organized"),
+                 tags$li("5. Grouped Data Fold Change (only when provided a control class)"),
+                 tags$li("Appendix1. Metaboanalyst Ready")
+               )),
+        column(4, tags$span(icon("folder"), " figures"),
+               tags$ul(
+                 tags$li(icon("folder"), " metabolite figures"),
+                 tags$li(icon("folder"), " RSD figures"),
+                 tags$li(icon("folder"), "PCA plots")
+               ))
+      ),
       uiOutput("download_all_ui")
     ))
   )
