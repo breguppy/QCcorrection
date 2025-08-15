@@ -3,13 +3,14 @@
 # PCA plots coloring by color_col
 plot_pca <- function(input,
                      before,
-                     after,
-                     color_col) {
-  meta_cols <- c("sample", "batch", "class", "order")
-  metab_cols1 <- setdiff(names(before$df), meta_cols)
-  metab_cols2 <- setdiff(names(after$df), meta_cols)
-  metab_cols <- intersect(metab_cols1, metab_cols2)
+                     after, compared_to) {
   
+  # Get overlapping metabolite columns
+  meta_cols <- c("sample", "batch", "class", "order")
+  metab_cols <- intersect(setdiff(names(before$df), meta_cols), 
+                          setdiff(names(after$df), meta_cols))
+  
+  # impute missing values in PCA if there are any
   if (any(is.na(after$df[metab_cols]))) {
     results <- impute_missing(after$df,
                               metab_cols,
@@ -19,17 +20,18 @@ plot_pca <- function(input,
   } else {
     after <- after$df
   }
+  
   # before PCA
   before_pca_result <- prcomp(before$df[, metab_cols], center = TRUE, scale. = TRUE)
   before_pca_df <- as.data.frame(before_pca_result$x[, 1:2])
   colnames(before_pca_df) <- c("PC1", "PC2")
-  before_pca_df <- bind_cols(before_pca_df, before$df[meta_cols])
+  before_pca_df <- bind_cols(before_pca_df, before$df[meta_cols]) #%>% mutate(panel = "Before")
   
   # After PCA
   after_pca_result <- prcomp(after[, metab_cols], center = TRUE, scale. = TRUE)
   after_pca_df <- as.data.frame(after_pca_result$x[, 1:2])
   colnames(after_pca_df) <- c("PC1", "PC2")
-  after_pca_df <- bind_cols(after_pca_df, after[meta_cols])
+  after_pca_df <- bind_cols(after_pca_df, after[meta_cols]) #%>% mutate(panel = "After")
   
   # Combine scores for consistent axis scaling
   combined <- bind_rows(before_pca_df, after_pca_df)
@@ -39,6 +41,21 @@ plot_pca <- function(input,
   # Variance explained
   var_exp_raw <- summary(before_pca_result)$importance[2, 1:2] * 100
   var_exp_cor <- summary(after_pca_result)$importance[2, 1:2] * 100
+  ann_df <- data.frame(
+    panel = c("Before","Before","After","After"),
+    label = c(
+      sprintf("PC1 (%.1f%%)", var_exp_raw[1]),
+      sprintf("PC2 (%.1f%%)", var_exp_raw[2]),
+      sprintf("PC1 (%.1f%%)", var_exp_cor[1]),
+      sprintf("PC2 (%.1f%%)", var_exp_cor[2])
+    ),
+    x = c(mean(x_limits), x_limits[1] - diff(x_limits)*0.15,
+          mean(x_limits), x_limits[1] - diff(x_limits)*0.15),
+    y = c(y_limits[1] - diff(y_limits)*0.10, mean(y_limits),
+          y_limits[1] - diff(y_limits)*0.10, mean(y_limits)),
+    hjust = c(0.5, 0),
+    vjust = c(1, 0.5)
+  )
   
   # Custom color palette
   cbPalette <- c(
@@ -69,54 +86,71 @@ plot_pca <- function(input,
     "#225555"
   )
   
-  color_levels <- unique(c(before_pca_df[[color_col]], after_pca_df[[color_col]]))
-  color_levels <- sort(color_levels)
-  n_levels <- length(color_levels)
-  if (n_levels > length(cbPalette)) {
+  color_levels <- sort(unique(c(before_pca_df[[input$color_col]], after_pca_df[[input$color_col]])))
+  if (length(color_levels) > length(cbPalette)) {
     stop("Not enough colors in cbPalette for the number of groups in color_col.")
   }
-  color_values <- setNames(cbPalette[1:n_levels], color_levels)
-  before_pca_df[[color_col]] <- factor(before_pca_df[[color_col]], levels = color_levels)
-  after_pca_df[[color_col]] <- factor(after_pca_df[[color_col]], levels = color_levels)
+  color_values <- setNames(cbPalette[seq_along(color_levels)], color_levels)
+  combined[[input$color_col]] <- factor(combined[[input$color_col]], levels = color_levels)
+  before_pca_df[[input$color_col]] <- factor(before_pca_df[[input$color_col]], levels = color_levels)
+  after_pca_df [[input$color_col]] <- factor(after_pca_df [[input$color_col]], levels = color_levels)
+  
   
   # Theme with larger fonts
-  big_font_theme <- theme_minimal(base_size = 14) +
+  big_font_theme <- theme_minimal(base_size = 10) +
     theme(
-      plot.title = element_text(size = 18, face = "bold"),
-      axis.title = element_text(size = 16),
-      axis.text = element_text(size = 14),
-      legend.title = element_text(size = 15),
-      legend.text = element_text(size = 13)
+      plot.title = element_text(size = 14, face = "bold"),
+      axis.title = element_text(size = 12, face = "bold"),
+      axis.text = element_text(size = 10),
+      legend.title = element_text(size = 14),
+      legend.text = element_text(size = 12)
     )
   
-  # Raw plot
-  p1 <- ggplot(before_pca_df, aes(x = PC1, y = PC2, color = .data[[color_col]])) +
+  p1 <- ggplot(before_pca_df, aes(x = PC1, y = PC2, color = .data[[input$color_col]])) +
     geom_point(size = 4, alpha = 0.8) +
     labs(
-      title = paste0("PCA - Before"),
+      title = "Before",
       x = paste0("PC1 (", round(var_exp_raw[1], 1), "%)"),
       y = paste0("PC2 (", round(var_exp_raw[2], 1), "%)")
     ) +
     xlim(x_limits) + ylim(y_limits) +
-    scale_color_manual(values = cbPalette, name = color_col) +
+    scale_color_manual(values = color_values, name = input$color_col, drop = FALSE, na.translate = FALSE) +
     big_font_theme +
-    theme(legend.position = "right")
+    theme(legend.position = "none",
+          panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1))
   
   # Corrected plot with no legend
-  p2 <- ggplot(after_pca_df, aes(x = PC1, y = PC2, color = .data[[color_col]])) +
+  p2 <- ggplot(after_pca_df, aes(x = PC1, y = PC2, color = .data[[input$color_col]])) +
     geom_point(size = 4, alpha = 0.8) +
     labs(
-      title = paste0("PCA - After"),
+      title = "After",
       x = paste0("PC1 (", round(var_exp_cor[1], 1), "%)"),
       y = paste0("PC2 (", round(var_exp_cor[2], 1), "%)")
     ) +
     xlim(x_limits) + ylim(y_limits) +
-    scale_color_manual(values = cbPalette) +
+    scale_color_manual(values = color_values, drop = FALSE, na.translate = FALSE) +
     big_font_theme +
-    theme(legend.position = "none")
+    theme(legend.position = "right",
+          panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1))
   
-  p <- p1 + p2 + plot_layout(guides = "collect") &
-    theme(legend.position = "right")
+  #p1 <- p1 + theme(plot.margin = ggplot2::margin(5, 5, 5, 1))
+  #p2 <- p2 + theme(plot.margin = ggplot2::margin(5, 1, 5, 5))
   
-  return(p)
+  p_combined <- cowplot::plot_grid(
+    p1, p2,
+    labels = NULL,
+    nrow = 1,
+    align = "hv",
+    axis = "tblr",
+    rel_widths = c(1, 1)
+  )
+  
+  p_with_title <- cowplot::ggdraw() +
+    cowplot::draw_label(
+      paste("Comparison of PCA Before and After", compared_to),
+      fontface = "bold", x = 0.5, y = 0.98, hjust = 0.5, vjust = 1, size = 16
+    ) +
+    cowplot::draw_plot(p_combined, x = 0, y = 0, width = 1, height = 0.93)
+  
+  return(p_with_title)
 }

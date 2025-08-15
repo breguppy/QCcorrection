@@ -11,6 +11,7 @@ library(tidyr)
 library(purrr)
 library(tidyverse)
 library(ggtext)
+library(cowplot)
 source("R/helpers.R")
 source("R/processing_helpers.R")
 source("R/met_scatter_rf.R")
@@ -18,7 +19,7 @@ source("R/met_scatter_loess.R")
 source("R/download_helpers.R")
 source("R/plotting_helpers.R")
 source("R/plotting_rsd_comparisons.R")
-source("R/plotting_pca.R")
+source("R/plotting_pca_comparisons.R")
 
 
 ui <- fluidPage(
@@ -288,7 +289,7 @@ ui <- fluidPage(
           ),
           width = 400,
         ),
-        plotOutput("rsd_comparison_plot", height = "500px", width = "950px")
+        plotOutput("rsd_comparison_plot", height = "500px", width = "900px")
       )),
       card(layout_sidebar(
         sidebar = sidebar(
@@ -308,7 +309,7 @@ ui <- fluidPage(
           ),
           width = 400,
         ),
-        plotOutput("pca_plot", height = "500px", width = "1100px")
+        plotOutput("pca_plot", height = "500px", width = "1050px")
       )),
       card(layout_sidebar(
         sidebar = sidebar(
@@ -836,10 +837,9 @@ server <- function(input, output, session) {
     validate(need(any(keep), "All metabolite columns are constant/invalid after filtering."))
     
     before <- rv$imputed
-    #after <- rv$filtered_corrected
     
     tryCatch({
-      plot_pca(input, before, after, input$color_col)
+      plot_pca(input, before, after, compared_to)
     }, error = function(e) {
       showNotification(paste("PCA failed:", e$message),
                        type = "error", duration = 8)
