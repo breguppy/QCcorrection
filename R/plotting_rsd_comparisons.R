@@ -1,4 +1,7 @@
 # rsd comparison plots
+
+# The following functions create the RSD scatter plots that compare the data
+# before and after correction.
 source("R/processing_helpers.R")
 
 lab_levels   <- c("Increased","No Change","Decreased")
@@ -8,23 +11,25 @@ color_values <- c("Increased"="#B22222",
 
 # facet strip labels with percents helper
 facet_label_map <- function(df) {
-  by_type <- df %>%
-    dplyr::group_split(Type) %>%
+  by_type <- df |>
+    dplyr::group_split(Type) |>
     purrr::map(~{
       pt <- pct_tbl(.x)
-      paste0(
-        unique(.x$Type), " — ",
-        "Increased ",  pt$percent[pt$change=="Increased"],  "% · ",
-        "No change ",  pt$percent[pt$change=="No Change"],   "% · ",
-        "Decreased ",  pt$percent[pt$change=="Decreased"],   "%"
+      pct <- function(k) pt$percent[pt$change == k]
+      sprintf(
+        "<b>%s</b> — <span style='color:%s'>●</span> Increased %s%% · <span style='color:%s'>●</span> No change %s%% · <span style='color:%s'>●</span> Decreased %s%%",
+        unique(.x$Type),
+        color_values['Increased'], pct("Increased"),
+        color_values['No Change'], pct("No Change"),
+        color_values['Decreased'], pct("Decreased")
       )
-    }) %>% unlist()
+    }) |> unlist()
   stats::setNames(by_type, unique(df$Type))
 }
 
 # comparison scatter plot helper
-mk_plot <- function(d_all, x, y, facet_labs) {
-  if (!nrow(d_all)) return(ggplot2::ggplot() + ggplot2::labs(title = paste0(labs_title, " (no points)")))
+mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
+  if (!nrow(d_all)) return(ggplot2::ggplot() + ggplot2::labs(title = "No points"))
   ggplot2::ggplot(d_all, ggplot2::aes(x=.data[[x]], y=.data[[y]], color = change)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
     ggplot2::geom_point(size = 3, na.rm = TRUE) +
@@ -34,18 +39,27 @@ mk_plot <- function(d_all, x, y, facet_labs) {
       labels = c("Increased","No change","Decreased"),
       name   = "RSD Change"
     ) +
-    ggplot2::facet_wrap(~ Type, nrow = 1, labeller = ggplot2::as_labeller(facet_labs)) +
+    ggplot2::facet_wrap(
+      ~ Type,
+      nrow = 1,
+      labeller = ggplot2::as_labeller(facet_labs, default = identity),
+      strip.position = "top"
+    ) +
     ggplot2::theme_minimal(base_size = 10) +
     ggplot2::theme(
-      plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title   = ggplot2::element_text(size = 12),
+      strip.placement = "outside",
+      strip.background = ggplot2::element_rect(fill = "white", colour = "grey30"),
+      strip.text.x = ggtext::element_markdown(margin = ggplot2::margin(t=6, r=6, b=6, l=6)),
+      plot.title   = ggplot2::element_text(size = 16, hjust = 0.5, face = "bold"),
+      axis.title   = ggplot2::element_text(size = 14, face = "bold"),
       axis.text    = ggplot2::element_text(size = 10),
-      legend.text  = ggplot2::element_text(size = 10),
-      legend.background      = ggplot2::element_rect(fill = "white", linewidth = 0.5, linetype = "solid"),
-      panel.border           = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1)
+      legend.position = "none",
+      #legend.text  = ggplot2::element_text(size = 10),
+      #legend.background = ggplot2::element_rect(fill = "white", linewidth = 0.5, linetype = "solid"),
+      panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1)
     ) +
     ggplot2::labs(
-      title = "Comparison of RSD Before and After Correction",
+      title = paste("Comparison of RSD Before and After", compared_to),
       x = "RSD Before",
       y = "RSD After"
     )
@@ -74,7 +88,7 @@ pct_tbl <- function(d) {
 }
 
 # RSD comparison scatter plots when computing RSD by metabolite
-plot_rsd_comparison <- function(df_before, df_after) {
+plot_rsd_comparison <- function(df_before, df_after, compared_to) {
 
   rsdBefore <- metabolite_rsd(df_before)
   rsdAfter <- metabolite_rsd(df_after)
@@ -108,12 +122,12 @@ plot_rsd_comparison <- function(df_before, df_after) {
   # make legend map
   facet_labs <- facet_label_map(d_all)
   
-  # sing faceted ggplot
-  mk_plot(d_all, "before", "after", facet_labs)
+  # single faceted ggplot
+  mk_plot(d_all, "before", "after", facet_labs, compared_to)
 }
 
 # RSD comparison scatter plot when computing RSD by metabolite-class
-plot_rsd_comparison_class_met <- function(df_before, df_after) {
+plot_rsd_comparison_class_met <- function(df_before, df_after, compared_to) {
   rsdBefore <- class_metabolite_rsd(df_before)
   rsdAfter <- class_metabolite_rsd(df_after)
   
@@ -150,5 +164,5 @@ plot_rsd_comparison_class_met <- function(df_before, df_after) {
   facet_labs <- facet_label_map(d_all)
   
   # single faceted ggplot
-  mk_plot(d_all, "before", "after", facet_labs)
+  mk_plot(d_all, "before", "after", facet_labs, compared_to)
 }

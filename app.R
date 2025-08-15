@@ -10,6 +10,7 @@ library(ggplot2)
 library(tidyr)
 library(purrr)
 library(tidyverse)
+library(ggtext)
 source("R/helpers.R")
 source("R/processing_helpers.R")
 source("R/met_scatter_rf.R")
@@ -17,6 +18,7 @@ source("R/met_scatter_loess.R")
 source("R/download_helpers.R")
 source("R/plotting_helpers.R")
 source("R/plotting_rsd_comparisons.R")
+source("R/plotting_pca.R")
 
 
 ui <- fluidPage(
@@ -273,6 +275,12 @@ ui <- fluidPage(
         sidebar = sidebar(
           tags$h4("3.1 RSD Evaluation"),
           radioButtons(
+            inputId = "rsd_compare",
+            label = "Compare raw data to",
+            choices = list("Corrected data" = "filtered_cor_data", "Transformed and corrected data" = "transformed_cor_data"),
+            selected = "filtered_cor_data"
+          ),
+          radioButtons(
             inputId = "rsd_cal",
             label = "Calculate RSD by",
             choices = list("Metabolite" = "met", "Class and Metabolite" = "class_met"),
@@ -280,12 +288,18 @@ ui <- fluidPage(
           ),
           width = 400,
         ),
-        plotOutput("rsd_comparison_plot", height = "500px", width = "1100px")
+        plotOutput("rsd_comparison_plot", height = "500px", width = "950px")
       )),
       card(layout_sidebar(
         sidebar = sidebar(
           #-- PCA plots
           tags$h4("3.2 PCA Evaluation"),
+          radioButtons(
+            inputId = "pca_compare",
+            label = "Compare raw data to",
+            choices = list("Corrected data" = "filtered_cor_data", "Transformed and corrected data" = "transformed_cor_data"),
+            selected = "filtered_cor_data"
+          ),
           radioButtons(
             inputId = "color_col",
             label = "Color PCA by",
@@ -762,10 +776,16 @@ server <- function(input, output, session) {
   
   #-- display RSD comparison plot
   output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
-    req(rv$filtered, rv$filtered_corrected, input$rsd_cal)
+    req(rv$filtered, rv$filtered_corrected, rv$transformed, input$rsd_compare, input$rsd_cal)
     
     df_before <- rv$filtered$df
-    df_after <- rv$filtered_corrected$df
+    if (input$rsd_compare == "filtered_cor_data"){
+      df_after <- rv$filtered_corrected$df
+      compared_to <- "Correction"
+    } else {
+      df_after <- rv$transformed$df
+      compared_to <- "Correction and Transformation"
+    }
     rsd_mode  <- input$rsd_cal
     
     # Need at least 1 metabolite column
@@ -778,9 +798,9 @@ server <- function(input, output, session) {
     
     isolate({
       if (identical(rsd_mode, "met")) {
-        p <- plot_rsd_comparison(df_before, df_after)
+        p <- plot_rsd_comparison(df_before, df_after, compared_to)
       } else {
-        p <- plot_rsd_comparison_class_met(df_before, df_after)
+        p <- plot_rsd_comparison_class_met(df_before, df_after, compared_to)
       }
     })
     
@@ -789,8 +809,16 @@ server <- function(input, output, session) {
   
   #-- PCA plot
   output$pca_plot <- renderPlot({
-    req(rv$imputed, rv$filtered_corrected)
-    df <- rv$filtered_corrected$df
+    req(rv$imputed, rv$filtered_corrected, rv$transformed, input$pca_compare, input$color_col)
+    if (input$pca_compare == "filtered_cor_data"){
+      df <- rv$filtered_corrected$df
+      after <- rv$filtered_corrected
+      compared_to <- "Correction"
+    } else {
+      df <- rv$transformed$df
+      after <- rv$transformed
+      compared_to <- "Correction and Transformation"
+    }
     mets <- setdiff(names(df), c("sample","batch","class","order"))
     validate(
       need(length(mets) >= 2, "Need at least 2 metabolite columns for PCA."),
@@ -808,7 +836,7 @@ server <- function(input, output, session) {
     validate(need(any(keep), "All metabolite columns are constant/invalid after filtering."))
     
     before <- rv$imputed
-    after <- rv$filtered_corrected
+    #after <- rv$filtered_corrected
     
     tryCatch({
       plot_pca(input, before, after, input$color_col)
