@@ -54,8 +54,6 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
       axis.title   = ggplot2::element_text(size = 14, face = "bold"),
       axis.text    = ggplot2::element_text(size = 10),
       legend.position = "none",
-      #legend.text  = ggplot2::element_text(size = 10),
-      #legend.background = ggplot2::element_rect(fill = "white", linewidth = 0.5, linetype = "solid"),
       panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1)
     ) +
     ggplot2::labs(
