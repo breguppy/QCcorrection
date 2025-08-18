@@ -138,8 +138,8 @@ ui <- fluidPage(
             inputId = "correct",
             label = "Correct Data with Selected Settings",
             class = "btn-primary btn-lg"
-          ),
-        ),
+          )
+        )
       ),
       #-- User selects post-correction filtering and transformation/normalization
       card(
@@ -179,8 +179,14 @@ ui <- fluidPage(
                 placement = "right"
               )
             ),
-            tags$hr(),
-            
+            width = 400
+          ),
+            uiOutput("post_cor_filter_info") %>% withSpinner(color = "#404040")
+          )
+      ),
+      card(
+        layout_sidebar(
+          sidebar = sidebar(
             # After correction scaling / normalization
             tags$h4("2.3 Post-Correction Transformation or Normalization"),
             radioButtons(
@@ -216,20 +222,19 @@ ui <- fluidPage(
             ),
             uiOutput("trn_withhold_ui"),
             uiOutput("trn_withhold_selectors_ui"),
-            width = 400,
+            width = 400
           ),
           tags$div(
             style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
             tableOutput("cor_data") %>% withSpinner(color = "#404040")
-          ),
-          uiOutput("post_cor_filter_info") %>% withSpinner(color = "#404040"),
+          )
+          )
         ),
-      ),
       card(
         style = "background-color: #eeeeee;",
         fluidRow(column(
-          4,
-          tags$h4("2.3 Identify Control Group"),
+          6,
+          tags$h4("2.4 Identify Control Group"),
           tooltip(
             checkboxInput(
               inputId = "no_control",
@@ -244,8 +249,8 @@ ui <- fluidPage(
             uiOutput("control_class_selector")
           )
         ),
-        column(4,
-               tags$h4("2.5 Download Corrected Data"),
+        column(6,
+               tags$h4("2.5 Download Corrected Data Only"),
                tooltip(
                  checkboxInput(
                    inputId = "keep_corrected_qcs",
@@ -255,7 +260,8 @@ ui <- fluidPage(
                  "Check the box if you want corrected QC values in the downloaded corrected data file.",
                  placement = "right"
                ),
-               uiOutput("download_corr_btn", container = div, style = "position: absolute; bottom: 15px; right: 15px;")
+               uiOutput("download_corr_btn", container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+               tags$h6("Corrected data can also be downloaded with figure and correction report on tab 4. Export Corrected Data, Plots, and Report")
         ))
       ),
       card(
@@ -272,9 +278,19 @@ ui <- fluidPage(
       title = "3. Evaluation Metrics and Visualization",
       
       card(layout_sidebar(
+        sidebar = sidebar(
+          #--- plot metabolite
+          tags$h4("3.1 Visualize Correction with Metabolite Scatter Plots"),
+          uiOutput("met_plot_selectors"),
+          width = 400,
+        ),
+        plotOutput("metab_scatter", height = "600px", width = "600px"),
+      )),
+      card(layout_sidebar(
         # RSD Plots
         sidebar = sidebar(
-          tags$h4("3.1 RSD Evaluation"),
+          tags$h4("3.2 RSD Evaluation"),
+          tags$h6("Evaluate correction method by the change in relative standard deviation (RSD)."),
           radioButtons(
             inputId = "rsd_compare",
             label = "Compare raw data to",
@@ -294,7 +310,8 @@ ui <- fluidPage(
       card(layout_sidebar(
         sidebar = sidebar(
           #-- PCA plots
-          tags$h4("3.2 PCA Evaluation"),
+          tags$h4("3.3 PCA Evaluation"),
+          tags$h6("Evaluate correction using principal component analysis (PCA)."),
           radioButtons(
             inputId = "pca_compare",
             label = "Compare raw data to",
@@ -312,17 +329,9 @@ ui <- fluidPage(
         plotOutput("pca_plot", height = "500px", width = "1050px")
       )),
       card(layout_sidebar(
-        sidebar = sidebar(
-          #--- plot metabolite
-          tags$h4("3.4 Metabolite Scatter plots"),
-          uiOutput("met_plot_selectors"),
-          width = 400,
-        ),
-        plotOutput("metab_scatter", height = "600px", width = "600px"),
-      )),
-      card(layout_sidebar(
         #-- select figure format
         sidebar = sidebar(
+          tags$h4("3.4 Download Figures Only"),
           tooltip(
             radioButtons(
               inputId = "fig_format",
@@ -330,7 +339,7 @@ ui <- fluidPage(
               choices = c("PDF" = "pdf", "PNG" = "png"),
               selected = "pdf"
             ),
-            "All figures will be saved in this format after clicking download button.",
+            "All figures will be saved in this format after clicking download button here or on tab 4. Export Corrected Data, Plots, and Report",
             placement = "right"
           ),
           width = 400,
@@ -351,8 +360,8 @@ ui <- fluidPage(
       )
     ),
     #--- Step 5: Export Data
-    nav_panel(title = "4. Export Corrected Data and Plots", card(
-      card_title("Download Data and Plots"),
+    nav_panel(title = "4. Export Corrected Data, Plots, and Report", card(
+      card_title("Download Data, Plots, and Report"),
       tags$span("Download all to get a ", icon("folder"), " zipped folder containing:"),
       fluidRow(
         column(4, tags$span(icon("file-excel"), "corrected_data_today's date.xlsx"),
@@ -374,7 +383,7 @@ ui <- fluidPage(
       ),
       uiOutput("download_all_ui")
     ))
-  )
+) 
 )
 
 # Define server
@@ -736,7 +745,7 @@ server <- function(input, output, session) {
       style = "max-width: 300px; display: inline-block;",
       downloadButton(
         outputId = "download_corr_data",
-        label    = "Download Excel File",
+        label    = "Download Excel File (Optional)",
         class    = "btn btn-primary"
       )
     )
@@ -858,9 +867,10 @@ server <- function(input, output, session) {
   })
   
   output$metab_scatter <- renderPlot({
-    req(input$met_col, rv$filtered, rv$transformed, rv$corrected)
+    # This should only show the corrected data and not the transformed data
+    req(input$met_col, rv$filtered, rv$filtered_corrected, rv$corrected)
     f_df <- rv$filtered$df
-    t_df <- rv$transformed$df
+    t_df <- rv$filtered_corrected$df
     cor_method <- rv$corrected$str
     tryCatch({
       if (cor_method %in% c("Random Forest","Batchwise Random Forest")) {
@@ -883,7 +893,7 @@ server <- function(input, output, session) {
     
     div(
       style = "max-width: 300px; display: inline-block;",
-      downloadButton("download_fig_zip", "Download All Figures", class = "btn-primary")
+      downloadButton("download_fig_zip", "Download All Figures (Optional)", class = "btn-primary")
     )
   })
   # -- progress bar
@@ -909,7 +919,7 @@ server <- function(input, output, session) {
       paste0("figures_", Sys.Date(), ".zip")
     },
     content = function(file) {
-      figs <- figure_folder_download(input, rv$imputed, rv$filtered, rv$filtered_corrected)
+      figs <- figure_folder_download(input, rv$imputed, rv$filtered, rv$filtered_corrected, rv$transformed)
       
       zipfile <- tempfile(fileext = ".zip")
       old_wd <- setwd(figs$tmp_dir)

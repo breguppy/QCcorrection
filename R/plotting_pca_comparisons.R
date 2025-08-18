@@ -3,7 +3,8 @@
 # PCA plots coloring by color_col
 plot_pca <- function(input,
                      before,
-                     after, compared_to) {
+                     after, 
+                     compared_to) {
   
   # Get overlapping metabolite columns
   meta_cols <- c("sample", "batch", "class", "order")

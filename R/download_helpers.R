@@ -492,7 +492,8 @@ corrected_file_download <- function(input,
 figure_folder_download <- function(input,
                                    imputed,
                                    filtered,
-                                   filtered_corrected) {
+                                   filtered_corrected,
+                                   transformed) {
   # create temp folder for figures
   tmp_dir <- tempdir()
   fig_dir <- file.path(tmp_dir, "figures")
@@ -517,11 +518,20 @@ figure_folder_download <- function(input,
     unlink(met_fig_dir, recursive = TRUE)
   dir.create(met_fig_dir)
   
+  rsd_before <- filtered$df
+  if (input$rsd_compare == "filtered_cor_data") {
+    rsd_compared_to <- "Corrected"
+    rsd_after <- filtered_corrected$df
+  } else {
+    rsd_compared_to <- "Correction and Transformation"
+    rsd_after <- transformed$df
+  }
+    
   # create RSD plots
   if (input$rsd_cal == "met") {
-    rsd_fig <- plot_rsd_comparison(filtered$df, filtered_corrected$df)
+    rsd_fig <- plot_rsd_comparison(rsd_before, rsd_after, rsd_compared_to)
   } else if (input$rsd_cal == "class_met") {
-    rsd_fig <- plot_rsd_comparison_class_met(filtered$df, filtered_corrected$df)
+    rsd_fig <- plot_rsd_comparison_class_met(rsd_before, rsd_after, rsd_compared_to)
   }
   rsd_path <- file.path(rsd_fig_dir,
                         paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
@@ -542,7 +552,15 @@ figure_folder_download <- function(input,
   }
   
   # Create PCA plots
-  pca_fig <- plot_pca(input, imputed, filtered_corrected, input$color_col)
+  before <- imputed
+  if (input$pca_compare == "filtered_cor_data") {
+    pca_compared_to <- "Corrected"
+    after <- filtered_corrected
+  } else {
+    pca_compared_to <- "Correction and Transformation"
+    after <- transformed
+  }
+  pca_fig <- plot_pca(input, before, after, pca_compared_to)
   pca_path <- file.path(pca_fig_dir,
                         paste0("pca_comparison_", input$color_col, ".", input$fig_format))
   if (input$fig_format == "png") {
