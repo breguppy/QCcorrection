@@ -9,8 +9,11 @@ color_values <- c("Increased"="#B22222",
                   "No Change"="gray25",
                   "Decreased"="#234F1E")
 
+library(sysfonts); library(showtext); library(ggtext)
+font_add_google("Noto Sans Symbols 2", "noto_sym"); showtext_auto()
+
 circle <- function(col, ptsize = 16) {
-  sprintf("<span style='color:%s; font-size:%dpt'>&bull;</span>", col, ptsize)
+  sprintf("<span style='color:%s; font-family:noto_sym; font-size:%dpt'>&#9679;</span>", col, ptsize) # U+25CF
 }
 
 facet_label_map <- function(df){
@@ -19,13 +22,13 @@ facet_label_map <- function(df){
     purrr::map(~{
       pt <- pct_tbl(.x); pct <- function(k) pt$percent[pt$change==k]
       sprintf("<b>%s</b><br>
-              %s Increased %s%% ·
-              %s No change %s%% ·
+              %s Increased %s%% 
+              %s No change %s%% 
               %s Decreased %s%%",
               unique(.x$Type),
-              circle(color_values['Increased'], 20), pct("Increased"),
-              circle(color_values['No Change'], 20), pct("No Change"),
-              circle(color_values['Decreased'], 20), pct("Decreased"))
+              circle(color_values['Increased'], 16), pct("Increased"),
+              circle(color_values['No Change'], 16), pct("No Change"),
+              circle(color_values['Decreased'], 16), pct("Decreased"))
     }) |> unlist()
   stats::setNames(by_type, unique(df$Type))
 }
