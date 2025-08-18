@@ -5,7 +5,6 @@ plot_pca <- function(input,
                      before,
                      after, 
                      compared_to) {
-  
   # Get overlapping metabolite columns
   meta_cols <- c("sample", "batch", "class", "order")
   metab_cols <- intersect(setdiff(names(before$df), meta_cols), 
@@ -101,14 +100,14 @@ plot_pca <- function(input,
   big_font_theme <- theme_minimal(base_size = 10) +
     theme(
       plot.title = element_text(size = 14, face = "bold"),
-      axis.title = element_text(size = 12, face = "bold"),
+      axis.title = element_text(size = 14, face = "bold"),
       axis.text = element_text(size = 10),
       legend.title = element_text(size = 14),
       legend.text = element_text(size = 12)
     )
   
   p1 <- ggplot(before_pca_df, aes(x = PC1, y = PC2, color = .data[[input$color_col]])) +
-    geom_point(size = 4, alpha = 0.8) +
+    geom_point(size = 3, alpha = 0.8) +
     labs(
       title = "Before",
       x = paste0("PC1 (", round(var_exp_raw[1], 1), "%)"),
@@ -118,11 +117,12 @@ plot_pca <- function(input,
     scale_color_manual(values = color_values, name = input$color_col, drop = FALSE, na.translate = FALSE) +
     big_font_theme +
     theme(legend.position = "none",
-          panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1))
+          panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1),
+          plot.margin = ggplot2::margin(10, 5, 10, 5))
   
   # Corrected plot with no legend
   p2 <- ggplot(after_pca_df, aes(x = PC1, y = PC2, color = .data[[input$color_col]])) +
-    geom_point(size = 4, alpha = 0.8) +
+    geom_point(size = 3, alpha = 0.8) +
     labs(
       title = "After",
       x = paste0("PC1 (", round(var_exp_cor[1], 1), "%)"),
@@ -131,25 +131,34 @@ plot_pca <- function(input,
     xlim(x_limits) + ylim(y_limits) +
     scale_color_manual(values = color_values, drop = FALSE, na.translate = FALSE) +
     big_font_theme +
-    theme(legend.position = "right",
-          panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1))
+    theme(legend.position = "none",
+          panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1),
+          plot.margin = ggplot2::margin(10, 5, 10, 5))
   
-  #p1 <- p1 + theme(plot.margin = ggplot2::margin(5, 5, 5, 1))
-  #p2 <- p2 + theme(plot.margin = ggplot2::margin(5, 1, 5, 5))
+  p_leg <- ggplot(before_pca_df, aes(PC1, PC2, color = .data[[input$color_col]])) +
+    geom_point(size = 3) +
+    scale_color_manual(values = color_values, name = input$color_col,
+                       drop = FALSE, na.translate = FALSE) +
+    guides(fill="none", size="none", shape="none", alpha="none", linetype="none") +
+    big_font_theme +
+    theme(legend.position = "right",
+          legend.box.margin = ggplot2::margin(0, 0, 0, 0))
+  
+  legend <- cowplot::get_legend(p_leg)
   
   p_combined <- cowplot::plot_grid(
-    p1, p2,
+    p1, p2, legend,
     labels = NULL,
     nrow = 1,
     align = "hv",
     axis = "tblr",
-    rel_widths = c(1, 1)
+    rel_widths = c(1, 1, 0.22)
   )
   
   p_with_title <- cowplot::ggdraw() +
     cowplot::draw_label(
       paste("Comparison of PCA Before and After", compared_to),
-      fontface = "bold", x = 0.5, y = 0.98, hjust = 0.5, vjust = 1, size = 16
+      fontface = "bold", x = 0.5, y = 0.98, hjust = 0.5, vjust = 1, size = 14
     ) +
     cowplot::draw_plot(p_combined, x = 0, y = 0, width = 1, height = 0.93)
   

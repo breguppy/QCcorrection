@@ -326,7 +326,7 @@ ui <- fluidPage(
           ),
           width = 400,
         ),
-        plotOutput("pca_plot", height = "500px", width = "1050px")
+        plotOutput("pca_plot", height = "530px", width = "1000px")
       )),
       card(layout_sidebar(
         #-- select figure format

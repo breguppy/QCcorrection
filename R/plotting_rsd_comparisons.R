@@ -9,26 +9,30 @@ color_values <- c("Increased"="#B22222",
                   "No Change"="gray25",
                   "Decreased"="#234F1E")
 
-# facet strip labels with percents helper
-facet_label_map <- function(df) {
+circle <- function(col, ptsize = 16) {
+  sprintf("<span style='color:%s; font-size:%dpt'>&bull;</span>", col, ptsize)
+}
+
+facet_label_map <- function(df){
   by_type <- df |>
     dplyr::group_split(Type) |>
     purrr::map(~{
-      pt <- pct_tbl(.x)
-      pct <- function(k) pt$percent[pt$change == k]
-      sprintf(
-        "<b>%s</b><br><span style='color:%s'>●</span> Increased %s%% · <span style='color:%s'>●</span> No change %s%% · <span style='color:%s'>●</span> Decreased %s%%",
-        unique(.x$Type),
-        color_values['Increased'], pct("Increased"),
-        color_values['No Change'], pct("No Change"),
-        color_values['Decreased'], pct("Decreased")
-      )
+      pt <- pct_tbl(.x); pct <- function(k) pt$percent[pt$change==k]
+      sprintf("<b>%s</b><br>
+              %s Increased %s%% ·
+              %s No change %s%% ·
+              %s Decreased %s%%",
+              unique(.x$Type),
+              circle(color_values['Increased'], 20), pct("Increased"),
+              circle(color_values['No Change'], 20), pct("No Change"),
+              circle(color_values['Decreased'], 20), pct("Decreased"))
     }) |> unlist()
   stats::setNames(by_type, unique(df$Type))
 }
 
 # comparison scatter plot helper
 mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
+  
   if (!nrow(d_all)) return(ggplot2::ggplot() + ggplot2::labs(title = "No points"))
   ggplot2::ggplot(d_all, ggplot2::aes(x=.data[[x]], y=.data[[y]], color = change)) +
     ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
@@ -49,7 +53,8 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
     ggplot2::theme(
       strip.placement = "outside",
       strip.background = ggplot2::element_rect(fill = "white", colour = "grey30"),
-      strip.text.x = ggtext::element_markdown(size = 9, margin = ggplot2::margin(t=6, r=6, b=6, l=6)),
+      strip.text.x = ggtext::element_markdown(size = 9,
+                                              margin = ggplot2::margin(t=6, r=6, b=6, l=6)),
       plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
       axis.title   = ggplot2::element_text(size = 14, face = "bold"),
       axis.text    = ggplot2::element_text(size = 10),
