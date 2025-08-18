@@ -289,7 +289,7 @@ ui <- fluidPage(
           ),
           width = 400,
         ),
-        plotOutput("rsd_comparison_plot", height = "500px", width = "900px")
+        plotOutput("rsd_comparison_plot", height = "540px", width = "900px")
       )),
       card(layout_sidebar(
         sidebar = sidebar(

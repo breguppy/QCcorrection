@@ -17,7 +17,7 @@ facet_label_map <- function(df) {
       pt <- pct_tbl(.x)
       pct <- function(k) pt$percent[pt$change == k]
       sprintf(
-        "<b>%s</b> — <span style='color:%s'>●</span> Increased %s%% · <span style='color:%s'>●</span> No change %s%% · <span style='color:%s'>●</span> Decreased %s%%",
+        "<b>%s</b><br><span style='color:%s'>●</span> Increased %s%% · <span style='color:%s'>●</span> No change %s%% · <span style='color:%s'>●</span> Decreased %s%%",
         unique(.x$Type),
         color_values['Increased'], pct("Increased"),
         color_values['No Change'], pct("No Change"),
@@ -49,8 +49,8 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
     ggplot2::theme(
       strip.placement = "outside",
       strip.background = ggplot2::element_rect(fill = "white", colour = "grey30"),
-      strip.text.x = ggtext::element_markdown(margin = ggplot2::margin(t=6, r=6, b=6, l=6)),
-      plot.title   = ggplot2::element_text(size = 16, hjust = 0.5, face = "bold"),
+      strip.text.x = ggtext::element_markdown(size = 9, margin = ggplot2::margin(t=6, r=6, b=6, l=6)),
+      plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
       axis.title   = ggplot2::element_text(size = 14, face = "bold"),
       axis.text    = ggplot2::element_text(size = 10),
       legend.position = "none",
