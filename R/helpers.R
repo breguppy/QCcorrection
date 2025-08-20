@@ -261,9 +261,11 @@ qcImputeUI <- function(df, metab_cols) {
 sampleImputeUI <- function(df, metab_cols) {
   sam_df <- df %>% filter(df$class != "QC")
   has_sam_na <- any(is.na(sam_df[, metab_cols]))
+  num_classes <- length(unique(sam_df$class))
   
   if (has_sam_na) {
-    radioButtons(
+    if (num_classes > 1){
+      radioButtons(
       inputId = "samImputeM",
       label = "Sample Imputation Method",
       choices = list(
@@ -278,7 +280,23 @@ sampleImputeUI <- function(df, metab_cols) {
       ),
       selected = "median",
       inline = FALSE
-    )
+      )
+    } else {
+      radioButtons(
+        inputId = "samImputeM",
+        label = "Sample Imputation Method",
+        choices = list(
+          "metabolite median" = "median",
+          "metabolite mean" = "mean",
+          "minimum value" = "min",
+          "half minimum value" = "minHalf",
+          "KNN" = "KNN",
+          "zero" = "zero"
+        ),
+        selected = "median",
+        inline = FALSE
+      )
+    }
   } else {
     tags$div(icon("check-circle", class = "text-success"),
              span("No Sample missing values"))
@@ -352,7 +370,23 @@ unavailableOptionsUI <- function(df, metab_cols) {
     summarise(qc_in_batch = sum(class == "QC"), .groups = "drop")
   num_batches <- length(unique(df$batch))
   
+  sam_df <- df %>% filter(df$class != "QC")
+  has_sam_na <- any(is.na(sam_df[, metab_cols]))
+  num_classes <- length(unique(sam_df$class))
+  
   unavail_opts <- list()
+  if (has_sam_na & (num_classes == 1)) {
+    unavail_opts[[length(unavail_opts) + 1]] <- tags$h6("Unavailable Sample Imputation Methods:")
+    unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
+      icon("circle-xmark", class = "text-danger-emphasis"),
+      " class-metabolite median requires more than 1 class."
+    )
+    unavail_opts[[length(unavail_opts) + 1]] <- tags$br()
+    unavail_opts[[length(unavail_opts) + 1]] <- tags$span(
+      icon("circle-xmark", class = "text-danger-emphasis"),
+      " class-metabolite mean requires more than 1 class."
+    )
+  }
   if (num_batches == 1) {
     if (any(qc_per_batch$qc_in_batch <= 5)) {
       unavail_opts[[length(unavail_opts) + 1]] <- tags$h6("Unavailable Correction Methods:")
