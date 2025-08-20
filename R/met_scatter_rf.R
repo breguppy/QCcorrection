@@ -74,7 +74,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
     geom_hline(data = sd_df_before, aes(yintercept = y, linetype = sd),
-               color = ifelse(sd_df_before$sd=="±1 SD","grey20","#950606"), linewidth = 1) +
+               color = ifelse(sd_df_before$sd=="±1 SD","grey20","#950606"), linewidth = 0.75) +
     geom_point(data = data_raw %>% filter(type == "Sample"),
                aes(order, .data[[i]], color = type), size = 2) +
     geom_point(data = data_raw %>% filter(type == "QC"),
@@ -83,10 +83,10 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
     theme_minimal(base_size = 10) +
     theme(
       plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 14),
+      axis.title = element_text(size = 12),
       axis.text  = element_text(size = 10),
-      legend.text= element_text(size = 12),
-      legend.title = element_text(size = 14, face = "bold"),
+      legend.text= element_text(size = 10),
+      legend.title = element_text(size = 12, face = "bold"),
       legend.position = "bottom",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
@@ -98,7 +98,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
     geom_hline(data = sd_df_after, aes(yintercept = y, linetype = sd),
-               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#950606"), linewidth = 1) +
+               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#950606"), linewidth = 0.75) +
     geom_point(data = data_cor %>% filter(type == "Sample"),
                aes(order, .data[[i]], color = type), size = 2) +
     geom_point(data = data_cor %>% filter(type == "QC"),
@@ -107,10 +107,10 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
     theme_minimal(base_size = 10) +
     theme(
       plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 14),
+      axis.title = element_text(size = 12),
       axis.text  = element_text(size = 10),
-      legend.text= element_text(size = 12),
-      legend.title = element_text(size = 14, face = "bold"),
+      legend.text= element_text(size = 10),
+      legend.title = element_text(size = 12, face = "bold"),
       legend.position = "none",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +

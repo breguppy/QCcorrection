@@ -50,17 +50,17 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
     geom_smooth(data = data_raw %>% filter(type=="QC"),
                 aes(x = order, y = .data[[i]]), formula = "y ~ x",
                 method = "loess", span  = 0.75,
-                fill = "#305CDE", show.legend = FALSE) +
+                fill = "#305CDE", show.legend = FALSE, linewidth = 0.75) +
     geom_point(data = data_raw %>% filter(type == "QC"),
                aes(order, .data[[i]], color = type), size = 2) +
     color_scale +
     theme_minimal(base_size = 10) +
     theme(
       plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 14),
+      axis.title = element_text(size = 12),
       axis.text  = element_text(size = 10),
-      legend.text= element_text(size = 12),
-      legend.title = element_text(size = 14, face = "bold"),
+      legend.text= element_text(size = 10),
+      legend.title = element_text(size = 12, face = "bold"),
       legend.position = "bottom",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
@@ -79,10 +79,10 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
     theme_minimal(base_size = 10) +
     theme(
       plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 14),
+      axis.title = element_text(size = 12),
       axis.text  = element_text(size = 10),
-      legend.text= element_text(size = 12),
-      legend.title = element_text(size = 14, face = "bold"),
+      legend.text= element_text(size = 10),
+      legend.title = element_text(size = 12, face = "bold"),
       legend.position = "none",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
