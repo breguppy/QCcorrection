@@ -609,15 +609,16 @@ figure_folder_download <- function(input,
         ggsave(
           path,
           plot = fig,
-          width = 8,
-          height = 8,
+          width = 5,
+          height = 5,
+          units = "in",
           dpi = 300
         )
       } else if (input$fig_format == "pdf") {
         ggsave(path,
                plot = fig,
-               width = 8,
-               height = 8,
+               width = 5,
+               height = 5,
                units = "in",
                device = grDevices::cairo_pdf)
       }

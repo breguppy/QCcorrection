@@ -4,47 +4,86 @@
 # before and after correction.
 source("R/processing_helpers.R")
 
-lab_levels   <- c("Increased","No Change","Decreased")
-color_values <- c("Increased"="#B22222",
-                  "No Change"="gray25",
-                  "Decreased"="#234F1E")
+lab_levels   <- c("Increased", "No Change", "Decreased")
+color_values <- c(
+  "Increased" = "#B22222",
+  "No Change" = "gray25",
+  "Decreased" = "#234F1E"
+)
 
-
-circle <- function(col, ptsize = 16) {
-  sprintf("<span style='color:%s; font-size:%dpt'>&#9679;</span>", col, ptsize)
+# colored circles in the "legend"
+circle <- function(col, ptsize = 12) {
+  sprintf("<span style='color:%s; font-size:%dpt'>&#9679;</span>",
+          col,
+          ptsize)
 }
 
-blk <- function(col, lab, pct, width="33.3%", align="left") {
-  sprintf("<span style='display:inline-block; width:%s; text-align:%s; white-space:nowrap'>
+# Block of "[circle] label percentage"
+blk <- function(col,
+                lab,
+                pct,
+                width = "33.3%",
+                align = "left") {
+  sprintf(
+    "<span style='display:inline-block; width:%s; text-align:%s; white-space:nowrap'>
             %s&nbsp;%s&nbsp;%s%%
-          </span>", width, align, circle(col), lab, pct)
+          </span>",
+    width,
+    align,
+    circle(col),
+    lab,
+    pct
+  )
 }
 
-facet_label_map <- function(df){
-  by_type <- df |> dplyr::group_split(Type) |> purrr::map(~{
-    pt <- pct_tbl(.x); P <- function(k) pt$percent[pt$change==k]
+facet_label_map <- function(df) {
+  by_type <- df |> dplyr::group_split(Type) |> purrr::map( ~ {
+    pt <- pct_tbl(.x)
+    P <- function(k)
+      pt$percent[pt$change == k]
     paste0(
-      "<b>", unique(.x$Type), "</b><br>",
-      blk(color_values["Increased"], "Increased",  P("Increased"),  "33.3%", "left"),
-      blk(color_values["No Change"], "No change",  P("No Change"),  "33.3%", "center"),
-      blk(color_values["Decreased"], "Decreased",  P("Decreased"),  "33.3%", "right")
+      "<b>",
+      unique(.x$Type),
+      "</b><br>",
+      blk(
+        color_values["Increased"],
+        "Increased",
+        P("Increased"),
+        "33.3%",
+        "left"
+      ),
+      blk(
+        color_values["No Change"],
+        "No change",
+        P("No Change"),
+        "33.3%",
+        "center"
+      ),
+      blk(
+        color_values["Decreased"],
+        "Decreased",
+        P("Decreased"),
+        "33.3%",
+        "right"
+      )
     )
   }) |> unlist()
   stats::setNames(by_type, unique(df$Type))
 }
 
-
 # comparison scatter plot helper
 mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
-  
-  if (!nrow(d_all)) return(ggplot2::ggplot() + ggplot2::labs(title = "No points"))
-  ggplot2::ggplot(d_all, ggplot2::aes(x=.data[[x]], y=.data[[y]], color = change)) +
-    ggplot2::geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
-    ggplot2::geom_point(size = 3, na.rm = TRUE) +
+  if (!nrow(d_all))
+    return(ggplot2::ggplot() + ggplot2::labs(title = "No points"))
+  ggplot2::ggplot(d_all, ggplot2::aes(x = .data[[x]], y = .data[[y]], color = change)) +
+    ggplot2::geom_abline(slope = 1,
+                         intercept = 0,
+                         linetype = "dashed") +
+    ggplot2::geom_point(size = 2, na.rm = TRUE) +
     ggplot2::scale_color_manual(
       values = color_values,
       breaks = lab_levels,
-      labels = c("Increased","No change","Decreased"),
+      labels = c("Increased", "No change", "Decreased"),
       name   = "RSD Change"
     ) +
     ggplot2::facet_wrap(
@@ -57,14 +96,29 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
     ggplot2::theme(
       strip.placement = "outside",
       strip.background = ggplot2::element_rect(fill = "white", colour = "grey30"),
-      strip.text.x = ggtext::element_markdown(size = 9,
-                                              margin = ggplot2::margin(t=6, r=6, b=6, l=6),
-                                              lineheight = 1.05),
-      plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
+      strip.text.x = ggtext::element_markdown(
+        size = 9,
+        margin = ggplot2::margin(
+          t = 6,
+          r = 6,
+          b = 6,
+          l = 6
+        ),
+        lineheight = 1.05
+      ),
+      plot.title   = ggplot2::element_text(
+        size = 14,
+        hjust = 0.5,
+        face = "bold"
+      ),
       axis.title   = ggplot2::element_text(size = 14, face = "bold"),
       axis.text    = ggplot2::element_text(size = 10),
       legend.position = "none",
-      panel.border = ggplot2::element_rect(color = "black", fill = NA, linewidth = 1)
+      panel.border = ggplot2::element_rect(
+        color = "black",
+        fill = NA,
+        linewidth = 1
+      )
     ) +
     ggplot2::labs(
       title = paste("Comparison of RSD Before and After", compared_to),
@@ -75,36 +129,53 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
 
 # categorize changes helper function
 tag_changes <- function(d, a_before, a_after) {
-  if (!nrow(d)) return(dplyr::mutate(d, change = factor(character(), levels = lab_levels)))
-  dplyr::mutate(d,
-                change = dplyr::case_when(
-                  .data[[a_after]]  > .data[[a_before]] ~ "Increased",
-                  .data[[a_after]]  < .data[[a_before]] ~ "Decreased",
-                  TRUE                                   ~ "No Change"
-                ),
-                change = factor(change, levels = lab_levels)
+  if (!nrow(d))
+    return(dplyr::mutate(d, change = factor(character(), levels = lab_levels)))
+  dplyr::mutate(
+    d,
+    change = dplyr::case_when(
+      .data[[a_after]]  > .data[[a_before]] ~ "Increased",
+      .data[[a_after]]  < .data[[a_before]] ~ "Decreased",
+      TRUE                                   ~ "No Change"
+    ),
+    change = factor(change, levels = lab_levels)
   )
 }
 
 # Compute percentages
 pct_tbl <- function(d) {
-  total <- nrow(d); if (!total) return(setNames(data.frame(change=factor(lab_levels, levels=lab_levels),
-                                                           percent=c(0,0,0)), c("change","percent")))
+  total <- nrow(d)
+  if (!total)
+    return(setNames(
+      data.frame(
+        change = factor(lab_levels, levels = lab_levels),
+        percent = c(0, 0, 0)
+      ),
+      c("change", "percent")
+    ))
   d %>% dplyr::count(change, .drop = FALSE) %>%
-    tidyr::complete(change = factor(lab_levels, levels = lab_levels), fill = list(n = 0)) %>%
+    tidyr::complete(change = factor(lab_levels, levels = lab_levels),
+                    fill = list(n = 0)) %>%
     dplyr::mutate(percent = round(100 * n / total, 1)) %>% dplyr::select(change, percent)
 }
 
 # RSD comparison scatter plots when computing RSD by metabolite
 plot_rsd_comparison <- function(df_before, df_after, compared_to) {
-
   rsdBefore <- metabolite_rsd(df_before)
   rsdAfter <- metabolite_rsd(df_after)
   
   # Merge data on Metabolite
   df <- dplyr::inner_join(
-    dplyr::rename(rsdBefore, rsd_qc_before = RSD_QC, rsd_nonqc_before = RSD_NonQC),
-    dplyr::rename(rsdAfter,  rsd_qc_after  = RSD_QC, rsd_nonqc_after  = RSD_NonQC),
+    dplyr::rename(
+      rsdBefore,
+      rsd_qc_before = RSD_QC,
+      rsd_nonqc_before = RSD_NonQC
+    ),
+    dplyr::rename(
+      rsdAfter,
+      rsd_qc_after  = RSD_QC,
+      rsd_nonqc_after  = RSD_NonQC
+    ),
     by = "Metabolite"
   )
   # If empty, return empty plot
@@ -116,15 +187,21 @@ plot_rsd_comparison <- function(df_before, df_after, compared_to) {
   df_samples <- df %>%
     dplyr::filter(is.finite(rsd_nonqc_before), is.finite(rsd_nonqc_after)) %>%
     tag_changes("rsd_nonqc_before", "rsd_nonqc_after") %>%
-    dplyr::transmute(Type = "Samples", before = rsd_nonqc_before, after = rsd_nonqc_after, change)
+    dplyr::transmute(Type = "Samples",
+                     before = rsd_nonqc_before,
+                     after = rsd_nonqc_after,
+                     change)
   
   df_qcs <- df %>%
     dplyr::filter(is.finite(rsd_qc_before), is.finite(rsd_qc_after)) %>%
     tag_changes("rsd_qc_before", "rsd_qc_after") %>%
-    dplyr::transmute(Type = "QCs", before = rsd_qc_before, after = rsd_qc_after, change)
+    dplyr::transmute(Type = "QCs",
+                     before = rsd_qc_before,
+                     after = rsd_qc_after,
+                     change)
   
   d_all <- dplyr::bind_rows(df_samples, df_qcs) %>%
-    dplyr::mutate(Type = factor(Type, levels = c("Samples","QCs")),
+    dplyr::mutate(Type = factor(Type, levels = c("Samples", "QCs")),
                   change = factor(change, levels = lab_levels))
   
   # make legend map
@@ -142,7 +219,7 @@ plot_rsd_comparison_class_met <- function(df_before, df_after, compared_to) {
   # Merge data on class and Metabolite
   df <- dplyr::inner_join(
     dplyr::rename(rsdBefore, rsd_before = RSD),
-    dplyr::rename(rsdAfter,  rsd_after  = RSD),
+    dplyr::rename(rsdAfter, rsd_after  = RSD),
     by = c("class", "Metabolite")
   )
   # If empty, return empty plot
@@ -157,15 +234,21 @@ plot_rsd_comparison_class_met <- function(df_before, df_after, compared_to) {
   df_samples <- df_samples %>%
     dplyr::filter(is.finite(rsd_before), is.finite(rsd_after)) %>%
     tag_changes("rsd_before", "rsd_after") %>%
-    dplyr::transmute(Type = "Samples", before = rsd_before, after = rsd_after, change)
+    dplyr::transmute(Type = "Samples",
+                     before = rsd_before,
+                     after = rsd_after,
+                     change)
   
   df_qcs <- df_qcs %>%
     dplyr::filter(is.finite(rsd_before), is.finite(rsd_after)) %>%
     tag_changes("rsd_before", "rsd_after") %>%
-    dplyr::transmute(Type = "QCs", before = rsd_before, after = rsd_after, change)
+    dplyr::transmute(Type = "QCs",
+                     before = rsd_before,
+                     after = rsd_after,
+                     change)
   
   d_all <- dplyr::bind_rows(df_samples, df_qcs) %>%
-    dplyr::mutate(Type = factor(Type, levels = c("Samples","QCs")),
+    dplyr::mutate(Type = factor(Type, levels = c("Samples", "QCs")),
                   change = factor(change, levels = lab_levels))
   
   # make legend map

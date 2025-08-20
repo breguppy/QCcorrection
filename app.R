@@ -885,7 +885,7 @@ server <- function(input, output, session) {
                        type = "error", duration = 8)
       ggplot2::ggplot() + ggplot2::labs(title = "Scatter failed — see notification")
     })
-  })
+  }, res = 120)
   
   #-- Download all figures as zip folder.
   output$download_fig_zip_btn <- renderUI({

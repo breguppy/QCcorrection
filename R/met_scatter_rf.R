@@ -74,18 +74,19 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
     geom_hline(data = sd_df_before, aes(yintercept = y, linetype = sd),
-               color = ifelse(sd_df_before$sd=="±1 SD","grey20","#950606"), linewidth = 1.25) +
+               color = ifelse(sd_df_before$sd=="±1 SD","grey20","#950606"), linewidth = 1) +
     geom_point(data = data_raw %>% filter(type == "Sample"),
-               aes(order, .data[[i]], color = type), size = 3) +
+               aes(order, .data[[i]], color = type), size = 2) +
     geom_point(data = data_raw %>% filter(type == "QC"),
-               aes(order, .data[[i]], color = type), size = 3) +
+               aes(order, .data[[i]], color = type), size = 2) +
     color_scale + lty_scale +
-    theme_minimal(base_size = 16) +
+    theme_minimal(base_size = 10) +
     theme(
-      plot.title = element_text(size = 20, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 18),
-      axis.text  = element_text(size = 16),
-      legend.text= element_text(size = 16),
+      plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
+      axis.title = element_text(size = 14),
+      axis.text  = element_text(size = 10),
+      legend.text= element_text(size = 12),
+      legend.title = element_text(size = 14, face = "bold"),
       legend.position = "bottom",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
@@ -97,24 +98,27 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
     geom_hline(data = sd_df_after, aes(yintercept = y, linetype = sd),
-               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#950606"), linewidth = 1.25) +
+               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#950606"), linewidth = 1) +
     geom_point(data = data_cor %>% filter(type == "Sample"),
-               aes(order, .data[[i]], color = type), size = 3) +
+               aes(order, .data[[i]], color = type), size = 2) +
     geom_point(data = data_cor %>% filter(type == "QC"),
-               aes(order, .data[[i]], color = type), size = 3) +
+               aes(order, .data[[i]], color = type), size = 2) +
     color_scale + lty_scale +
-    theme_minimal(base_size = 16) +
+    theme_minimal(base_size = 10) +
     theme(
-      plot.title = element_text(size = 20, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 18),
-      axis.text  = element_text(size = 16),
-      legend.text= element_text(size = 16),
+      plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
+      axis.title = element_text(size = 14),
+      axis.text  = element_text(size = 10),
+      legend.text= element_text(size = 12),
+      legend.title = element_text(size = 14, face = "bold"),
       legend.position = "none",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
     labs(title = "Corrected", x = "Injection Order", y = "Intensity")
   
   
-  (p_before + p_after + plot_layout(ncol = 1, guides = "collect")) &
-    theme(legend.position = "bottom")
+  (p_before + p_after) +
+    plot_layout(ncol = 1, guides = "collect") +
+    plot_annotation(title = i) &
+    theme(plot.title = element_text(size = 14, face = "bold"), legend.position = "bottom")
 }

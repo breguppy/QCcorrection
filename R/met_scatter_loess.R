@@ -46,20 +46,21 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
     geom_point(data = data_raw %>% filter(type == "Sample"),
-               aes(order, .data[[i]], color = type), size = 3) +
+               aes(order, .data[[i]], color = type), size = 2) +
     geom_smooth(data = data_raw %>% filter(type=="QC"),
                 aes(x = order, y = .data[[i]]), formula = "y ~ x",
                 method = "loess", span  = 0.75,
                 fill = "#305CDE", show.legend = FALSE) +
     geom_point(data = data_raw %>% filter(type == "QC"),
-               aes(order, .data[[i]], color = type), size = 3) +
+               aes(order, .data[[i]], color = type), size = 2) +
     color_scale +
-    theme_minimal(base_size = 16) +
+    theme_minimal(base_size = 10) +
     theme(
-      plot.title = element_text(size = 20, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 18),
-      axis.text  = element_text(size = 16),
-      legend.text= element_text(size = 16),
+      plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
+      axis.title = element_text(size = 14),
+      axis.text  = element_text(size = 10),
+      legend.text= element_text(size = 12),
+      legend.title = element_text(size = 14, face = "bold"),
       legend.position = "bottom",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
@@ -71,22 +72,25 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
               inherit.aes = FALSE, alpha = 0.3) +
     scale_fill_identity() +
     geom_point(data = data_cor %>% filter(type == "Sample"),
-               aes(order, .data[[i]], color = type), size = 3) +
+               aes(order, .data[[i]], color = type), size = 2) +
     geom_point(data = data_cor %>% filter(type == "QC"),
-               aes(order, .data[[i]], color = type), size = 3) +
+               aes(order, .data[[i]], color = type), size = 2) +
     color_scale +
-    theme_minimal(base_size = 16) +
+    theme_minimal(base_size = 10) +
     theme(
-      plot.title = element_text(size = 20, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 18),
-      axis.text  = element_text(size = 16),
-      legend.text= element_text(size = 16),
+      plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
+      axis.title = element_text(size = 14),
+      axis.text  = element_text(size = 10),
+      legend.text= element_text(size = 12),
+      legend.title = element_text(size = 14, face = "bold"),
       legend.position = "none",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
     labs(title = "Corrected", x = "Injection Order", y = "Intensity")
   
   
-  (p_before + p_after + plot_layout(ncol = 1, guides = "collect")) &
-    theme(legend.position = "bottom")
+  (p_before + p_after) +
+    plot_layout(ncol = 1, guides = "collect") +
+    plot_annotation(title = i) &
+    theme(plot.title = element_text(size = 14, face = "bold"), legend.position = "bottom")
 }
