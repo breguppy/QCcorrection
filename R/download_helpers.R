@@ -550,7 +550,8 @@ figure_folder_download <- function(input,
            plot = rsd_fig,
            width = 7.5,
            height = 4.5,
-           units = "in")
+           units = "in",
+           device = grDevices::cairo_pdf)
   }
   
   # Create PCA plots
@@ -616,7 +617,9 @@ figure_folder_download <- function(input,
         ggsave(path,
                plot = fig,
                width = 8,
-               height = 8)
+               height = 8,
+               units = "in",
+               device = grDevices::cairo_pdf)
       }
       incProgress(1 / n, detail = paste("Saved:", metab))
     }

@@ -9,29 +9,30 @@ color_values <- c("Increased"="#B22222",
                   "No Change"="gray25",
                   "Decreased"="#234F1E")
 
-library(sysfonts); library(showtext); library(ggtext)
-font_add_google("Noto Sans Symbols 2", "noto_sym"); showtext_auto()
 
 circle <- function(col, ptsize = 16) {
-  sprintf("<span style='color:%s; font-family:noto_sym; font-size:%dpt'>&#9679;</span>", col, ptsize) # U+25CF
+  sprintf("<span style='color:%s; font-size:%dpt'>&#9679;</span>", col, ptsize)
+}
+
+blk <- function(col, lab, pct, width="33.3%", align="left") {
+  sprintf("<span style='display:inline-block; width:%s; text-align:%s; white-space:nowrap'>
+            %s&nbsp;%s&nbsp;%s%%
+          </span>", width, align, circle(col), lab, pct)
 }
 
 facet_label_map <- function(df){
-  by_type <- df |>
-    dplyr::group_split(Type) |>
-    purrr::map(~{
-      pt <- pct_tbl(.x); pct <- function(k) pt$percent[pt$change==k]
-      sprintf("<b>%s</b><br>
-              %s Increased %s%% 
-              %s No change %s%% 
-              %s Decreased %s%%",
-              unique(.x$Type),
-              circle(color_values['Increased'], 16), pct("Increased"),
-              circle(color_values['No Change'], 16), pct("No Change"),
-              circle(color_values['Decreased'], 16), pct("Decreased"))
-    }) |> unlist()
+  by_type <- df |> dplyr::group_split(Type) |> purrr::map(~{
+    pt <- pct_tbl(.x); P <- function(k) pt$percent[pt$change==k]
+    paste0(
+      "<b>", unique(.x$Type), "</b><br>",
+      blk(color_values["Increased"], "Increased",  P("Increased"),  "33.3%", "left"),
+      blk(color_values["No Change"], "No change",  P("No Change"),  "33.3%", "center"),
+      blk(color_values["Decreased"], "Decreased",  P("Decreased"),  "33.3%", "right")
+    )
+  }) |> unlist()
   stats::setNames(by_type, unique(df$Type))
 }
+
 
 # comparison scatter plot helper
 mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
@@ -57,7 +58,8 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
       strip.placement = "outside",
       strip.background = ggplot2::element_rect(fill = "white", colour = "grey30"),
       strip.text.x = ggtext::element_markdown(size = 9,
-                                              margin = ggplot2::margin(t=6, r=6, b=6, l=6)),
+                                              margin = ggplot2::margin(t=6, r=6, b=6, l=6),
+                                              lineheight = 1.05),
       plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
       axis.title   = ggplot2::element_text(size = 14, face = "bold"),
       axis.text    = ggplot2::element_text(size = 10),
