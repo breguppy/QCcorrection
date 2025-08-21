@@ -1,96 +1,61 @@
 # metabolite scatter plots for polynomial fit
 
-library(ggplot2)
-library(patchwork)
-library(dplyr)
-
 met_scatter_loess <- function(data_raw, data_cor, i) {
+  # tag panels/types
+  data_raw <- dplyr::mutate(data_raw, type = ifelse(class=="QC","QC","Sample"),
+                            panel = factor("Raw", levels=c("Raw","Corrected")))
+  data_cor <- dplyr::mutate(data_cor, type = ifelse(class=="QC","QC","Sample"),
+                            panel = factor("Corrected", levels=c("Raw","Corrected")))
+  df_all   <- dplyr::bind_rows(data_raw, data_cor)
   
-  raw_qc_idx <- which(data_raw$class == "QC")
-  raw_nonqc_idx <- setdiff(seq_len(nrow(data_raw)), raw_qc_idx)
-  
-  cor_qc_idx <- which(data_cor$class == "QC")
-  cor_nonqc_idx <- setdiff(seq_len(nrow(data_cor)), cor_qc_idx)
-  
-  raw_vals <- data_raw[[i]]
-  qc_vals_raw <- raw_vals[ raw_qc_idx ]
-  
-  # same for data_cor
-  cor_vals <- data_cor[[i]]
-  qc_vals_cor  <- cor_vals[ cor_qc_idx ]
-  
-  
-  raw_batch_ranges <- data_raw %>%
-    group_by(batch) %>%
-    summarize(xmin = min(order), xmax = max(order), .groups = "drop") %>%
-    arrange(xmin) %>%
-    mutate(fill = rep(c("lightgray", "white"), length.out = n()))
-  
-  cor_batch_ranges <- data_cor %>%
-    group_by(batch) %>%
-    summarize(xmin = min(order), xmax = max(order), .groups = "drop") %>%
-    arrange(xmin) %>%
-    mutate(fill = rep(c("lightgray", "white"), length.out = n()))
-  
-  data_raw$type <- ifelse(data_raw$class == "QC", "QC", "Sample")
-  data_cor$type <- ifelse(data_cor$class == "QC", "QC", "Sample")
-  
-  color_scale <- scale_color_manual(
-    name   = "Type:",
-    values = c(Sample = "#F5C710", QC = "#305CDE")
+  # batch shading per panel
+  get_batches <- function(df, panel) {
+    df |>
+      dplyr::group_by(batch) |>
+      dplyr::summarize(xmin=min(order), xmax=max(order), .groups="drop") |>
+      dplyr::arrange(xmin) |>
+      dplyr::mutate(fill = rep(c("lightgray","white"), length.out=dplyr::n()),
+                    panel = factor(panel, levels=c("Raw","Corrected")))
+  }
+  batch_ranges <- dplyr::bind_rows(
+    get_batches(data_raw, "Raw"),
+    get_batches(data_cor, "Corrected")
   )
   
-  p_before <- ggplot(data_raw, aes(x = order, y = .data[[i]], color = type), alpha = 0.8) +
-    geom_rect(data = raw_batch_ranges,
-              aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
-              inherit.aes = FALSE, alpha = 0.3) +
-    scale_fill_identity() +
-    geom_point(data = data_raw %>% filter(type == "Sample"),
-               aes(order, .data[[i]], color = type), size = 2) +
-    geom_smooth(data = data_raw %>% filter(type=="QC"),
-                aes(x = order, y = .data[[i]]), formula = "y ~ x",
-                method = "loess", span  = 0.75,
-                fill = "#305CDE", show.legend = FALSE, linewidth = 0.75) +
-    geom_point(data = data_raw %>% filter(type == "QC"),
-               aes(order, .data[[i]], color = type), size = 2) +
+  color_scale <- ggplot2::scale_color_manual(
+    name = "Type:", values = c(Sample = "#F5C710", QC = "#305CDE")
+  )
+  
+  ggplot2::ggplot(df_all, ggplot2::aes(x = order, y = .data[[i]])) +
+    ggplot2::geom_rect(
+      data = batch_ranges,
+      ggplot2::aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
+      inherit.aes = FALSE, alpha = 0.3, show.legend = FALSE
+    ) +
+    ggplot2::scale_fill_identity(guide = "none") +
+    ggplot2::geom_point(ggplot2::aes(color = type), size = 2) +
+    # LOESS on QC only, per panel
+    ggplot2::geom_smooth(
+      data = dplyr::filter(df_all, type == "QC"),
+      ggplot2::aes(x = order, y = .data[[i]]),
+      method = "loess", formula = "y ~ x", span = 0.75,
+      fill = "#305CDE", linewidth = 0.75, show.legend = FALSE
+    ) +
     color_scale +
-    theme_minimal(base_size = 10) +
-    theme(
-      plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 12),
-      axis.text  = element_text(size = 10),
-      legend.text= element_text(size = 10),
-      legend.title = element_text(size = 10, face = "bold"),
+    ggplot2::facet_wrap(~panel, ncol = 1, scales = "free_y") +
+    ggplot2::labs(title = i, x = "Injection Order", y = "Intensity") +
+    ggplot2::theme_minimal(base_size = 10) +
+    ggplot2::theme(
+      plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
+      axis.title   = ggplot2::element_text(size = 12),
+      axis.text    = ggplot2::element_text(size = 10),
+      panel.border = ggplot2::element_rect(colour = "black", fill = NA, linewidth = 1),
+      legend.title = ggplot2::element_text(size = 10, face = "bold"),
+      legend.text  = ggplot2::element_text(size = 10),
       legend.position = "bottom",
-      panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
-    ) +
-    labs(title = "Raw", x = "Injection Order", y = "Intensity")
-  
-  p_after <- ggplot(data_cor, aes(x = order, y = .data[[i]], color = type)) +
-    geom_rect(data = cor_batch_ranges,
-              aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
-              inherit.aes = FALSE, alpha = 0.3) +
-    scale_fill_identity() +
-    geom_point(data = data_cor %>% filter(type == "Sample"),
-               aes(order, .data[[i]], color = type), size = 2) +
-    geom_point(data = data_cor %>% filter(type == "QC"),
-               aes(order, .data[[i]], color = type), size = 2) +
-    color_scale +
-    theme_minimal(base_size = 10) +
-    theme(
-      plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 12),
-      axis.text  = element_text(size = 10),
-      legend.text= element_text(size = 10),
-      legend.title = element_text(size = 10, face = "bold"),
-      legend.position = "none",
-      panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
-    ) +
-    labs(title = "Corrected", x = "Injection Order", y = "Intensity")
-  
-  
-  (p_before + p_after) +
-    plot_layout(ncol = 1, guides = "collect") +
-    plot_annotation(title = i) &
-    theme(plot.title = element_text(size = 14, face = "bold"), legend.position = "bottom")
+      # centered facet titles above panels
+      strip.text.x = ggplot2::element_text(size = 12, face = "bold", hjust = 0.5),
+      strip.placement = "outside",
+      strip.background = ggplot2::element_blank()
+    )
 }

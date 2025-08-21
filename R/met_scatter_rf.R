@@ -1,132 +1,75 @@
 # Matabolite scatter plot for random forest corrected data
 
-library(ggplot2)
-library(patchwork)
-library(dplyr)
-
 met_scatter_rf <- function(data_raw, data_cor, i) {
+  # add panel tags
+  data_raw <- dplyr::mutate(data_raw, type = ifelse(class=="QC","QC","Sample"),
+                            panel = factor("Raw", levels=c("Raw","Corrected")))
+  data_cor <- dplyr::mutate(data_cor, type = ifelse(class=="QC","QC","Sample"),
+                            panel = factor("Corrected", levels=c("Raw","Corrected")))
+  df_all   <- dplyr::bind_rows(data_raw, data_cor)
   
-  raw_qc_idx <- which(data_raw$class == "QC")
-  raw_nonqc_idx <- setdiff(seq_len(nrow(data_raw)), raw_qc_idx)
+  # qc stats
+  get_stats <- function(df, panel) {
+    qc_vals <- df[[i]][df$type=="QC"]
+    m <- mean(qc_vals, na.rm=TRUE)
+    s <- sd(qc_vals, na.rm=TRUE)
+    tibble::tibble(
+      y=c(m+s,m-s,m+2*s,m-2*s),
+      sd=factor(c("±1 SD","±1 SD","±2 SD","±2 SD"), levels=c("±1 SD","±2 SD")),
+      panel=factor(panel, levels=c("Raw","Corrected"))
+    )
+  }
+  sd_df <- dplyr::bind_rows(get_stats(data_raw,"Raw"),
+                            get_stats(data_cor,"Corrected"))
   
-  cor_qc_idx <- which(data_cor$class == "QC")
-  cor_nonqc_idx <- setdiff(seq_len(nrow(data_cor)), cor_qc_idx)
+  # batch shading
+  get_batches <- function(df,panel) {
+    df |>
+      dplyr::group_by(batch) |>
+      dplyr::summarize(xmin=min(order), xmax=max(order), .groups="drop") |>
+      dplyr::arrange(xmin) |>
+      dplyr::mutate(fill=rep(c("lightgray","white"), length.out=dplyr::n()),
+                    panel=factor(panel, levels=c("Raw","Corrected")))
+  }
+  batch_ranges <- dplyr::bind_rows(get_batches(data_raw,"Raw"),
+                                   get_batches(data_cor,"Corrected"))
   
-  raw_vals <- data_raw[[i]]
-  qc_vals_raw <- raw_vals[ raw_qc_idx ]
+  color_scale <- ggplot2::scale_color_manual(name="Type:",
+                                             values=c(Sample="#F5C710", QC="#305CDE"))
+  lty_scale <- ggplot2::scale_linetype_manual(name="SD Range:",
+                                              values=c("±1 SD"="dashed","±2 SD"="solid"),
+                                              guide=ggplot2::guide_legend(
+                                                override.aes=list(color=c("grey20","#950606"))
+                                              ))
   
-  mean_before <- mean(qc_vals_raw, na.rm = TRUE)
-  sd_before   <- sd(qc_vals_raw,   na.rm = TRUE)
-  
-  # same for data_cor
-  cor_vals <- data_cor[[i]]
-  qc_vals_cor  <- cor_vals[ cor_qc_idx ]
-  
-  mean_after <- mean(qc_vals_cor, na.rm = TRUE)
-  sd_after   <- sd(qc_vals_cor,   na.rm = TRUE)
-  
-  sd_df_before <- tibble::tibble(
-    y  = c(mean_before +  sd_before,
-           mean_before -  sd_before,
-           mean_before + 2*sd_before,
-           mean_before - 2*sd_before),
-    sd = factor(c("±1 SD","±1 SD","±2 SD","±2 SD"),
-                levels = c("±1 SD","±2 SD"))
-  )
-  
-  sd_df_after <- tibble::tibble(
-    y  = c(mean_after  +  sd_after,
-           mean_after  -  sd_after,
-           mean_after  + 2*sd_after,
-           mean_after  - 2*sd_after),
-    sd = factor(c("±1 SD","±1 SD","±2 SD","±2 SD"),
-                levels = c("±1 SD","±2 SD"))
-  )
-  
-  raw_batch_ranges <- data_raw %>%
-    group_by(batch) %>%
-    summarize(xmin = min(order), xmax = max(order), .groups = "drop") %>%
-    arrange(xmin) %>%
-    mutate(fill = rep(c("lightgray", "white"), length.out = n()))
-  
-  cor_batch_ranges <- data_cor %>%
-    group_by(batch) %>%
-    summarize(xmin = min(order), xmax = max(order), .groups = "drop") %>%
-    arrange(xmin) %>%
-    mutate(fill = rep(c("lightgray", "white"), length.out = n()))
-  
-  data_raw$type <- ifelse(data_raw$class == "QC", "QC", "Sample")
-  data_cor$type <- ifelse(data_cor$class == "QC", "QC", "Sample")
-  
-  color_scale <- scale_color_manual(
-    name   = "Type:",
-    values = c(Sample = "#F5C710", QC = "#305CDE")
-  )
-  lty_scale <- scale_linetype_manual(
-    name   = "SD Range:",
-    values = c("±1 SD" = "dashed", "±2 SD" = "solid"),
-    guide  = guide_legend(override.aes = list(color = c("grey20","#950606")))
-  )
-  
-  p_before <- ggplot(data_raw, aes(x = order, y = .data[[i]], color = type), alpha = 0.8) +
-    geom_rect(data = raw_batch_ranges,
-              aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
-              inherit.aes = FALSE, alpha = 0.3) +
-    scale_fill_identity() +
-    geom_hline(data = sd_df_before, aes(yintercept = y, linetype = sd),
-               color = ifelse(sd_df_before$sd=="±1 SD","grey20","#950606"), linewidth = 0.75) +
-    geom_point(data = data_raw %>% filter(type == "Sample"),
-               aes(order, .data[[i]], color = type), size = 2) +
-    geom_point(data = data_raw %>% filter(type == "QC"),
-               aes(order, .data[[i]], color = type), size = 2) +
+  ggplot2::ggplot(df_all, ggplot2::aes(x=order, y=.data[[i]])) +
+    ggplot2::geom_rect(data=batch_ranges,
+                       ggplot2::aes(xmin=xmin,xmax=xmax,ymin=-Inf,ymax=Inf,fill=fill),
+                       inherit.aes=FALSE, alpha=0.3, show.legend=FALSE) +
+    ggplot2::scale_fill_identity(guide="none") +
+    ggplot2::geom_hline(data=sd_df |> dplyr::filter(sd=="±1 SD"),
+                        ggplot2::aes(yintercept=y, linetype=sd),
+                        color="grey20", linewidth=0.75) +
+    ggplot2::geom_hline(data=sd_df |> dplyr::filter(sd=="±2 SD"),
+                        ggplot2::aes(yintercept=y, linetype=sd),
+                        color="#950606", linewidth=0.75) +
+    ggplot2::geom_point(ggplot2::aes(color=type), size=2) +
     color_scale + lty_scale +
-    theme_minimal(base_size = 10) +
-    theme(
-      plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 12),
-      axis.text  = element_text(size = 10),
-      legend.text= element_text(size = 10),
-      legend.title = element_text(size = 10, face = "bold"),
-      legend.position = "bottom",
-      panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
-    ) +
-    labs(title = "Raw", x = "Injection Order", y = "Intensity")
-  
-  p_after <- ggplot(data_cor, aes(x = order, y = .data[[i]], color = type)) +
-    geom_rect(data = cor_batch_ranges,
-              aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
-              inherit.aes = FALSE, alpha = 0.3) +
-    scale_fill_identity() +
-    geom_hline(data = sd_df_after, aes(yintercept = y, linetype = sd),
-               color = ifelse(sd_df_after$sd=="±1 SD","grey20","#950606"), linewidth = 0.75) +
-    geom_point(data = data_cor %>% filter(type == "Sample"),
-               aes(order, .data[[i]], color = type), size = 2) +
-    geom_point(data = data_cor %>% filter(type == "QC"),
-               aes(order, .data[[i]], color = type), size = 2) +
-    color_scale + lty_scale +
-    theme_minimal(base_size = 10) +
-    theme(
-      plot.title = element_text(size = 14, hjust = 0.5, face = "bold"),
-      axis.title = element_text(size = 12),
-      axis.text  = element_text(size = 10),
-      legend.text= element_text(size = 10),
-      legend.title = element_text(size = 10, face = "bold"),
-      legend.position = "none",
-      panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
-    ) +
-    labs(title = "Corrected", x = "Injection Order", y = "Intensity")
-  
-  
-  (p_before + p_after) +
-    plot_layout(ncol = 1, guides = "collect") +
-    plot_annotation(title = i) &
-    theme(plot.title = element_text(size = 14, face = "bold"), 
-          legend.position = "bottom",
-          legend.box = "horizontal",
-          legend.direction = "horizontal",
-          legend.box.just = "center",
-          legend.key.width = unit(0.6, "cm"),
-          legend.key.height = unit(0.3, "cm"),
-          legend.spacing.x = unit(0.2, "cm"),
-          legend.margin    = margin(t = 2, b = 2))
+    ggplot2::facet_wrap(~panel, ncol = 1, scales = "free_y") +
+    ggplot2::labs(title=i, x="Injection Order", y="Intensity") +
+    ggplot2::theme_minimal(base_size=10) +
+    ggplot2::theme(
+      plot.title   = ggplot2::element_text(size=14, hjust=0.5, face="bold"),
+      axis.title   = ggplot2::element_text(size=12),
+      axis.text    = ggplot2::element_text(size=10),
+      panel.border = ggplot2::element_rect(colour="black", fill=NA, linewidth=1),
+      legend.title = ggplot2::element_text(size=10, face="bold"),
+      legend.text  = ggplot2::element_text(size=10),
+      legend.position="bottom",
+      legend.box="horizontal",
+      strip.text.x = element_text(size = 12, face = "bold", hjust = 0.5),
+      strip.placement = "outside",
+      strip.background = element_blank()
+    )
 }
+

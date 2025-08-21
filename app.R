@@ -20,6 +20,7 @@ source("R/download_helpers.R")
 source("R/plotting_helpers.R")
 source("R/plotting_rsd_comparisons.R")
 source("R/plotting_pca_comparisons.R")
+source("R/generate_cor_report.R")
 
 
 ui <- fluidPage(
@@ -858,16 +859,16 @@ server <- function(input, output, session) {
   
   #-- Let user select which metabolite to display in scatter plot
   output$met_plot_selectors <- renderUI({
-    req(rv$filtered, rv$transformed)
+    req(rv$filtered, rv$filtered_corrected)
     raw_cols <- setdiff(names(rv$filtered$df),    c("sample","batch","class","order"))
-    cor_cols <- setdiff(names(rv$transformed$df), c("sample","batch","class","order"))
+    cor_cols <- setdiff(names(rv$filtered_corrected$df), c("sample","batch","class","order"))
     cols <- intersect(raw_cols, cor_cols)
     validate(need(length(cols) >= 1, "No overlapping metabolites between raw and corrected data."))
     selectInput("met_col", "Metabolite column", choices = cols, selected = cols[1])
   })
   
   output$metab_scatter <- renderPlot({
-    # This should only show the corrected data and not the transformed data
+    # This should only show the corrected data
     req(input$met_col, rv$filtered, rv$filtered_corrected, rv$corrected)
     f_df <- rv$filtered$df
     t_df <- rv$filtered_corrected$df
@@ -940,7 +941,7 @@ server <- function(input, output, session) {
   
   #-- Move to next tab after inspecting the corrected data figures
   observeEvent(input$next_export, {
-    updateTabsetPanel(session, "main_steps", "4. Export Corrected Data and Plots")
+    updateTabsetPanel(session, "main_steps", "4. Export Corrected Data, Plots, and Report")
   })
   
   output$download_all_ui <- renderUI({
@@ -958,7 +959,7 @@ server <- function(input, output, session) {
       paste0("corrected_data_plots_report_", Sys.Date(), ".zip")
     },
     content = function(file) {
-      base_dir <- tempfile()
+      base_dir <- tempfile("bundle_")
       dir.create(base_dir)
       
       # 1. create and save corrected data file
@@ -976,27 +977,50 @@ server <- function(input, output, session) {
       saveWorkbook(wb, cor_data_path, overwrite = TRUE)
       
       # 2. create and save figure folder
-      fig_info <- figure_folder_download(input, rv$imputed, rv$filtered, rv$filtered_corrected)
-      fig_dir <- fig_info$fig_dir
-      figures_path <- file.path(base_dir, "figures")
-      dir.create(figures_path)
-      file.copy(from = list.files(fig_dir, full.names = TRUE),
-                to = figures_path,
-                recursive = TRUE)
+      fig_info <- figure_folder_download(input, rv$imputed, rv$filtered,
+                                         rv$filtered_corrected, rv$transformed)
+      figs_src <- fig_info$fig_dir
+      figs_dir <- file.path(base_dir, "figures"); dir.create(figs_dir)
+      
+      file.copy(list.files(figs_src, full.names = TRUE, recursive = TRUE),
+                to = figs_dir, recursive = TRUE)
+      
+      # 3. make pdf report
+      # get figures for report: RSD comparison, PCA plot, and 2 Metabolite scatter plots
+      ext <- if (identical(input$fig_format, "pdf")) "pdf" else "png"
+      rsd_file <- list.files(file.path(figs_dir, "RSD figures"),
+                             pattern = paste0("\\.", ext, "$"), full.names = TRUE)[1]
+      pca_file <- list.files(file.path(figs_dir, "PCA plots"),
+                             pattern = paste0("\\.", ext, "$"), full.names = TRUE)[1]
+      met_files <- list.files(file.path(figs_dir, "metabolite figures"),
+                              pattern = paste0("\\.", ext, "$"), full.names = TRUE)
+      met_pick <- if (length(met_files) >= 2)
+        met_files[c(1, ceiling(length(met_files)/2))] else met_files
+      
+      fig_files <- c(
+        "RSD Comparison"       = rsd_file,
+        "PCA Comparison"       = pca_file,
+        "Metabolite Scatter 1" = if (length(met_pick) >= 1) met_pick[1] else NA_character_,
+        "Metabolite Scatter 2" = if (length(met_pick) >= 2) met_pick[2] else NA_character_
+      )
+      fig_files <- fig_files[!is.na(fig_files)] 
+      
+      params <- list(
+        title   = "QC correction report",
+        notes   = input$notes %||% "",
+        figures = fig_files,              # named character vector of file paths
+        include = names(fig_files)
+      )
+      
+      generate_cor_report(params, base_dir)
       
       # make zip file
       zipfile <- tempfile(fileext = ".zip")
-      old_wd <- setwd(base_dir)
-      on.exit({
-        unlink(base_dir, recursive = TRUE)
-        unlink(zipfile)
-        setwd(old_wd)
-      }, add = TRUE)
-      zip(zipfile = zipfile,
-          files = list.files(base_dir),
-          extras = "-r9Xq")
-      
-      file.copy(zipfile, file)
+      on.exit(unlink(c(base_dir, zipfile), recursive = TRUE), add = TRUE)
+      zip::zipr(zipfile = zipfile,
+                files = list.files(base_dir, full.names = TRUE), 
+                include_directories = TRUE)
+      file.copy(zipfile, file, overwrite = TRUE)
     }
   )
   
