@@ -605,7 +605,8 @@ transform_data <- function(df, transform, withheld_cols, ex_ISTD = TRUE) {
   if (ex_ISTD) {
     # Get column names containing ISTD and add them to withheld columns
     istd <- grep("ISTD", metab_cols, value = TRUE)
-    withheld_cols <- c(withheld_cols, istd)
+    itsd <- grep("ITSD", metab_cols, value = TRUE)
+    withheld_cols <- c(withheld_cols, istd, itsd)
     metab_cols <- setdiff(metab_cols, withheld_cols)
   }
   

@@ -53,9 +53,15 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
       legend.title = ggplot2::element_text(size = 10, face = "bold"),
       legend.text  = ggplot2::element_text(size = 10),
       legend.position = "bottom",
-      # centered facet titles above panels
+      legend.box        = "horizontal",
+      legend.box.just   = "center",
+      legend.key.width  = grid::unit(0.5, "cm"),   # shrink keys
+      legend.key.height = grid::unit(0.3, "cm"),
+      legend.margin     = ggplot2::margin(t = 2, b = 2, l = 2, r = 2),
+      legend.box.margin = ggplot2::margin(t = 2, b = 2, l = 2, r = 2),
       strip.text.x = ggplot2::element_text(size = 12, face = "bold", hjust = 0.5),
       strip.placement = "outside",
-      strip.background = ggplot2::element_blank()
+      strip.background = ggplot2::element_blank(),
+      plot.margin = grid::unit(c(0.5, 0.5, 0.8, 0.5), "cm")
     )
 }

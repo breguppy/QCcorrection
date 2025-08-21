@@ -59,17 +59,23 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
     ggplot2::labs(title=i, x="Injection Order", y="Intensity") +
     ggplot2::theme_minimal(base_size=10) +
     ggplot2::theme(
-      plot.title   = ggplot2::element_text(size=14, hjust=0.5, face="bold"),
-      axis.title   = ggplot2::element_text(size=12),
-      axis.text    = ggplot2::element_text(size=10),
-      panel.border = ggplot2::element_rect(colour="black", fill=NA, linewidth=1),
-      legend.title = ggplot2::element_text(size=10, face="bold"),
-      legend.text  = ggplot2::element_text(size=10),
-      legend.position="bottom",
-      legend.box="horizontal",
-      strip.text.x = element_text(size = 12, face = "bold", hjust = 0.5),
+      plot.title   = ggplot2::element_text(size = 14, hjust = 0.5, face = "bold"),
+      axis.title   = ggplot2::element_text(size = 12),
+      axis.text    = ggplot2::element_text(size = 10),
+      panel.border = ggplot2::element_rect(colour = "black", fill = NA, linewidth = 1),
+      legend.title = ggplot2::element_text(size = 10, face = "bold"),
+      legend.text  = ggplot2::element_text(size = 10),
+      legend.position = "bottom",
+      legend.box        = "horizontal",
+      legend.box.just   = "center",
+      legend.key.width  = grid::unit(0.5, "cm"),   # shrink keys
+      legend.key.height = grid::unit(0.3, "cm"),
+      legend.margin     = ggplot2::margin(t = 2, b = 2, l = 2, r = 2),
+      legend.box.margin = ggplot2::margin(t = 2, b = 2, l = 2, r = 2),
+      strip.text.x = ggplot2::element_text(size = 12, face = "bold", hjust = 0.5),
       strip.placement = "outside",
-      strip.background = element_blank()
+      strip.background = ggplot2::element_blank(),
+      plot.margin = grid::unit(c(0.5, 0.5, 0.8, 0.5), "cm")
     )
 }
 
