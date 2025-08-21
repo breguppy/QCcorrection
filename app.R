@@ -982,35 +982,79 @@ server <- function(input, output, session) {
       figs_src <- fig_info$fig_dir
       figs_dir <- file.path(base_dir, "figures"); dir.create(figs_dir)
       
-      file.copy(list.files(figs_src, full.names = TRUE, recursive = TRUE),
-                to = figs_dir, recursive = TRUE)
+      files <- list.files(figs_src, recursive = TRUE, full.names = TRUE)
+      rel   <- list.files(figs_src, recursive = TRUE, full.names = FALSE)
+      
+      # build target paths
+      targets <- file.path(figs_dir, rel)
+      
+      # create needed subdirectories (skip ".")
+      dirs <- unique(dirname(targets))
+      dirs <- dirs[dirs != "."]               # remove invalid path
+      for (d in dirs) dir.create(d, recursive = TRUE, showWarnings = FALSE)
+      
+      # copy files into same relative structure
+      file.copy(from = files, to = targets, overwrite = TRUE)
       
       # 3. make pdf report
       # get figures for report: RSD comparison, PCA plot, and 2 Metabolite scatter plots
-      ext <- if (identical(input$fig_format, "pdf")) "pdf" else "png"
-      rsd_file <- list.files(file.path(figs_dir, "RSD figures"),
-                             pattern = paste0("\\.", ext, "$"), full.names = TRUE)[1]
-      pca_file <- list.files(file.path(figs_dir, "PCA plots"),
-                             pattern = paste0("\\.", ext, "$"), full.names = TRUE)[1]
-      met_files <- list.files(file.path(figs_dir, "metabolite figures"),
-                              pattern = paste0("\\.", ext, "$"), full.names = TRUE)
-      met_pick <- if (length(met_files) >= 2)
-        met_files[c(1, ceiling(length(met_files)/2))] else met_files
+      cat("FIG DIR TREE:\n")
+      print(list.files(figs_dir, recursive = TRUE))
       
+      # 2) Recursive picker by stem (case-insensitive, any subfolder)
+      pick_first <- function(root, stem, exts = c("png","jpg","jpeg","pdf")) {
+        pat <- paste0("^", stem, "\\.(", paste(exts, collapse="|"), ")$")
+        cand <- list.files(root, pattern = pat, recursive = TRUE, full.names = TRUE, ignore.case = TRUE)
+        if (length(cand)) cand[1] else character(0)
+      }
+      
+      # robust converter
+      ensure_png <- function(file) {
+        if (length(file) == 0 || is.na(file) || !nzchar(file)) return(character(0))
+        ext <- tolower(tools::file_ext(file))
+        if (ext == "png") return(file)
+        if (ext == "pdf") {
+          out <- sub("\\.[Pp][Dd][Ff]$", ".png", file)
+          if (!file.exists(out)) {
+            img <- tryCatch(magick::image_read_pdf(file, density = 300), error = function(e) NULL)
+            if (is.null(img)) return(character(0))
+            magick::image_write(img, path = out, format = "png")
+          }
+          return(out)
+        }
+        # unsupported type
+        character(0)
+      }
+      
+      # in your server code, replace the figure-pick block with:
+      rsd_file <- ensure_png(pick_first(figs_dir, paste0("rsd_comparison_", input$rsd_cal)))
+      pca_file <- ensure_png(pick_first(figs_dir, paste0("pca_comparison_", input$color_col)))
+      
+      met_files_all <- list.files(figs_dir, pattern = "\\.(png|jpe?g|pdf)$",
+                                  full.names = TRUE, recursive = TRUE, ignore.case = TRUE)
+      met_pick <- if (length(met_files_all) >= 2)
+        met_files_all[c(1, ceiling(length(met_files_all)/2))] else met_files_all
+      met_pick <- unname(unlist(lapply(met_pick, ensure_png), use.names = FALSE))
+        
       fig_files <- c(
         "RSD Comparison"       = rsd_file,
         "PCA Comparison"       = pca_file,
-        "Metabolite Scatter 1" = if (length(met_pick) >= 1) met_pick[1] else NA_character_,
-        "Metabolite Scatter 2" = if (length(met_pick) >= 2) met_pick[2] else NA_character_
+        "Metabolite Scatter 1" = if (length(met_pick) >= 1) met_pick[1] else character(0),
+        "Metabolite Scatter 2" = if (length(met_pick) >= 2) met_pick[2] else character(0)
       )
-      fig_files <- fig_files[!is.na(fig_files)] 
+      fig_files <- fig_files[nzchar(fig_files) & file.exists(fig_files)]
+      fig_files <- normalizePath(fig_files, winslash = "/", mustWork = FALSE)
+      fig_list <- as.list(unname(fig_files))
+      names(fig_list) <- names(fig_files)
       
       params <- list(
         title   = "QC correction report",
         notes   = input$notes %||% "",
-        figures = fig_files,              # named character vector of file paths
-        include = names(fig_files)
+        figures = fig_list,              # <- list, not vector
+        include = names(fig_list)
       )
+
+      cat("SELECTED FIGS:\n"); print(params$figures)
       
       generate_cor_report(params, base_dir)
       

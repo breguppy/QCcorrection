@@ -1,0 +1,37 @@
+---
+title: "`r params$title %||% 'QC Correction Report'`"
+output:
+  html_document:
+    self_contained: true
+    toc: true
+    toc_depth: 2
+    toc_float: true
+params:
+  title:
+    value: "QC Correction Report"
+  notes:
+    value: ""
+  figures:
+    value: !r character(0)
+  include:
+    value: !r character(0)
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r, results='asis', echo=FALSE, warning=FALSE, message=FALSE}
+if (length(params$include)) {
+  for (k in params$include) {
+    f <- params$figures[[k]]
+    if (is.character(f) && length(f) == 1 && nzchar(f) && file.exists(f)) {
+      cat("## ", k, "\n\n", sep = "")
+      knitr::include_graphics(f)
+      cat("\n\n")
+    }
+  }
+} else {
+  cat("No figures selected.\n")
+}
+```
