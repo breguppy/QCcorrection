@@ -36,7 +36,7 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
   data_cor$type <- ifelse(data_cor$class == "QC", "QC", "Sample")
   
   color_scale <- scale_color_manual(
-    name   = "Type: ",
+    name   = "Type:",
     values = c(Sample = "#F5C710", QC = "#305CDE")
   )
   
@@ -60,7 +60,7 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
       axis.title = element_text(size = 12),
       axis.text  = element_text(size = 10),
       legend.text= element_text(size = 10),
-      legend.title = element_text(size = 12, face = "bold"),
+      legend.title = element_text(size = 10, face = "bold"),
       legend.position = "bottom",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
@@ -82,7 +82,7 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
       axis.title = element_text(size = 12),
       axis.text  = element_text(size = 10),
       legend.text= element_text(size = 10),
-      legend.title = element_text(size = 12, face = "bold"),
+      legend.title = element_text(size = 10, face = "bold"),
       legend.position = "none",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +

@@ -59,11 +59,11 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
   data_cor$type <- ifelse(data_cor$class == "QC", "QC", "Sample")
   
   color_scale <- scale_color_manual(
-    name   = "Type: ",
+    name   = "Type:",
     values = c(Sample = "#F5C710", QC = "#305CDE")
   )
   lty_scale <- scale_linetype_manual(
-    name   = "SD Range: ",
+    name   = "SD Range:",
     values = c("±1 SD" = "dashed", "±2 SD" = "solid"),
     guide  = guide_legend(override.aes = list(color = c("grey20","#950606")))
   )
@@ -86,7 +86,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
       axis.title = element_text(size = 12),
       axis.text  = element_text(size = 10),
       legend.text= element_text(size = 10),
-      legend.title = element_text(size = 12, face = "bold"),
+      legend.title = element_text(size = 10, face = "bold"),
       legend.position = "bottom",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
@@ -110,7 +110,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
       axis.title = element_text(size = 12),
       axis.text  = element_text(size = 10),
       legend.text= element_text(size = 10),
-      legend.title = element_text(size = 12, face = "bold"),
+      legend.title = element_text(size = 10, face = "bold"),
       legend.position = "none",
       panel.border = element_rect(colour = "black", fill=NA, linewidth=1)
     ) +
@@ -120,5 +120,13 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
   (p_before + p_after) +
     plot_layout(ncol = 1, guides = "collect") +
     plot_annotation(title = i) &
-    theme(plot.title = element_text(size = 14, face = "bold"), legend.position = "bottom")
+    theme(plot.title = element_text(size = 14, face = "bold"), 
+          legend.position = "bottom",
+          legend.box = "horizontal",
+          legend.direction = "horizontal",
+          legend.box.just = "center",
+          legend.key.width = unit(0.6, "cm"),
+          legend.key.height = unit(0.3, "cm"),
+          legend.spacing.x = unit(0.2, "cm"),
+          legend.margin    = margin(t = 2, b = 2))
 }
