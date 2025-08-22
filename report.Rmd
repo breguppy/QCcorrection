@@ -21,17 +21,14 @@ params:
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
-```{r, results='asis', echo=FALSE, warning=FALSE, message=FALSE}
-if (length(params$include)) {
-  for (k in params$include) {
-    f <- params$figures[[k]]
-    if (is.character(f) && length(f) == 1 && nzchar(f) && file.exists(f)) {
-      cat("## ", k, "\n\n", sep = "")
-      knitr::include_graphics(f)
-      cat("\n\n")
-    }
-  }
+```{r figs, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', out.width='100%'}
+# paths in the order to show
+paths <- unname(unlist(params$figures[params$include], use.names = FALSE))
+if (length(paths)) {
+  caps <- params$include
+  knitr::opts_current$set(fig.cap = caps)   # captions = names
+  knitr::include_graphics(paths)            # one call renders all
 } else {
-  cat("No figures selected.\n")
+  knitr::asis_output("No figures selected.\n")
 }
 ```

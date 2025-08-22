@@ -1036,25 +1036,24 @@ server <- function(input, output, session) {
         met_files_all[c(1, ceiling(length(met_files_all)/2))] else met_files_all
       met_pick <- unname(unlist(lapply(met_pick, ensure_png), use.names = FALSE))
         
-      fig_files <- c(
+      figs <- list(
         "RSD Comparison"       = rsd_file,
         "PCA Comparison"       = pca_file,
-        "Metabolite Scatter 1" = if (length(met_pick) >= 1) met_pick[1] else character(0),
-        "Metabolite Scatter 2" = if (length(met_pick) >= 2) met_pick[2] else character(0)
+        "Metabolite Scatter 1" = if (length(met_pick) >= 1) met_pick[1] else NULL,
+        "Metabolite Scatter 2" = if (length(met_pick) >= 2) met_pick[2] else NULL
       )
-      fig_files <- fig_files[nzchar(fig_files) & file.exists(fig_files)]
-      fig_files <- normalizePath(fig_files, winslash = "/", mustWork = FALSE)
-      fig_list <- as.list(unname(fig_files))
-      names(fig_list) <- names(fig_files)
+      
+      figs <- Filter(function(p) is.character(p) && length(p) == 1 && nzchar(p) && file.exists(p), figs)
+      figs <- lapply(figs, normalizePath, winslash = "/", mustWork = FALSE)
       
       params <- list(
         title   = "QC correction report",
         notes   = input$notes %||% "",
-        figures = fig_list,              # <- list, not vector
-        include = names(fig_list)
+        figures = figs,               # named list
+        include = names(figs)
       )
 
-      cat("SELECTED FIGS:\n"); print(params$figures)
+      cat("SELECTED FIGS:\n"); print(names(params$figures))
       
       generate_cor_report(params, base_dir)
       
