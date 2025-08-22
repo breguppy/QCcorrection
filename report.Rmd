@@ -11,7 +11,7 @@ params:
     value: "QC Correction Report"
   notes:
     value: ""
-  figures:
+  plots:
     value: !r character(0)
   include:
     value: !r character(0)
@@ -22,12 +22,12 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
 ```{r figs, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', out.width='100%'}
-# paths in the order to show
-paths <- unname(unlist(params$figures[params$include], use.names = FALSE))
-if (length(paths)) {
-  caps <- params$include
-  knitr::opts_current$set(fig.cap = caps)   # captions = names
-  knitr::include_graphics(paths)            # one call renders all
+if (length(params$plots)) {
+  for (nm in names(params$plots)) {
+    knitr::asis_output(paste0("## ", nm, "\n\n"))
+    print(params$plots[[nm]])
+    knitr::asis_output("\n\n")
+  }
 } else {
   knitr::asis_output("No figures selected.\n")
 }

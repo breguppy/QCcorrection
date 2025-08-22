@@ -758,16 +758,10 @@ server <- function(input, output, session) {
     content = function(file) {
       fc <- isolate(filtered_corrected_r())
       tr <- isolate(transformed_r())
+      rv$filtered_corrected <- fc
+      rv$transformed <- tr
       
-      wb <- corrected_file_download(
-        input,
-        rv$cleaned,
-        rv$filtered,
-        rv$imputed,
-        rv$corrected,
-        fc,
-        tr
-      )
+      wb <- corrected_file_download(input, rv)
       # Save to file
       saveWorkbook(wb, file, overwrite = TRUE)
     }
@@ -787,74 +781,14 @@ server <- function(input, output, session) {
   
   #-- display RSD comparison plot
   output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
-    req(rv$filtered, rv$filtered_corrected, rv$transformed, input$rsd_compare, input$rsd_cal)
-    
-    df_before <- rv$filtered$df
-    if (input$rsd_compare == "filtered_cor_data"){
-      df_after <- rv$filtered_corrected$df
-      compared_to <- "Correction"
-    } else {
-      df_after <- rv$transformed$df
-      compared_to <- "Correction and Transformation"
-    }
-    rsd_mode  <- input$rsd_cal
-    
-    # Need at least 1 metabolite column
-    validate(
-      need(ncol(df_before) > 4L, "No metabolites left before correction."),
-      need(ncol(df_after)  > 4L, "No metabolites left after correction."),
-      need(sum(df_before$class == "QC", na.rm = TRUE) >= 2, "Not enough QC samples before correction (need >= 2)."),
-      need(sum(df_after$class  == "QC",  na.rm = TRUE) >= 2, "Not enough QC samples after correction (need >= 2).")
-    )
-    
-    isolate({
-      if (identical(rsd_mode, "met")) {
-        p <- plot_rsd_comparison(df_before, df_after, compared_to)
-      } else {
-        p <- plot_rsd_comparison_class_met(df_before, df_after, compared_to)
-      }
-    })
-    
-    print(p)
+    req(input$rsd_compare, input$rsd_cal)
+   make_rsd_plot(input, rv)
   })
   
   #-- PCA plot
   output$pca_plot <- renderPlot({
-    req(rv$imputed, rv$filtered_corrected, rv$transformed, input$pca_compare, input$color_col)
-    if (input$pca_compare == "filtered_cor_data"){
-      df <- rv$filtered_corrected$df
-      after <- rv$filtered_corrected
-      compared_to <- "Correction"
-    } else {
-      df <- rv$transformed$df
-      after <- rv$transformed
-      compared_to <- "Correction and Transformation"
-    }
-    mets <- setdiff(names(df), c("sample","batch","class","order"))
-    validate(
-      need(length(mets) >= 2, "Need at least 2 metabolite columns for PCA."),
-      need(nrow(df) >= 3, "Need at least 3 samples for PCA.")
-    )
-    
-    # Also ensure non-constant / non-NA columns
-    X <- df[, mets, drop = FALSE]
-    keep <- vapply(X, function(v) {
-      v <- suppressWarnings(as.numeric(v))
-      ok <- all(is.finite(v))
-      nz <- (length(unique(v)) >= 2)
-      ok && nz
-    }, logical(1))
-    validate(need(any(keep), "All metabolite columns are constant/invalid after filtering."))
-    
-    before <- rv$imputed
-    
-    tryCatch({
-      plot_pca(input, before, after, compared_to)
-    }, error = function(e) {
-      showNotification(paste("PCA failed:", e$message),
-                       type = "error", duration = 8)
-      ggplot2::ggplot() + ggplot2::labs(title = "PCA failed — see notification")
-    })
+    req(input$pca_compare, input$color_col)
+    make_pca_plot(input, rv)
   }, res = 120)
   
   #-- Let user select which metabolite to display in scatter plot
@@ -868,24 +802,8 @@ server <- function(input, output, session) {
   })
   
   output$metab_scatter <- renderPlot({
-    # This should only show the corrected data
-    req(input$met_col, rv$filtered, rv$filtered_corrected, rv$corrected)
-    f_df <- rv$filtered$df
-    t_df <- rv$filtered_corrected$df
-    cor_method <- rv$corrected$str
-    tryCatch({
-      if (cor_method %in% c("Random Forest","Batchwise Random Forest")) {
-        met_scatter_rf(f_df, t_df, i = input$met_col)
-      } else if (cor_method %in% c("LOESS","Batchwise LOESS")) {
-        met_scatter_loess(f_df, t_df, i = input$met_col)
-      } else {
-        ggplot2::ggplot() + ggplot2::labs(title = "No correction method selected.")
-      }
-    }, error = function(e) {
-      showNotification(paste("Scatter failed:", e$message),
-                       type = "error", duration = 8)
-      ggplot2::ggplot() + ggplot2::labs(title = "Scatter failed — see notification")
-    })
+    req(input$met_col)
+    make_met_scatter(rv, input$met_col)
   }, res = 120)
   
   #-- Download all figures as zip folder.
@@ -920,7 +838,7 @@ server <- function(input, output, session) {
       paste0("figures_", Sys.Date(), ".zip")
     },
     content = function(file) {
-      figs <- figure_folder_download(input, rv$imputed, rv$filtered, rv$filtered_corrected, rv$transformed)
+      figs <- figure_folder_download(input, rv)
       
       zipfile <- tempfile(fileext = ".zip")
       old_wd <- setwd(figs$tmp_dir)
@@ -965,20 +883,11 @@ server <- function(input, output, session) {
       # 1. create and save corrected data file
       cor_data_filename <- paste0("corrected_data_", Sys.Date(), ".xlsx")
       cor_data_path <- file.path(base_dir, cor_data_filename)
-      wb <- corrected_file_download(
-        input,
-        rv$cleaned,
-        rv$filtered,
-        rv$imputed,
-        rv$corrected,
-        rv$filtered_corrected,
-        rv$transformed
-      )
+      wb <- corrected_file_download(input, rv)
       saveWorkbook(wb, cor_data_path, overwrite = TRUE)
       
       # 2. create and save figure folder
-      fig_info <- figure_folder_download(input, rv$imputed, rv$filtered,
-                                         rv$filtered_corrected, rv$transformed)
+      fig_info <- figure_folder_download(input, rv)
       figs_src <- fig_info$fig_dir
       figs_dir <- file.path(base_dir, "figures"); dir.create(figs_dir)
       
@@ -997,65 +906,7 @@ server <- function(input, output, session) {
       file.copy(from = files, to = targets, overwrite = TRUE)
       
       # 3. make pdf report
-      # get figures for report: RSD comparison, PCA plot, and 2 Metabolite scatter plots
-      cat("FIG DIR TREE:\n")
-      print(list.files(figs_dir, recursive = TRUE))
-      
-      # 2) Recursive picker by stem (case-insensitive, any subfolder)
-      pick_first <- function(root, stem, exts = c("png","jpg","jpeg","pdf")) {
-        pat <- paste0("^", stem, "\\.(", paste(exts, collapse="|"), ")$")
-        cand <- list.files(root, pattern = pat, recursive = TRUE, full.names = TRUE, ignore.case = TRUE)
-        if (length(cand)) cand[1] else character(0)
-      }
-      
-      # robust converter
-      ensure_png <- function(file) {
-        if (length(file) == 0 || is.na(file) || !nzchar(file)) return(character(0))
-        ext <- tolower(tools::file_ext(file))
-        if (ext == "png") return(file)
-        if (ext == "pdf") {
-          out <- sub("\\.[Pp][Dd][Ff]$", ".png", file)
-          if (!file.exists(out)) {
-            img <- tryCatch(magick::image_read_pdf(file, density = 300), error = function(e) NULL)
-            if (is.null(img)) return(character(0))
-            magick::image_write(img, path = out, format = "png")
-          }
-          return(out)
-        }
-        # unsupported type
-        character(0)
-      }
-      
-      # in your server code, replace the figure-pick block with:
-      rsd_file <- ensure_png(pick_first(figs_dir, paste0("rsd_comparison_", input$rsd_cal)))
-      pca_file <- ensure_png(pick_first(figs_dir, paste0("pca_comparison_", input$color_col)))
-      
-      met_files_all <- list.files(figs_dir, pattern = "\\.(png|jpe?g|pdf)$",
-                                  full.names = TRUE, recursive = TRUE, ignore.case = TRUE)
-      met_pick <- if (length(met_files_all) >= 2)
-        met_files_all[c(1, ceiling(length(met_files_all)/2))] else met_files_all
-      met_pick <- unname(unlist(lapply(met_pick, ensure_png), use.names = FALSE))
-        
-      figs <- list(
-        "RSD Comparison"       = rsd_file,
-        "PCA Comparison"       = pca_file,
-        "Metabolite Scatter 1" = if (length(met_pick) >= 1) met_pick[1] else NULL,
-        "Metabolite Scatter 2" = if (length(met_pick) >= 2) met_pick[2] else NULL
-      )
-      
-      figs <- Filter(function(p) is.character(p) && length(p) == 1 && nzchar(p) && file.exists(p), figs)
-      figs <- lapply(figs, normalizePath, winslash = "/", mustWork = FALSE)
-      
-      params <- list(
-        title   = "QC correction report",
-        notes   = input$notes %||% "",
-        figures = figs,               # named list
-        include = names(figs)
-      )
-
-      cat("SELECTED FIGS:\n"); print(names(params$figures))
-      
-      generate_cor_report(params, base_dir)
+      generate_cor_report(input, rv, base_dir)
       
       # make zip file
       zipfile <- tempfile(fileext = ".zip")
