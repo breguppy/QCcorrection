@@ -15,20 +15,50 @@ params:
     value: !r character(0)
   include:
     value: !r character(0)
+  choices:
+    value: !r character(0)
+  descriptions:
+    value: !r character(0)
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(dev = "svg")
+statement <- function(name) {
+  d <- params$descriptions[[name]]
+  if (is.character(d) && nzchar(d)) knitr::asis_output(paste0(d, "\n\n"))
+}
 ```
 
-```{r figs, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', out.width='100%'}
-if (length(params$plots)) {
-  for (nm in names(params$plots)) {
-    knitr::asis_output(paste0("## ", nm, "\n\n"))
-    print(params$plots[[nm]])
-    knitr::asis_output("\n\n")
-  }
-} else {
-  knitr::asis_output("No figures selected.\n")
-}
+# Visualizing the Correction with Metabolite Scatter Plots
+TODO: Choose the 2 metabolite with the biggest decrease in RSD.
+
+```{r, echo=FALSE, fig.show='hold', out.width='49%', fig.width=5, fig.height=5}
+print(params$plots[["Metabolite Scatter 1"]])
+print(params$plots[["Metabolite Scatter 2"]])
+```
+
+```{r}
+statement("Metabolite Scatter Plots")
+```
+
+
+# RSD Comparison
+
+```{r, echo=FALSE, fig.width=7.5, fig.height=4.5}
+print(params$plots[["RSD Comparison"]])
+```
+
+```{r}
+statement("RSD Comparison")
+```
+
+# PCA Comparison
+
+```{r, echo=FALSE, fig.width=8.333, fig.height=4.417}
+print(params$plots[["PCA Comparison"]])
+```
+
+```{r}
+statement("PCA Comparison")
 ```

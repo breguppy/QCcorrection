@@ -31,6 +31,47 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
     include = NULL
   )
   
+  choices <- list(
+    rsd_cal         = input$rsd_cal,
+    color_col       = input$color_col,
+    fig_format      = input$fig_format,
+    correction      = rv$corrected$str,
+    cor_param       = rv$corrected$parameters,
+    post_cor_filter = input$post_cor_filter,
+    rsd_filter      = input$rsd_filter
+  )
+  
+  # Get descriptions for plots
+  descriptions <- list(
+    "Metabolite Scatter Plots" = sprintf(
+      "These plots show a metabolites before and after signal drift correction. The QC samples are used to train a regression model to predict and remove signal drift. The correction method used is %s with %s",
+      choices$correction, choices$cor_param),
+    "RSD Comparison" = sprintf(
+      "To judge how well the correction method worked, we can visualize the change in variation with the relative standard deviation (RSD) comparison plots. \n RSD = (standard deviation / mean) * 100%%.\n For these figures RSD is calculated for each metabolite %s. %s%s",
+      if (choices$rsd_cal == "class_met") "grouping by sample class." else "",
+      if (isTRUE(!choices$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
+      if (isTRUE(!choices$post_cor_filter)) sprintf("%s", choices$rsd_filter) else ""
+    ),
+    "PCA Comparison" = sprintf(
+      "PCA colored by %s. Correction method: %s.",
+      choices$color_col, choices$correction
+    )
+  )
+  
+  params <- list(
+    title   = "QC correction report",
+    notes   = input$notes %||% "",
+    plots = list(
+      "Metabolite Scatter 1" = met1_plot,
+      "Metabolite Scatter 2" = met2_plot,
+      "RSD Comparison"       = rsd_plot,
+      "PCA Comparison"       = pca_plot
+    ),
+    include = NULL,
+    choices = choices,
+    descriptions = descriptions
+  )
+  
   # Always render HTML first
   html_out <- rmarkdown::render(
     input         = template,

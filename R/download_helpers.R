@@ -231,9 +231,9 @@ corrected_file_download <- function(input, rv) {
   # Add 2. Drift Normalized tab
   corrected_df <- rv$filtered_corrected$df
   tab2_description <- paste(
-    "Tab 2. This tab shows instrument drift corrected values for metabolite levels in experimental samples. The correction method used was",
+    "Tab 2. This tab shows instrument drift corrected values for metabolite levels in experimental samples. The correction method used is",
     rv$corrected$str,
-    "with parameters",
+    "with",
     rv$corrected$parameters,
     "This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
     "This corrects for normal instrument drift during the run.",
