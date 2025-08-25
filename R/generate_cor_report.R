@@ -37,20 +37,27 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
     fig_format      = input$fig_format,
     correction      = rv$corrected$str,
     cor_param       = rv$corrected$parameters,
+    transformation  = rv$transformed$str,
     post_cor_filter = input$post_cor_filter,
     rsd_filter      = input$rsd_filter
   )
   
   # Get descriptions for plots
   descriptions <- list(
+    "Correction Description" = sprintf(
+      "Instrument drift in this data is corrected using %s. For each metabolite, this method %s This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
+      choices$correction, choices$cor_param
+    ),
+    "Transformation Description" = sprintf(
+      "%s", choices$transformation
+    ),
     "Metabolite Scatter Plots" = sprintf(
-      "These plots show a metabolites before and after signal drift correction. The QC samples are used to train a regression model to predict and remove signal drift. The correction method used is %s with %s",
-      choices$correction, choices$cor_param),
+      "These plots show a metabolites before and after signal drift correction."),
     "RSD Comparison" = sprintf(
-      "To judge how well the correction method worked, we can visualize the change in variation with the relative standard deviation (RSD) comparison plots. \n RSD = (standard deviation / mean) * 100%%.\n For these figures RSD is calculated for each metabolite %s. %s%s",
+      "To judge how well the correction method worked, we can visualize the change in variation with the relative standard deviation (RSD) comparison plots. \r\n RSD = (standard deviation / mean) * 100%%.\r\n For these figures RSD is calculated for each metabolite %s %s%s",
       if (choices$rsd_cal == "class_met") "grouping by sample class." else "",
       if (isTRUE(!choices$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
-      if (isTRUE(!choices$post_cor_filter)) sprintf("%s", choices$rsd_filter) else ""
+      if (isTRUE(!choices$post_cor_filter)) sprintf("%s%%.", choices$rsd_filter) else ""
     ),
     "PCA Comparison" = sprintf(
       "PCA colored by %s. Correction method: %s.",

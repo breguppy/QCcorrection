@@ -29,8 +29,13 @@ statement <- function(name) {
   if (is.character(d) && nzchar(d)) knitr::asis_output(paste0(d, "\n\n"))
 }
 ```
+# Correction Description
+```{r}
+statement("Correction Description")
+statement("Transformation Description")
+```
 
-# Visualizing the Correction with Metabolite Scatter Plots
+# Visualize the Correction with Metabolite Scatter Plots
 TODO: Choose the 2 metabolite with the biggest decrease in RSD.
 
 ```{r, echo=FALSE, fig.show='hold', out.width='49%', fig.width=5, fig.height=5}

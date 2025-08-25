@@ -231,9 +231,9 @@ corrected_file_download <- function(input, rv) {
   # Add 2. Drift Normalized tab
   corrected_df <- rv$filtered_corrected$df
   tab2_description <- paste(
-    "Tab 2. This tab shows instrument drift corrected values for metabolite levels in experimental samples. The correction method used is",
+    "Tab 2. This tab shows instrument drift corrected values for metabolite levels in experimental samples. Data is corrected using",
     rv$corrected$str,
-    "with",
+    "FOr each metabolite, this method",
     rv$corrected$parameters,
     "This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
     "This corrects for normal instrument drift during the run.",
@@ -298,7 +298,7 @@ corrected_file_download <- function(input, rv) {
   none_description <- "Tab 3. No scaling or normalization method has been applied to the data."
   if (input$transform == "TRN") {
     tab3_description <- TRN_description
-  } else if (input$transform == "Log2") {
+  } else if (input$transform == "log2") {
     tab3_description <- Log2_description
   } else {
     tab3_description <- none_description
