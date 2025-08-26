@@ -94,11 +94,24 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
     rsd_filter      = input$rsd_filter,
     rsd_compare     = input$rsd_compare,
     raw_df          = rv$cleaned$df,
-    replacement_counts = rv$cleaned$replacement_counts
+    replacement_counts = rv$cleaned$replacement_counts,
+    filtered        = rv$filtered,
+    Frule           = input$Frule,
+    filtered_corrected = rv$filtered_corrected
+    
   )
   
   # Get descriptions for plots
   descriptions <- list(
+    "Imputation Description" = sprintf(
+      "%s%s",
+      if (rv$imputed$qc_str != "nothing to impute") {
+        sprintf("Missing QC values are imputed with %s.<br/>", rv$imputed$qc_str)
+      } else { "No missing QC values.<br/>"},
+      if (rv$imputed$sam_str != "nothing to impute") {
+        sprintf("Missing QC values are imputed with %s.", rv$imputed$sam_str)
+      } else { "No missing sample values."}
+    ),
     "Correction Description" = sprintf(
       "Data was corrected using %s. For each metabolite, this method %s This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
       choices$correction, choices$cor_param
@@ -129,7 +142,7 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
       }
     ),
     "PCA Comparison" = sprintf(
-      "PCA colored by %s. Correction method: %s.",
+      "PCA colored by %s. Correction method: %s.", #TODO
       choices$color_col, choices$correction
     )
   )

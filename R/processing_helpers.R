@@ -114,49 +114,49 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   apply_impute <- function(sub_df, method) {
     if (method == "nothing_to_impute") {
       sub_df <- sub_df
-      str <- "Nothing to Impute"
+      str <- "nothing to impute"
     } else if (method == "median") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- median(col, na.rm = TRUE)
         col
       })
-      str <- "Metabolite Median"
+      str <- "metabolite median"
     } else if (method == "mean") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- mean(col, na.rm = TRUE)
         col
       })
-      str <- "Metabolite Mean"
+      str <- "metabolite mean"
     } else if (method == "class_median") {
       sub_df <- sub_df %>%
         group_by(.data[["class"]]) %>%
         mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
         ungroup()
-      str <- "Class-Metabolite Median"
+      str <- "class-metabolite median"
     } else if (method == "class_mean") {
       sub_df <- sub_df %>%
         group_by(.data[["class"]]) %>%
         mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
         ungroup()
-      str <- "Class-Metabolite Mean"
+      str <- "class-metabolite mean"
     } else if (method == "min") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- min(col, na.rm = TRUE)
         col
       })
-      str <- "Minimum Metabolite Value"
+      str <- "minimum metabolite value"
     } else if (method == "minHalf") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- 0.5 * min(col, na.rm = TRUE)
         col
       })
-      str <- "Half the Minimum Metabolite Value"
+      str <- "half the minimum metabolite value"
     } else if (method == "zero") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- 0
         col
       })
-      str <- "Zero"
+      str <- "zero"
     } else if (method == "KNN") {
       metab_matrix <- as.matrix(sub_df[metab_cols])
       transposed <- t(metab_matrix)

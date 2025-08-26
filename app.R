@@ -189,7 +189,7 @@ ui <- fluidPage(
         layout_sidebar(
           sidebar = sidebar(
             # After correction scaling / normalization
-            tags$h4("2.3 Post-Correction Transformation or Normalization"),
+            tags$h4("2.3 Post-Correction Transformation"),
             radioButtons(
               inputId = "transform",
               label = "Method",
@@ -543,7 +543,7 @@ server <- function(input, output, session) {
   output$filter_info <- renderUI({
     filtered_data <- filtered_r()
     req(filtered_data)
-    filterInfoUI(filtered_data$mv_removed_cols)
+    filterInfoUI(filtered_data$mv_removed_cols, input$Frule)
   })
   
   #-- Move to next panel after inspecting the raw data
@@ -731,7 +731,7 @@ server <- function(input, output, session) {
   #-- Display corrected/transformed data and information.
   output$post_cor_filter_info <- renderUI({
     req(filtered_corrected_r())
-    postCorFilterInfoUI(filtered_corrected_r())
+    postCorFilterInfoUI(filtered_corrected_r(), input$rsd_filter, input$post_cor_filter)
   })
   output$cor_data <- renderTable({
     req(transformed_r())
