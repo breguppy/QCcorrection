@@ -78,7 +78,7 @@ corrected_file_download <- function(input, rv) {
       rv$corrected$str,
       input$remove_imputed,
       paste0(rv$filtered_corrected$rsd_cutoff, "%"),
-      rv$transformed$str,
+      input$transform,
       input$ex_ISTD,
       input$keep_corrected_qcs
     ),

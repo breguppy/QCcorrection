@@ -20,7 +20,6 @@ params:
   descriptions:
     value: !r character(0)
 ---
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 knitr::opts_chunk$set(dev = "svg")
@@ -28,15 +27,39 @@ statement <- function(name) {
   d <- params$descriptions[[name]]
   if (is.character(d) && nzchar(d)) knitr::asis_output(paste0(d, "\n\n"))
 }
+library(htmltools)
+library(dplyr)
+source("R/helpers.R")
 ```
-# Correction Description
+# Preprocessing Steps
+
+### Raw Data Basic Information
+```{r}
+ui <- basicInfoUI(params$choices$raw_df, params$choices$replacement_counts)
+ui
+```
+
+### Missing Value Filter
+
+### Missing Value Imputation
+
+### Correction Description
+
 ```{r}
 statement("Correction Description")
+```
+
+### Post-correction Filtering
+
+### Transformation Description
+
+```{r}
 statement("Transformation Description")
 ```
 
-# Visualize the Correction with Metabolite Scatter Plots
-TODO: Choose the 2 metabolite with the biggest decrease in RSD.
+# Correction Evaluation
+
+### Visualize the Correction with Metabolite Scatter Plots
 
 ```{r, echo=FALSE, fig.show='hold', out.width='49%', fig.width=5, fig.height=5}
 print(params$plots[["Metabolite Scatter 1"]])
@@ -47,18 +70,18 @@ print(params$plots[["Metabolite Scatter 2"]])
 statement("Metabolite Scatter Plots")
 ```
 
-
-# RSD Comparison
+### RSD Comparison
 
 ```{r, echo=FALSE, fig.width=7.5, fig.height=4.5}
 print(params$plots[["RSD Comparison"]])
 ```
 
+To judge how well the correction method worked, we can visualize the change in variation with the relative standard deviation (RSD) comparison plots. RSD is sometimes called coefficient of variation (CV) and is computed as RSD = (standard deviation / mean) * 100%%.High RSD indicates that the values for that metabolite are more spread out around the mean, which may be an expected result in the experimental samples. For QC samples, RSD should decrease after correction.
 ```{r}
 statement("RSD Comparison")
 ```
 
-# PCA Comparison
+### PCA Comparison
 
 ```{r, echo=FALSE, fig.width=8.333, fig.height=4.417}
 print(params$plots[["PCA Comparison"]])
