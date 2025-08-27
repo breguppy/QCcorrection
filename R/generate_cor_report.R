@@ -103,21 +103,63 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
   
   # Get descriptions for plots
   descriptions <- list(
-    "Imputation Description" = sprintf(
+    "Withheld Columns" = sprintf(
       "%s%s",
+      tagList(
+        tags$span(
+          style = "font-weight:bold;", "The following columns are non-metabolite columns providing meta-information about the data:"
+        ),
+        tags$ul(
+        lapply(c("sample = Identifies sample name", "batch = Identifies batch (large sample sets are separated into batches)", "class = Identifies sample type", "order = The order in which the sample was injected into the instrument."), function(name) {
+          tags$li(name)
+        })
+      )
+      ),
+      if (isTRUE(input$withhold_cols) && !is.null(input$n_withhold)) {
+        tagList(
+          tags$span(
+            style = "font-weight:bold;", "The following columns were withheld from correction:"
+          ),
+          tags$ul(
+          lapply(rv$cleaned$withheld_cols, function(name) {
+            tags$li(name)
+          })
+          )
+        )
+      } else {""}
+    ),
+    "Imputation Description" = sprintf(
+      "%s%s%s",
       if (rv$imputed$qc_str != "nothing to impute") {
         sprintf("Missing QC values are imputed with %s.<br/>", rv$imputed$qc_str)
       } else { "No missing QC values.<br/>"},
       if (rv$imputed$sam_str != "nothing to impute") {
         sprintf("Missing QC values are imputed with %s.", rv$imputed$sam_str)
-      } else { "No missing sample values."}
+      } else { "No missing sample values."},
+      if (rv$imputed$qc_str == "nothing to impute" && rv$imputed$sam_str == "nothing to impute") {
+        ""
+      } else if (input$remove_imputed == TRUE) {
+          "<br/>Imputed values are removed after correction."
+        } else {""}
     ),
     "Correction Description" = sprintf(
       "Data was corrected using %s. For each metabolite, this method %s This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
       choices$correction, choices$cor_param
     ),
     "Transformation Description" = sprintf(
-      "%s", choices$transformation
+      "%s<br/>%s", choices$transformation,
+      if (!is.null(rv$transformed$withheld_cols)) {
+        tagList(
+          tags$span(
+            style = "font-weight:bold;", "The following columns are withheld from the transformation:"
+          ),
+          tags$ul(
+            lapply(rv$transformed$withheld_cols, function(name) {
+              tags$li(name)
+          })
+        )
+        )
+      } else {""}
     ),
     "Metabolite Scatter Plots" = sprintf(
       "These plots show a metabolites before and after signal drift correction before any transformation is applied. The two metabolites shown above have the largest decrease in sample variation. The change in variation was determined by calculating relative standard deviation (RSD) for each metabolite %s %s%s A full explanation of RSD is in the next section.",

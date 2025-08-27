@@ -36,6 +36,7 @@ source("R/helpers.R")
 ### Raw Data Basic Information
 ```{r}
 basicInfoUI(params$choices$raw_df, params$choices$replacement_counts)
+statement("Withheld Columns")
 ```
 
 ### Missing Value Filter
@@ -59,7 +60,6 @@ postCorFilterInfoUI(params$choices$filtered_corrected, params$choices$rsd_filter
 ```
 
 ### Transformation Description
-
 ```{r}
 statement("Transformation Description")
 ```
@@ -83,7 +83,7 @@ statement("Metabolite Scatter Plots")
 print(params$plots[["RSD Comparison"]])
 ```
 
-To judge how well the correction method worked, we can visualize the change in variation with the relative standard deviation (RSD) comparison plots. RSD is sometimes called coefficient of variation (CV) and is computed as RSD = (standard deviation / mean) * 100%.High RSD indicates that the values for that metabolite are more spread out around the mean, which may be an expected result in the experimental samples. For QC samples, RSD should decrease after correction.
+To judge how well the correction method worked, we can visualize the change in variation with the relative standard deviation (RSD) comparison plots. RSD is sometimes called coefficient of variation (CV) and is computed as RSD = (standard deviation / mean) * 100%. High RSD indicates that the values for that metabolite are more spread out around the mean, which may be an expected result in the experimental samples. For QC samples, RSD should decrease after correction.
 ```{r}
 statement("RSD Comparison")
 ```
