@@ -140,14 +140,16 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
         ""
       } else if (input$remove_imputed == TRUE) {
           "<br/>Imputed values are removed after correction."
-        } else {""}
+      }
+      else {""}
     ),
     "Correction Description" = sprintf(
       "Data was corrected using %s. For each metabolite, this method %s This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
       choices$correction, choices$cor_param
     ),
     "Transformation Description" = sprintf(
-      "%s<br/>%s", choices$transformation,
+      "%s <br/> %s", 
+      choices$transformation,
       if (!is.null(rv$transformed$withheld_cols)) {
         tagList(
           tags$span(
@@ -184,8 +186,9 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
       }
     ),
     "PCA Comparison" = sprintf(
-      "PCA colored by %s. Correction method: %s.", #TODO
-      choices$color_col, choices$correction
+      "This PCA plot shows both the raw data and %s data colored by %s.",
+      if (input$pca_compare == "filtered_cor_data") "corrected" else "corrected and transformed",
+      choices$color_col
     )
   )
   
