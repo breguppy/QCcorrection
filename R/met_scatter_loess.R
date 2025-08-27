@@ -33,8 +33,14 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
       inherit.aes = FALSE, alpha = 0.3, show.legend = FALSE
     ) +
     ggplot2::scale_fill_identity(guide = "none") +
-    ggplot2::geom_point(ggplot2::aes(color = type), size = 2) +
-    # LOESS on QC only, per panel
+    ggplot2::geom_point(
+      data = dplyr::filter(df_all, type == "Sample"),
+      ggplot2::aes(color = type), size = 2
+    ) +
+    ggplot2::geom_point(
+      data = dplyr::filter(df_all, type == "QC"),
+      ggplot2::aes(color = type), size = 2
+    ) +
     ggplot2::geom_smooth(
       data = dplyr::filter(df_all, type == "QC"),
       ggplot2::aes(x = order, y = .data[[i]]),

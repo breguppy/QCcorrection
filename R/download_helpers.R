@@ -3,13 +3,7 @@ library(openxlsx)
 
 
 #-- Downloads corrected data file.
-corrected_file_download <- function(input,
-                                    cleaned,
-                                    filtered,
-                                    imputed,
-                                    corrected,
-                                    filtered_corrected,
-                                    transformed) {
+corrected_file_download <- function(input, rv) {
   # Create a new workbook
   wb <- createWorkbook()
   # make column names bold
@@ -24,7 +18,7 @@ corrected_file_download <- function(input,
   writeData(
     wb,
     sheet = "0. Raw Data",
-    x = filtered$df,
+    x = rv$filtered$df,
     startRow = 3,
     headerStyle = bold_style
   )
@@ -77,14 +71,14 @@ corrected_file_download <- function(input,
       input$batch_col,
       input$class_col,
       input$order_col,
-      paste0(filtered$Frule, "%"),
+      paste0(rv$filtered$Frule, "%"),
       
-      imputed$qc_str,
-      imputed$sam_str,
-      corrected$str,
+      rv$imputed$qc_str,
+      rv$imputed$sam_str,
+      rv$corrected$str,
       input$remove_imputed,
-      paste0(filtered_corrected$rsd_cutoff, "%"),
-      transformed$str,
+      paste0(rv$filtered_corrected$rsd_cutoff, "%"),
+      input$transform,
       input$ex_ISTD,
       input$keep_corrected_qcs
     ),
@@ -130,7 +124,7 @@ corrected_file_download <- function(input,
   current_col <- 4
   if (isTRUE(input$withhold_cols) && !is.null(input$n_withhold)) {
     withheld_df <- data.frame(
-      Columns_Withheld_From_Correction = cleaned$withheld_cols,
+      Columns_Withheld_From_Correction =rv$cleaned$withheld_cols,
       stringsAsFactors = FALSE
     )
     writeData(
@@ -153,9 +147,9 @@ corrected_file_download <- function(input,
     current_col <- current_col + 2
   }
   # Append Missing Value Filtered Metabolites
-  if (length(filtered$mv_removed_cols) > 0) {
+  if (length(rv$filtered$mv_removed_cols) > 0) {
     mv_df <- data.frame(
-      Missing_Value_Filtered_Metabolites = filtered$mv_removed_cols,
+      Missing_Value_Filtered_Metabolites = rv$filtered$mv_removed_cols,
       stringsAsFactors = FALSE
     )
     writeData(
@@ -178,9 +172,9 @@ corrected_file_download <- function(input,
     current_col <- current_col + 2
   }
   # Append QC RSD Filtered Metabolites
-  if (length(filtered_corrected$removed_metabolites) > 0) {
+  if (length(rv$filtered_corrected$removed_metabolites) > 0) {
     rsd_df <- data.frame(
-      QC_RSD_Filtered_Metabolites = filtered_corrected$removed_metabolites,
+      QC_RSD_Filtered_Metabolites = rv$filtered_corrected$removed_metabolites,
       stringsAsFactors = FALSE
     )
     writeData(
@@ -202,9 +196,9 @@ corrected_file_download <- function(input,
     current_col <- current_col + 2
   }
   # Append withheld from transformation columns
-  if (length(transformed$withheld_cols) > 0) {
+  if (length(rv$transformed$withheld_cols) > 0) {
     ex_trn <- data.frame(
-      Exculded_From_Normalization = transformed$withheld_cols,
+      Exculded_From_Normalization = rv$transformed$withheld_cols,
       stringsAsFactors = FALSE
     )
     writeData(
@@ -235,12 +229,12 @@ corrected_file_download <- function(input,
                widths = max_width_vec)
   
   # Add 2. Drift Normalized tab
-  corrected_df <- filtered_corrected$df
+  corrected_df <- rv$filtered_corrected$df
   tab2_description <- paste(
-    "Tab 2. This tab shows instrument drift corrected values for metabolite levels in experimental samples. The correction method used was",
-    corrected$str,
-    "with parameters",
-    corrected$parameters,
+    "Tab 2. This tab shows instrument drift corrected values for metabolite levels in experimental samples. Data is corrected using",
+    rv$corrected$str,
+    "FOr each metabolite, this method",
+    rv$corrected$parameters,
     "This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
     "This corrects for normal instrument drift during the run.",
     "It produces relative metabolite level values in arbitrary units.",
@@ -283,8 +277,8 @@ corrected_file_download <- function(input,
   )
   
   # Add Scaled or Normalized
-  transformed_df <- transformed$df
-  keep_cols <- setdiff(names(transformed_df), transformed$withheld_cols)
+  transformed_df <- rv$transformed$df
+  keep_cols <- setdiff(names(transformed_df), rv$transformed$withheld_cols)
   if (!input$keep_corrected_qcs) {
     transformed_df <- transformed_df[transformed_df$class != "QC", keep_cols]
   } else {
@@ -304,7 +298,7 @@ corrected_file_download <- function(input,
   none_description <- "Tab 3. No scaling or normalization method has been applied to the data."
   if (input$transform == "TRN") {
     tab3_description <- TRN_description
-  } else if (input$transform == "Log2") {
+  } else if (input$transform == "log2") {
     tab3_description <- Log2_description
   } else {
     tab3_description <- none_description
@@ -397,7 +391,7 @@ corrected_file_download <- function(input,
     current_row <- current_row + 6
   }
   
-  # Add. 5. Grouped Data Fold Change (If control group exisits)
+  # Add. 5. Grouped Data Fold Change (If control group exists)
   if (input$no_control == "FALSE" && input$control_class != "") {
     control_stats <- grouped_data$group_stats_dfs[[input$control_class]]
     fold_change <- fold_changes(transformed_df, control_stats[1, ])
@@ -459,7 +453,7 @@ corrected_file_download <- function(input,
       current_row <- current_row + 6
     }
     
-    # Add. Appendix1. Metaboanalyst Ready as fold change data (if control group exisits)
+    # Add. Appendix1. Metaboanalyst Ready as fold change data (if control group exists)
     names(fold_change)[names(fold_change) == "sample"] <- "Sample Name"
     names(fold_change)[names(fold_change) == "class"] <- "Group"
     fold_change$batch <- NULL
@@ -488,18 +482,17 @@ corrected_file_download <- function(input,
   return(wb)
 }
 
+
+# TODO: Update this function to use the make_*_plots functions.
 #-- Download figure zip
-figure_folder_download <- function(input,
-                                   imputed,
-                                   filtered,
-                                   filtered_corrected,
-                                   transformed) {
+figure_folder_download <- function(input, rv) {
   # create temp folder for figures
   tmp_dir <- tempdir()
   fig_dir <- file.path(tmp_dir, "figures")
   if (dir.exists(fig_dir))
     unlink(fig_dir, recursive = TRUE)
   dir.create(fig_dir)
+  
   # create RSD figure folder
   rsd_fig_dir <- file.path(fig_dir, "RSD figures")
   if (dir.exists(rsd_fig_dir))
@@ -518,21 +511,8 @@ figure_folder_download <- function(input,
     unlink(met_fig_dir, recursive = TRUE)
   dir.create(met_fig_dir)
   
-  rsd_before <- filtered$df
-  if (input$rsd_compare == "filtered_cor_data") {
-    rsd_compared_to <- "Corrected"
-    rsd_after <- filtered_corrected$df
-  } else {
-    rsd_compared_to <- "Correction and Transformation"
-    rsd_after <- transformed$df
-  }
-    
-  # create RSD plots
-  if (input$rsd_cal == "met") {
-    rsd_fig <- plot_rsd_comparison(rsd_before, rsd_after, rsd_compared_to)
-  } else if (input$rsd_cal == "class_met") {
-    rsd_fig <- plot_rsd_comparison_class_met(rsd_before, rsd_after, rsd_compared_to)
-  }
+  
+  rsd_fig <- make_rsd_plot(input, rv)
   rsd_path <- file.path(rsd_fig_dir,
                         paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
   if (input$fig_format == "png") {
@@ -554,16 +534,7 @@ figure_folder_download <- function(input,
            device = grDevices::cairo_pdf)
   }
   
-  # Create PCA plots
-  before <- imputed
-  if (input$pca_compare == "filtered_cor_data") {
-    pca_compared_to <- "Corrected"
-    after <- filtered_corrected
-  } else {
-    pca_compared_to <- "Correction and Transformation"
-    after <- transformed
-  }
-  pca_fig <- plot_pca(input, before, after, pca_compared_to)
+  pca_fig <- make_pca_plot(input, rv)
   pca_path <- file.path(pca_fig_dir,
                         paste0("pca_comparison_", input$color_col, ".", input$fig_format))
   if (input$fig_format == "png") {
@@ -586,23 +557,15 @@ figure_folder_download <- function(input,
   }
   
   # Create metabolite scatter plots
-  raw_cols <- setdiff(names(filtered$df), c("sample", "batch", "class", "order"))
-  cor_cols <- setdiff(names(filtered_corrected$df),
+  raw_cols <- setdiff(names(rv$filtered$df), c("sample", "batch", "class", "order"))
+  cor_cols <- setdiff(names(rv$filtered_corrected$df),
                       c("sample", "batch", "class", "order"))
   cols <- intersect(raw_cols, cor_cols)
   n <- length(cols)
   withProgress(message = "Creating figures...", value = 0, {
     for (i in seq_along(cols)) {
       metab <- cols[i]
-      if (input$corMethod %in% c("RF", "BW_RF")) {
-        fig <- met_scatter_rf(data_raw = filtered$df,
-                              data_cor = filtered_corrected$df,
-                              i = metab)
-      } else if (input$corMethod %in% c("LOESS", "BW_LOESS")) {
-        fig <- met_scatter_loess(data_raw = filtered$df,
-                                 data_cor = filtered_corrected$df,
-                                 i = metab)
-      }
+      fig <- make_met_scatter(rv, metab)
       metab <- sanitize_figname(metab)
       path <- file.path(met_fig_dir, paste0(metab, ".", input$fig_format))
       if (input$fig_format == "png") {

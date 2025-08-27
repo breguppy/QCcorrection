@@ -114,49 +114,49 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   apply_impute <- function(sub_df, method) {
     if (method == "nothing_to_impute") {
       sub_df <- sub_df
-      str <- "Nothing to Impute"
+      str <- "nothing to impute"
     } else if (method == "median") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- median(col, na.rm = TRUE)
         col
       })
-      str <- "Metabolite Median"
+      str <- "metabolite median"
     } else if (method == "mean") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- mean(col, na.rm = TRUE)
         col
       })
-      str <- "Metabolite Mean"
+      str <- "metabolite mean"
     } else if (method == "class_median") {
       sub_df <- sub_df %>%
         group_by(.data[["class"]]) %>%
         mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
         ungroup()
-      str <- "Class-Metabolite Median"
+      str <- "class-metabolite median"
     } else if (method == "class_mean") {
       sub_df <- sub_df %>%
         group_by(.data[["class"]]) %>%
         mutate(across(all_of(metab_cols), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
         ungroup()
-      str <- "Class-Metabolite Mean"
+      str <- "class-metabolite mean"
     } else if (method == "min") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- min(col, na.rm = TRUE)
         col
       })
-      str <- "Minimum Metabolite Value"
+      str <- "minimum metabolite value"
     } else if (method == "minHalf") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- 0.5 * min(col, na.rm = TRUE)
         col
       })
-      str <- "Half the Minimum Metabolite Value"
+      str <- "half the minimum metabolite value"
     } else if (method == "zero") {
       sub_df[metab_cols] <- lapply(sub_df[metab_cols], function(col) {
         col[is.na(col)] <- 0
         col
       })
-      str <- "Zero"
+      str <- "zero"
     } else if (method == "KNN") {
       metab_matrix <- as.matrix(sub_df[metab_cols])
       transposed <- t(metab_matrix)
@@ -448,7 +448,7 @@ bw_loess_correction <- function(df,
 correct_data <- function(df, metab_cols, corMethod) {
   if (corMethod == "RF") {
     correction_str <- "Random Forest"
-    parameters <- "3 models with seeds 42, 31416, 272. Final corrected data is the median value of the 3 models."
+    parameters <- "builds 3 models with seeds 42, 31416, 272. Final corrected data is the median value of the 3 models."
     seeds <- c(42, 31416, 272)
     df_list <- lapply(seeds, function(seed) {
       return (rf_correction(df, metab_cols, ntree = 500, seed = seed))
@@ -458,11 +458,11 @@ correct_data <- function(df, metab_cols, corMethod) {
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "LOESS") {
     correction_str <- "LOESS"
-    parameters <- "degree = 2 and span = 0.75."
+    parameters <- "builds local polynomials of degree 2 that span 0.75 of the total QC values."
     df_corrected <- loess_correction(df, metab_cols)
   } else if (corMethod == "BW_RF") {
     correction_str <- "Batchwise Random Forest"
-    parameters <- "3 models with seeds 42, 31416, 272. Final corrected data is the median value of the 3 models."
+    parameters <- "3 models with seeds 42, 31416, 272 are built for each metabolite in each batch. Final corrected data is the median value of the 3 models."
     seeds <- c(42, 31416, 272)
     df_list <- lapply(seeds, function(seed) {
       return (bw_rf_correction(df, metab_cols, ntree = 500, seed = seed))
@@ -471,7 +471,7 @@ correct_data <- function(df, metab_cols, corMethod) {
     df_corrected <- compute_median_dataframe(df_list, metadata_cols)
   } else if (corMethod == "BW_LOESS") {
     correction_str <- "Batchwise LOESS"
-    parameters <- "degree = 2 and span = 0.75."
+    parameters <- "builds local polynomials of degree 2 that span 0.75 of the total QC values in each batch."
     df_corrected <- bw_loess_correction(df, metab_cols)
   }
   
@@ -613,12 +613,19 @@ transform_data <- function(df, transform, withheld_cols, ex_ISTD = TRUE) {
   transformed_df <- df[, c(meta_cols, metab_cols)]
   
   if (transform == "none") {
-    transform_str <- "None"
+    transform_str <- "After correction, no scaling or transformations have been applied."
   } else if (transform == "log2") {
-    transform_str <- "Log2"
+    transform_str <- "After correction, the log 2 transformation is applied to metabolite level values. For skewed data, the log transformation helps normalize the distribution of values."
     transformed_df[metab_cols] <- log(transformed_df[metab_cols], base = 2)
   } else if (transform == "TRN") {
-    transform_str <- "TRN"
+    transform_str <- paste("After correction, metabolite level values are ratiometrically normalized to total metabolite signal on a per sample basis.",
+    "This normalization is done by summing all individual post-QC corrected metabolite level values within a sample (total signal) and then dividing each individual metabolite level value within that sample by the total signal.",
+    "Next, the individual values are multiplied by the total number of metabolites present in the sample for easier visualization.",
+    "This normalization quantifies individual metabolite values across samples based on their proportion to total metabolite load, in arbitrary units, within each individual sample.",
+    "Because arbitary units for a given metabolite quantitatively scale across samples, levels of a given metabolite may be quantitatively compared across samples.",
+    "Because unit scaling is different for each metabolite, different metabolites within in a sample cannot be quantitatively compared.",
+    "However, because differences in arbitrary unit scaling between samples cancel out by divsion, within-sample metabolite ratios can be quantitatively compared across samples."
+    )
     transformed_df <- total_ratio_norm(transformed_df, metab_cols)
   }
   return(list(

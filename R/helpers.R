@@ -186,13 +186,14 @@ basicInfoUI <- function(df, replacement_counts) {
 }
 
 # Filter info for section 1.4 Filter Raw Data
-filterInfoUI <- function(mv_removed) {
+filterInfoUI <- function(mv_removed, Frule) {
   if (length(mv_removed) == 0) {
     tags$div(
       style = "flex: 1; padding-right: 10px;",
       tags$span(
         style = "color:darkgreen;font-weight:bold;",
-        "No metabolites removed due to missing value threshold."
+        paste0("No metabolites removed for missing value percentage above ",
+              Frule, "%.")
       )
     )
   } else {
@@ -200,9 +201,10 @@ filterInfoUI <- function(mv_removed) {
       style = "flex: 1; padding-right: 10px;",
       tags$span(
         style = "color:darkorange;font-weight:bold;",
-        paste(
+        paste0(
           length(mv_removed),
-          "metabolites removed based on missing value threshold:"
+          " metabolites removed based on missing value percentage above ",
+          Frule, "%"
         )
       ),
       tags$ul(lapply(mv_removed, tags$li))
@@ -359,7 +361,6 @@ correctionMethodUI <- function(df) {
 }
 
 # Unavailable correction option description for section 2.1 Choose Correction settings
-# TODO: Add on to this.
 unavailableOptionsUI <- function(df, metab_cols) {
   # If there is only 1 class: class/metabolite impute for samples not available
   # If there is only 1 batch: no batchwise options
@@ -431,30 +432,30 @@ unavailableOptionsUI <- function(df, metab_cols) {
 }
 
 # Post-correction filtering info for section 2.2 Post-Correction Filtering
-postCorFilterInfoUI <- function(filtered_corrected_result) {
+postCorFilterInfoUI <- function(filtered_corrected_result, rsd_filter, post_cor_filter) {
   n_removed <- length(filtered_corrected_result$removed_metabolites)
-  if (n_removed > 0) {
+  if (post_cor_filter == FALSE) {
     ui <- list(
       tags$span(
         style = "color: darkorange; font-weight: bold;",
-        paste(
+        paste0(
           n_removed,
-          "metabolite columns were removed based on QC RSD threshold."
+          " metabolites removed based on QC RSD above ",
+          rsd_filter, "%"
         )
       ),
       tags$br(),
-      tags$span(style = "font-weight: bold;", "Removed Columns:"),
       tags$ul(
         lapply(filtered_corrected_result$removed_metabolites, function(name) {
           tags$li(name)
         })
       )
     )
-  } else if (n_removed == 0) {
+  } else {
     ui <- list(
       tags$span(
         style = "color: darkgreen; font-weight: bold;",
-        "No metabolite columns were removed based on QC RSD threshold."
+        "Metabolites are not filtered by QC RSD."
       )
     )
   }

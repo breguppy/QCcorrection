@@ -1,12 +1,99 @@
 # plotting helpers
-library(ggplot2)
-library(patchwork)
-library(dplyr)
-library(tidyr)
-library(tidyverse)
-library(grid)
-library(gridExtra)
 source("R/processing_helpers.R")
+source("R/met_scatter_loess.R")
+source("R/met_scatter_rf.R")
+source("R/plotting_rsd_comparisons.R")
+source("R/plotting_pca_comparisons.R")
+
+# Helper for creating metabolite scatter plot
+make_met_scatter <- function(rv, met_col) {
+  # choose the correct plotting function based on the correction method.
+  cor_method <- rv$corrected$str
+  tryCatch({
+    if (cor_method %in% c("Random Forest","Batchwise Random Forest")) {
+      met_scatter_rf(rv$filtered$df, rv$filtered_corrected$df, i = met_col)
+    } else if (cor_method %in% c("LOESS","Batchwise LOESS")) {
+      met_scatter_loess(rv$filtered$df, rv$filtered_corrected$df, i = met_col)
+    } else {
+      ggplot2::ggplot() + ggplot2::labs(title = "No correction method selected.")
+    }
+  }, error = function(e) {
+    showNotification(paste("Scatter failed:", e$message),
+                     type = "error", duration = 8)
+    ggplot2::ggplot() + ggplot2::labs(title = "Scatter failed — see notification")
+  })
+}
+
+# Helper for creating the RSD plot
+make_rsd_plot <- function(input, rv) {
+  
+  df_before <- rv$filtered$df
+  # Determine df_after based on rsd_compare selected by user.
+  if (input$rsd_compare == "filtered_cor_data"){
+    df_after <- rv$filtered_corrected$df
+    compared_to <- "Correction"
+  } else {
+    df_after <- rv$transformed$df
+    compared_to <- "Correction and Transformation"
+  }
+  
+  # Need at least 1 metabolite column
+  validate(
+    need(ncol(df_before) > 4L, "No metabolites left before correction."),
+    need(ncol(df_after)  > 4L, "No metabolites left after correction.")
+  )
+  
+  tryCatch({
+    if (identical(input$rsd_cal, "met")) {
+      plot_rsd_comparison(df_before, df_after, compared_to)
+    } else {
+      plot_rsd_comparison_class_met(df_before, df_after, compared_to)
+    }
+    }, error = function(e) {
+      showNotification(paste("RSD comparison failed:", e$message),
+                       type = "error", duration = 8)
+      ggplot2::ggplot() + ggplot2::labs(title = "RSD comparison failed — see notification")
+    })
+}
+
+# Helper for creating the PCA plot
+make_pca_plot <- function(input, rv) {
+  # get after based on pca_compare selected by user.
+  if (input$pca_compare == "filtered_cor_data"){
+    df <- rv$filtered_corrected$df
+    after <- rv$filtered_corrected
+    compared_to <- "Correction"
+  } else {
+    df <- rv$transformed$df
+    after <- rv$transformed
+    compared_to <- "Correction and Transformation"
+  }
+  mets <- setdiff(names(df), c("sample","batch","class","order"))
+  validate(
+    need(length(mets) >= 2, "Need at least 2 metabolite columns for PCA."),
+    need(nrow(df) >= 3, "Need at least 3 samples for PCA.")
+  )
+  
+  # Also ensure non-constant / non-NA columns
+  X <- df[, mets, drop = FALSE]
+  keep <- vapply(X, function(v) {
+    v <- suppressWarnings(as.numeric(v))
+    ok <- all(is.finite(v))
+    nz <- (length(unique(v)) >= 2)
+    ok && nz
+  }, logical(1))
+  validate(need(any(keep), "All metabolite columns are constant/invalid after filtering."))
+  
+  # before data cannot have any missing values.
+  before <- rv$imputed
+  tryCatch({
+    plot_pca(input, before, after, compared_to)
+  }, error = function(e) {
+    showNotification(paste("PCA failed:", e$message),
+                     type = "error", duration = 8)
+    ggplot2::ggplot() + ggplot2::labs(title = "PCA failed — see notification")
+  })
+}
 
 # Helper function to ensure proper figure names
 sanitize_figname <- function(name) {
