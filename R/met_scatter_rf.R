@@ -53,7 +53,14 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
     ggplot2::geom_hline(data=sd_df |> dplyr::filter(sd=="±2 SD"),
                         ggplot2::aes(yintercept=y, linetype=sd),
                         color="#950606", linewidth=0.75) +
-    ggplot2::geom_point(ggplot2::aes(color=type), size=2) +
+    ggplot2::geom_point(
+      data = dplyr::filter(df_all, type == "Sample"),
+      ggplot2::aes(color = type), size = 2
+    ) +
+    ggplot2::geom_point(
+      data = dplyr::filter(df_all, type == "QC"),
+      ggplot2::aes(color = type), size = 2
+    ) +
     color_scale + lty_scale +
     ggplot2::facet_wrap(~panel, ncol = 1, scales = "free_y") +
     ggplot2::labs(title=i, x="Injection Order", y="Intensity") +
