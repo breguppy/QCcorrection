@@ -387,6 +387,10 @@ ui <- fluidPage(
                  tags$li(icon("folder"), " metabolite figures"),
                  tags$li(icon("folder"), " RSD figures"),
                  tags$li(icon("folder"), "PCA plots")
+               )),
+        column(4, tags$span(icon("file-pdf"), " correction_report.pdf"),
+               tags$ul(
+                 tags$li("Report describing the correction steps and figures for evaluating the correction process.")
                ))
       ),
       uiOutput("download_all_ui")
