@@ -12,6 +12,7 @@ library(purrr)
 library(tidyverse)
 library(ggtext)
 library(cowplot)
+library(shinyjs)
 source("R/helpers.R")
 source("R/processing_helpers.R")
 source("R/met_scatter_rf.R")
@@ -135,10 +136,16 @@ ui <- fluidPage(
             tags$h5("Unavailable Options"),
             uiOutput("unavailable_options")
           ),
-          actionButton(
-            inputId = "correct",
-            label = "Correct Data with Selected Settings",
-            class = "btn-primary btn-lg"
+          actionButton("correct", "Correct Data with Selected Settings",
+                       class = "btn-primary btn-lg", width = "100%"),
+          div(
+            style = "margin:12px 0 0 0;",  
+            withSpinner(
+              uiOutput("cor_spinner"),
+              color = "#404040",
+              size = 0.6,                 
+              proxy.height = "22px"       
+            )
           )
         )
       ),
@@ -650,7 +657,18 @@ server <- function(input, output, session) {
                               cor_method)
   })
   
-  observeEvent(input$correct, { corrected_r()})
+  observeEvent(input$correct, ignoreInit = TRUE, {
+    shinyjs::disable("correct")
+    
+    output$cor_spinner <- renderUI({
+      on.exit(shinyjs::enable("correct"), add = TRUE)
+      
+      corrected_r()
+      
+      NULL  
+    })
+  })
+  output$cor_spinner <- renderUI(NULL)
   
   #-- Filter corrected data
   filtered_corrected_r <- reactive({
