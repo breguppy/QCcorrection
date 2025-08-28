@@ -4,6 +4,7 @@ mod_visualize_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     title = "3. Evaluation Metrics and Visualization",
+    value = "tab_visualize",
     card(layout_sidebar(
       sidebar = sidebar(
         tags$h4("3.1 Visualize Correction with Metabolite Scatter Plots"),

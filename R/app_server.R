@@ -5,9 +5,10 @@ app_server <- function(input, output, session) {
   
   import <- mod_import_server("import")
   
-  #correct <- mod_correct_server("correct",
-  #                              filtered = import$filtered,
-  #                              params   = import$params)
+  correct <- mod_correct_server("correct",
+                                cleaned  = import$cleaned,
+                                filtered = import$filtered,
+                                params   = import$params)
   
   #viz <- mod_visualize_server("viz",
   #                            filtered           = import$filtered,

@@ -4,6 +4,7 @@ mod_export_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     title = "4. Export Corrected Data, Plots, and Report", 
+    value = "tab_export",
     card(
     card_title("Download Data, Plots, and Report"),
     tags$span("Download all to get a ", icon("folder"), " zipped folder containing:"),

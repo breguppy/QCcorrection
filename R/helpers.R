@@ -208,15 +208,12 @@ qcMissingValueWarning <- function(df) {
 }
 
 # Impute missing QC value options for section 2.1 Choose Correction settings
-qcImputeUI <- function(df, metab_cols) {
+qcImputeUI <- function(df, metab_cols, ns = identity) {
   qc_df <- df %>% filter(df$class == "QC")
   has_qc_na <- any(is.na(qc_df[, metab_cols]))
   
   if (has_qc_na) {
-    radioButtons(
-      inputId = "qcImputeM",
-      label = "QC Imputation Method",
-      choices = list(
+    radioButtons(ns("qcImputeM"), "QC Imputation Method", list(
         "metabolite median" = "median",
         "metabolite mean" = "mean",
         "QC-metabolite median" = "class_median",
@@ -226,8 +223,7 @@ qcImputeUI <- function(df, metab_cols) {
         "KNN" = "KNN",
         "zero" = "zero"
       ),
-      selected = "median",
-      inline = FALSE
+      "median", FALSE
     )
   } else {
     tags$div(icon("check-circle", class = "text-success"),
@@ -236,7 +232,7 @@ qcImputeUI <- function(df, metab_cols) {
 }
 
 # Impute missing sample value options for section 2.1 Choose Correction settings
-sampleImputeUI <- function(df, metab_cols) {
+sampleImputeUI <- function(df, metab_cols, ns =identity) {
   sam_df <- df %>% filter(df$class != "QC")
   has_sam_na <- any(is.na(sam_df[, metab_cols]))
   num_classes <- length(unique(sam_df$class))
@@ -244,7 +240,7 @@ sampleImputeUI <- function(df, metab_cols) {
   if (has_sam_na) {
     if (num_classes > 1){
       radioButtons(
-      inputId = "samImputeM",
+      inputId = ns("samImputeM"),
       label = "Sample Imputation Method",
       choices = list(
         "metabolite median" = "median",
@@ -261,7 +257,7 @@ sampleImputeUI <- function(df, metab_cols) {
       )
     } else {
       radioButtons(
-        inputId = "samImputeM",
+        inputId = ns("samImputeM"),
         label = "Sample Imputation Method",
         choices = list(
           "metabolite median" = "median",
@@ -282,7 +278,7 @@ sampleImputeUI <- function(df, metab_cols) {
 }
 
 # Correction method selection options for section 2.1 Choose Correction settings
-correctionMethodUI <- function(df) {
+correctionMethodUI <- function(df, ns = identity) {
   qc_per_batch <- df %>%
     group_by(batch) %>%
     summarise(qc_in_batch = sum(class == "QC"), .groups = "drop")
@@ -291,7 +287,7 @@ correctionMethodUI <- function(df) {
   if (num_batches == 1) {
     if (any(qc_per_batch$qc_in_batch <= 5)) {
       radioButtons(
-        inputId = "corMethod",
+        inputId = ns("corMethod"),
         label = "Method",
         choices = list(
           "Local Polynomial Fit (LOESS)" = "LOESS"
@@ -300,7 +296,7 @@ correctionMethodUI <- function(df) {
       )
     } else {
       radioButtons(
-        inputId = "corMethod",
+        inputId = ns("corMethod"),
         label = "Method",
         choices = list(
           "Random Forest" = "RF",
@@ -312,7 +308,7 @@ correctionMethodUI <- function(df) {
   } else {
     if (any(qc_per_batch$qc_in_batch < 5)) {
     radioButtons(
-      inputId = "corMethod",
+      inputId = ns("corMethod"),
       label = "Method",
       choices = list(
         "Random Forest" = "RF",
@@ -322,7 +318,7 @@ correctionMethodUI <- function(df) {
     )
   } else {
     radioButtons(
-      inputId = "corMethod",
+      inputId = ns("corMethod"),
       label = "Method",
       choices = list(
         "Random Forest" = "RF",

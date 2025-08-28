@@ -4,6 +4,7 @@ mod_correct_ui <- function(id) {
   ns <- NS(id); 
   nav_panel(
   title = "2. Correction Settings",
+  value = "tab_correct",
   card(
     style = "background-color:#eee;",
     tags$h4("2.1 Choose Correction Settings"),
@@ -32,7 +33,7 @@ mod_correct_ui <- function(id) {
           "Check this box if you don't want any metabolites removed post-correction.", "right"
         ),
         conditionalPanel(
-          ns("input.post_cor_filter == false"),
+          condition = sprintf("!input['%s']", ns("post_cor_filter")),
           tooltip(
             sliderInput(ns("rsd_filter"),"Metabolite RSD% threshold for QC samples", 0, 100, 50),
             "Metabolites with QC RSD% above this value will be removed from the corrected data.", "right"
@@ -60,7 +61,7 @@ mod_correct_ui <- function(id) {
           "Check this box if you do not want internal standards to be included in the transformation or normalization calculation.", "right"
         ),
         conditionalPanel(
-          ns("input.transform == 'TRN'"),
+          condition = sprintf("input['%s'] === 'TRN'", ns("transform")),
           tooltip(
             checkboxInput(ns("trn_withhold_checkbox"), "Withold column(s) from TRN?", FALSE),
             "Check this box if there are any columns that should not count in TRN (i.e. TIC column). Sample, batch, class and order are already excluded.", "right"
@@ -85,7 +86,7 @@ mod_correct_ui <- function(id) {
         "Check the box if The data does not have a control group.", "right"
       ),
       conditionalPanel(
-        ns("input.no_control == false"),
+        condition = sprintf("!input['%s']", ns("no_control")),
         uiOutput(ns("control_class_selector"))
       )
     ),
@@ -102,7 +103,7 @@ mod_correct_ui <- function(id) {
                     class="btn-primary btn-lg"))
 )}
 
-mod_correct_server <- function(id, filtered, params) {
+mod_correct_server <- function(id, cleaned, filtered, params) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     req(filtered)
@@ -110,13 +111,13 @@ mod_correct_server <- function(id, filtered, params) {
     output$qc_missing_value_warning <- renderUI(qcMissingValueWarning(filtered()$df))
     output$qcImpute <- renderUI({
       mc <- setdiff(names(filtered()$df), c('sample','batch','class','order'))
-      qcImputeUI(filtered()$df, mc)
+      qcImputeUI(filtered()$df, mc, ns = session$ns)
     })
     output$sampleImpute <- renderUI({
       mc <- setdiff(names(filtered()$df), c('sample','batch','class','order'))
-      sampleImputeUI(filtered()$df, mc)
+      sampleImputeUI(filtered()$df, mc, ns = session$ns)
     })
-    output$correctionMethod <- renderUI(correctionMethodUI(filtered()$df))
+    output$correctionMethod <- renderUI(correctionMethodUI(filtered()$df, ns = session$ns))
     output$unavailable_options <- renderUI({
       mc <- setdiff(names(filtered()$df), c('sample','batch','class','order'))
       unavailableOptionsUI(filtered()$df, mc)
@@ -181,14 +182,14 @@ mod_correct_server <- function(id, filtered, params) {
       transform_data(filtered_corrected_r()$df, input$transform, withheld_cols, input$ex_ISTD)
     })
     observe({
-      req(rv$corrected, input$trn_withhold_checkbox)
+      req(corrected_r(), input$trn_withhold_checkbox)
       
-      max_withhold <- max(ncol(rv$corrected$df) - 4, 0)
+      max_withhold <- max(ncol(corrected_r()$df) - 4, 0)
       
       output$trn_withhold_ui <- renderUI({
         if (input$transform == "TRN") {
           numericInput(
-            inputId = "trn_withhold_n",
+            inputId = ns("trn_withhold_n"),
             label = "Number of columns to withold from TRN",
             value = 1,
             min = 1,
@@ -198,15 +199,15 @@ mod_correct_server <- function(id, filtered, params) {
       })
     })
     output$trn_withhold_selectors_ui <- renderUI({
-      req(rv$corrected, input$trn_withhold_n)
-      cols <- names(rv$corrected$df)
+      req(corrected_r(), input$trn_withhold_n)
+      cols <- names(corrected_r()$df)
       cols <- setdiff(cols, c("sample", "batch", "class", "order"))
       dropdown_choices <- c("Select a column..." = "", cols)
       
       # Generate list of columns to withhold
       lapply(seq_len(input$trn_withhold_n), function(i) {
         selectInput(
-          inputId = paste0("trn_withhold_col_", i),
+          inputId = ns(paste0("trn_withhold_col_", i)),
           label = paste("Select column to withhold #", i),
           choices = dropdown_choices,
           selected = ""
@@ -224,13 +225,13 @@ mod_correct_server <- function(id, filtered, params) {
     })
     
     output$control_class_selector <- renderUI({
-      req(cleaned_r())
-      df <- cleaned_r()$df
+      req(cleaned())
+      df <- cleaned()$df
       classes <- unique(df$class[df$class != "QC"])
       dropdown_choices <- c("Select a class..." = "", classes)
       tooltip(
         selectInput(
-          "control_class",
+          ns("control_class"),
           "Control Group",
           choices = dropdown_choices,
           selected = ""
@@ -246,7 +247,7 @@ mod_correct_server <- function(id, filtered, params) {
       div(
         style = "max-width: 300px; display: inline-block;",
         downloadButton(
-          outputId = "download_corr_data",
+          outputId = ns("download_corr_data"),
           label    = "Download Excel File (Optional)",
           class    = "btn btn-primary"
         )
@@ -259,16 +260,39 @@ mod_correct_server <- function(id, filtered, params) {
       content = function(file) {
         fc <- isolate(filtered_corrected_r())
         tr <- isolate(transformed_r())
-        rv$filtered_corrected <- fc
-        rv$transformed <- tr
+        cr <- isolate(corrected_r())  # you reference rv$corrected in the helper
         
-        wb <- corrected_file_download(input, rv)
-        saveWorkbook(wb, file, overwrite = TRUE)
+        params <- list(
+          sample_col    = params()$sample_col,   # from mod_import
+          batch_col     = params()$batch_col,
+          class_col     = params()$class_col,
+          order_col     = params()$order_col,
+          Frule         = params()$Frule,
+          remove_imputed      = isTRUE(input$remove_imputed),
+          rsd_cutoff          = fc$rsd_cutoff,
+          transform           = input$transform,
+          ex_ISTD             = isTRUE(input$ex_ISTD),
+          keep_corrected_qcs  = isTRUE(input$keep_corrected_qcs),
+          no_control          = isTRUE(input$no_control),
+          control_class       = input$control_class %||% ""
+        )
+        
+        rv <- list(
+          cleaned            = cleaned(),
+          filtered           = filtered(),
+          imputed            = imputed_r(),
+          corrected          = cr,
+          filtered_corrected = fc,
+          transformed        = tr
+        )
+        
+        wb <- corrected_file_download(params, rv)
+        openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )
     
     observeEvent(input$next_visualization, {
-      updateTabsetPanel(session, "main_steps", "3. Evaluation Metrics and Visualization")
+      updateTabsetPanel(session$rootScope(), "main_steps", "tab_visualize")
     })
     
     list(

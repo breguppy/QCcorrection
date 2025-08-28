@@ -6,6 +6,7 @@ mod_import_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     title = "1. Import Raw Data",
+    value = "tab_import",
     card(full_screen = TRUE,
          layout_sidebar(
            sidebar = sidebar(
@@ -154,7 +155,7 @@ mod_import_server <- function(id) {
     observeEvent(input$next_correction, {
       validate(need(!is.null(cleaned_r()), "Missing cleaned data"),
                need(!is.null(filtered_r()), "Missing filtered data"))
-      updateTabsetPanel(session, "main_steps", "2. Correction Settings")
+      updateTabsetPanel(session$rootScope(), "main_steps", "tab_correct")
     })
     
     # module output
