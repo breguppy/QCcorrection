@@ -9,7 +9,7 @@ app_ui <- function() {
       id = "main_steps",
       mod_import_ui("import"),
       mod_correct_ui("correct"),
-      #mod_visualize_ui("viz"),
+      mod_visualize_ui("viz"),
       #mod_export_ui("export")
     )
   )

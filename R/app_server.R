@@ -10,11 +10,11 @@ app_server <- function(input, output, session) {
                                 filtered = import$filtered,
                                 params   = import$params)
   
-  #viz <- mod_visualize_server("viz",
-  #                            filtered           = import$filtered,
-  #                            filtered_corrected = correct$filtered_corrected,
-  #                            transformed        = correct$transformed,
-  #                            params             = import$params)
+  viz <- mod_visualize_server("viz",
+                              filtered           = import$filtered,
+                              filtered_corrected = correct$filtered_corrected,
+                              transformed        = correct$transformed,
+                              params             = import$params)
   
   #mod_export_server("export",
    #                 filtered_corrected = correct$filtered_corrected,

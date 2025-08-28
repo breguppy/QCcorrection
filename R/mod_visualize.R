@@ -46,10 +46,9 @@ mod_visualize_ui <- function(id) {
       uiOutput(ns("progress_ui")),
     )),
     card(
-      actionButton(ns("next_export"), "Next: Export Corrected Data and Plots", "btn-primary btn-lg"),
+      actionButton(ns("next_export"), "Next: Export Corrected Data and Plots", class = "btn-primary btn-lg"),
     )
   )
-  list(progress = progress_reactive)
 }
 
 mod_visualize_server <- function(id, filtered, filtered_corrected, transformed, params) {
@@ -57,7 +56,8 @@ mod_visualize_server <- function(id, filtered, filtered_corrected, transformed, 
     ns <- session$ns
     output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
       req(input$rsd_compare, input$rsd_cal)
-      make_rsd_plot(input, rv)
+      
+      make_rsd_plot(input, list(filtered = filtered(), filtered_correced = filtered_corrected(), transformed = transformed()))
     })
     
     #-- PCA plot
@@ -68,12 +68,12 @@ mod_visualize_server <- function(id, filtered, filtered_corrected, transformed, 
     
     #-- Let user select which metabolite to display in scatter plot
     output$met_plot_selectors <- renderUI({
-      req(rv$filtered, rv$filtered_corrected)
-      raw_cols <- setdiff(names(rv$filtered$df),    c("sample","batch","class","order"))
-      cor_cols <- setdiff(names(rv$filtered_corrected$df), c("sample","batch","class","order"))
+      req(filtered(), filtered_corrected())
+      raw_cols <- setdiff(names(filtered()$df),    c("sample","batch","class","order"))
+      cor_cols <- setdiff(names(filtered_corrected()$df), c("sample","batch","class","order"))
       cols <- intersect(raw_cols, cor_cols)
       validate(need(length(cols) >= 1, "No overlapping metabolites between raw and corrected data."))
-      selectInput("met_col", "Metabolite column", choices = cols, selected = cols[1])
+      selectInput(ns("met_col"), "Metabolite column", choices = cols, selected = cols[1])
     })
     
     output$metab_scatter <- renderPlot({
@@ -83,11 +83,11 @@ mod_visualize_server <- function(id, filtered, filtered_corrected, transformed, 
     
     #-- Download all figures as zip folder.
     output$download_fig_zip_btn <- renderUI({
-      req(rv$transformed)
+      req(transformed())
       
       div(
         style = "max-width: 300px; display: inline-block;",
-        downloadButton("download_fig_zip", "Download All Figures (Optional)", class = "btn-primary")
+        downloadButton(ns("download_fig_zip"), "Download All Figures (Optional)", class = "btn-primary")
       )
     })
     # -- progress bar
@@ -134,7 +134,7 @@ mod_visualize_server <- function(id, filtered, filtered_corrected, transformed, 
     
     #-- Move to next tab after inspecting the corrected data figures
     observeEvent(input$next_export, {
-      updateTabsetPanel(session, "main_steps", "4. Export Corrected Data, Plots, and Report")
+      updateTabsetPanel(session$rootScope(), "main_steps", "tab_export")
     })
     
     list(progress = progress_reactive)
