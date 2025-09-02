@@ -51,40 +51,45 @@ mod_visualize_ui <- function(id) {
   )
 }
 
-mod_visualize_server <- function(id, filtered, imputed, corrected, filtered_corrected, transformed, params) {
+mod_visualize_server <- function(id, data, params) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
+    d <- reactive(data())          # merged data
+    p <- reactive(params()) 
+    
+    #-- Let user select which metabolite to display in scatter plot
+    output$met_plot_selectors <- renderUI({
+      df_raw <- req(d()$filtered)$df
+      df_cor <- req(d()$filtered_corrected)$df
+      raw_cols <- setdiff(names(df_raw), c("sample","batch","class","order"))
+      cor_cols <- setdiff(names(df_cor), c("sample","batch","class","order"))
+      cols <- intersect(raw_cols, cor_cols)
+      validate(need(length(cols) >= 1, "No overlapping metabolites."))
+      selectInput(ns("met_col"), "Metabolite column", choices = cols, selected = cols[1])
+    })
+    
+    #-- Metabolite scatter plot
+    output$metab_scatter <- renderPlot({
+      req(input$met_col)
+      make_met_scatter(d(), input$met_col)
+    }, res = 120)
+    
+    #-- RSD comparison plot
     output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
       req(input$rsd_compare, input$rsd_cal)
       
-      make_rsd_plot(input, list(filtered = filtered(), filtered_corrected = filtered_corrected(), transformed = transformed()))
+      make_rsd_plot(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal), d())
     })
     
     #-- PCA plot
     output$pca_plot <- renderPlot({
       req(input$pca_compare, input$color_col)
-      make_pca_plot(input, list(imputed = imputed(), filtered_corrected = filtered_corrected(), transformed = transformed()))
-    }, res = 120)
-    
-    #-- Let user select which metabolite to display in scatter plot
-    output$met_plot_selectors <- renderUI({
-      req(filtered(), filtered_corrected())
-      raw_cols <- setdiff(names(filtered()$df),    c("sample","batch","class","order"))
-      cor_cols <- setdiff(names(filtered_corrected()$df), c("sample","batch","class","order"))
-      cols <- intersect(raw_cols, cor_cols)
-      validate(need(length(cols) >= 1, "No overlapping metabolites between raw and corrected data."))
-      selectInput(ns("met_col"), "Metabolite column", choices = cols, selected = cols[1])
-    })
-    
-    output$metab_scatter <- renderPlot({
-      req(input$met_col)
-      make_met_scatter(list(filtered = filtered(), filtered_corrected = filtered_corrected(), corrected = corrected()), input$met_col)
+      make_pca_plot(list(pca_compare = input$pca_compare, color_col = input$color_col), d())
     }, res = 120)
     
     #-- Download all figures as zip folder.
     output$download_fig_zip_btn <- renderUI({
-      req(transformed())
-      
+      req(d()$transformed)
       div(
         style = "max-width: 300px; display: inline-block;",
         downloadButton(ns("download_fig_zip"), "Download All Figures (Optional)", class = "btn-primary")
@@ -95,7 +100,6 @@ mod_visualize_server <- function(id, filtered, imputed, corrected, filtered_corr
     #-- progress for downloading all images
     output$progress_ui <- renderUI({
       req(progress_reactive() > 0, progress_reactive() <= 1)
-      
       div(
         style = "margin-top: 10px;",
         tags$label("Progress:"),
@@ -113,17 +117,21 @@ mod_visualize_server <- function(id, filtered, imputed, corrected, filtered_corr
         paste0("figures_", Sys.Date(), ".zip")
       },
       content = function(file) {
-        choices <- list(rsd_cal = input$rsd_cal,
-                        rsd_compare = input$rsd_compare,
-                        pca_compare = input$pca_compare,
-                        color_col = input$color_col, 
-                        fig_format = input$fig_format)
-        data <- list(filtered = filtered(), 
-                     imputed = imputed(), 
-                     corrected = corrected(), 
-                     filtered_corrected = filtered_corrected(), 
-                     transformed = transformed())
-        figs <- figure_folder_download(input = choices, rv = data)
+        choices <- list(
+          rsd_cal     = input$rsd_cal,
+          rsd_compare = input$rsd_compare,
+          pca_compare = input$pca_compare,
+          color_col   = input$color_col,
+          fig_format  = input$fig_format
+        )
+        rv_data <- list(
+          filtered           = d()$filtered,
+          imputed            = d()$imputed,
+          corrected          = d()$corrected,
+          filtered_corrected = d()$filtered_corrected,
+          transformed        = d()$transformed
+        )
+        figs <- figure_folder_download(p = choices, d = rv_data)
         
         zipfile <- tempfile(fileext = ".zip")
         old_wd <- setwd(figs$tmp_dir)
@@ -147,6 +155,14 @@ mod_visualize_server <- function(id, filtered, imputed, corrected, filtered_corr
       updateTabsetPanel(session$rootScope(), "main_steps", "tab_export")
     })
     
-    list(progress = progress_reactive)
+    list(progress = progress_reactive, 
+         params   = reactive(list(
+           rsd_compare = input$rsd_compare,
+           rsd_cal     = input$rsd_cal,
+           pca_compare = input$pca_compare,
+           color_col   = input$color_col,
+           fig_format  = input$fig_format
+        ))
+    )
   })
 }

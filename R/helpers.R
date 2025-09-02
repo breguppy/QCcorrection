@@ -433,3 +433,14 @@ postCorFilterInfoUI <- function(filtered_corrected_result, rsd_filter, post_cor_
   }
   do.call(tagList, ui)
 }
+
+merge_lists <- function(...) {
+  Reduce(function(a, b) modifyList(a, b, keep.null = TRUE),
+         Filter(Negate(is.null), list(...)), init = list())
+}
+
+get_or_null <- function(r) {
+  if (is.null(r)) return(NULL)
+  tryCatch(r(), error = function(e) NULL)
+}
+

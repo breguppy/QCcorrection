@@ -103,41 +103,59 @@ mod_correct_ui <- function(id) {
                     class="btn-primary btn-lg"))
 )}
 
-mod_correct_server <- function(id, cleaned, filtered, params) {
+mod_correct_server <- function(id, data, params) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    req(filtered)
     
-    output$qc_missing_value_warning <- renderUI(qcMissingValueWarning(filtered()$df))
+    d <- reactive(data()) 
+    
+    filtered_r <- reactive({
+      req(d()$filtered)
+      d()$filtered
+    })
+    cleaned_r <- reactive({
+      d()$cleaned
+    })
+    
+    output$qc_missing_value_warning <- renderUI({
+      df <- filtered_r()$df
+      qcMissingValueWarning(df)
+    })
     output$qcImpute <- renderUI({
-      mc <- setdiff(names(filtered()$df), c('sample','batch','class','order'))
-      qcImputeUI(filtered()$df, mc, ns = session$ns)
+      df <- filtered_r()$df
+      mc <- setdiff(names(df), c('sample','batch','class','order'))
+      qcImputeUI(df, mc, ns = session$ns)
     })
     output$sampleImpute <- renderUI({
-      mc <- setdiff(names(filtered()$df), c('sample','batch','class','order'))
-      sampleImputeUI(filtered()$df, mc, ns = session$ns)
+      df <- filtered_r()$df
+      mc <- setdiff(names(df), c('sample','batch','class','order'))
+      sampleImputeUI(df, mc, ns = session$ns)
     })
-    output$correctionMethod <- renderUI(correctionMethodUI(filtered()$df, ns = session$ns))
+    output$correctionMethod <- renderUI({
+      correctionMethodUI(filtered_r()$df, ns = session$ns)
+    })
     output$unavailable_options <- renderUI({
-      mc <- setdiff(names(filtered()$df), c('sample','batch','class','order'))
-      unavailableOptionsUI(filtered()$df, mc)
+      df <- filtered_r()$df
+      mc <- setdiff(names(df), c('sample','batch','class','order'))
+      unavailableOptionsUI(df, mc)
     })
     
+    
     metab_cols_r <- reactive({
-      setdiff(names(filtered()$df), c("sample","batch","class","order"))
+      setdiff(names(filtered_r()$df), c("sample","batch","class","order"))
     })
     
     has_qc_na_r <- reactive({
-      df <- filtered()$df; mc <- metab_cols_r()
-      any(is.na(dplyr::filter(df, .data$class == "QC")[, mc, drop=FALSE]))
+      df <- filtered_r()$df; mc <- metab_cols_r()
+      any(is.na(dplyr::filter(df, .data$class == "QC")[, mc, drop = FALSE]))
     })
     has_sam_na_r <- reactive({
-      df <- filtered()$df; mc <- metab_cols_r()
-      any(is.na(dplyr::filter(df, .data$class != "QC")[, mc, drop=FALSE]))
+      df <- filtered_r()$df; mc <- metab_cols_r()
+      any(is.na(dplyr::filter(df, .data$class != "QC")[, mc, drop = FALSE]))
     })
     
     imputed_r <- reactive({
-      df <- filtered()$df; mc <- metab_cols_r()
+      df <- filtered_r()$df; mc <- metab_cols_r()
       qcImpute  <- if (!has_qc_na_r())  "nothing_to_impute" else input$qcImputeM
       samImpute <- if (!has_sam_na_r()) "nothing_to_impute" else input$samImputeM
       impute_missing(df, mc, qcImpute, samImpute)
@@ -145,8 +163,7 @@ mod_correct_server <- function(id, cleaned, filtered, params) {
     
     corrected_r <- eventReactive(input$correct, {
       imputed <- isolate(imputed_r()); mc <- isolate(metab_cols_r())
-      cor_method <- isolate(input$corMethod)
-      correct_data(imputed$df, mc, cor_method)
+      correct_data(imputed$df, mc, isolate(input$corMethod))
     })
     
     observeEvent(input$correct, ignoreInit = TRUE, {
@@ -159,28 +176,29 @@ mod_correct_server <- function(id, cleaned, filtered, params) {
     output$cor_spinner <- renderUI(NULL)
     
     filtered_corrected_r <- reactive({
-      req(filtered(), corrected_r())
+      req(filtered_r(), corrected_r())
       df_corrected <- corrected_r()$df
-      df <- if (isTRUE(input$remove_imputed))
-        remove_imputed_from_corrected(filtered()$df, df_corrected) else df_corrected
-      if (input$post_cor_filter == FALSE)
-        rsd_filter(df, input$rsd_filter, c("sample","batch","class","order"))
+      base <- if (isTRUE(input$remove_imputed))
+        remove_imputed_from_corrected(filtered_r()$df, df_corrected) else df_corrected
+      if (isTRUE(input$post_cor_filter))
+        rsd_filter(base, Inf, c("sample","batch","class","order"))
       else
-        rsd_filter(df, Inf,       c("sample","batch","class","order"))
+        rsd_filter(base, input$rsd_filter, c("sample","batch","class","order"))
     })
+    
     
     transformed_r <- reactive({
       req(filtered_corrected_r())
-      withheld_cols <- character(0)
+      withheld <- character(0)
       if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
         for (i in seq_len(input$trn_withhold_n)) {
           col <- input[[paste0("trn_withhold_col_", i)]]
-          if (!is.null(col) && col %in% names(filtered_corrected_r()$df))
-            withheld_cols <- c(withheld_cols, col)
+          if (!is.null(col) && col %in% names(filtered_corrected_r()$df)) withheld <- c(withheld, col)
         }
       }
-      transform_data(filtered_corrected_r()$df, input$transform, withheld_cols, input$ex_ISTD)
+      transform_data(filtered_corrected_r()$df, input$transform, withheld, input$ex_ISTD)
     })
+    
     observe({
       req(corrected_r(), input$trn_withhold_checkbox)
       
@@ -225,8 +243,8 @@ mod_correct_server <- function(id, cleaned, filtered, params) {
     })
     
     output$control_class_selector <- renderUI({
-      req(cleaned())
-      df <- cleaned()$df
+      req(cleaned_r())
+      df <- cleaned_r()$df
       classes <- unique(df$class[df$class != "QC"])
       dropdown_choices <- c("Select a class..." = "", classes)
       tooltip(
@@ -260,33 +278,34 @@ mod_correct_server <- function(id, cleaned, filtered, params) {
       content = function(file) {
         fc <- isolate(filtered_corrected_r())
         tr <- isolate(transformed_r())
-        cr <- isolate(corrected_r())  # you reference rv$corrected in the helper
+        cr <- isolate(corrected_r())
+        p_in <- params()  
         
-        params <- list(
-          sample_col    = params()$sample_col,   # from mod_import
-          batch_col     = params()$batch_col,
-          class_col     = params()$class_col,
-          order_col     = params()$order_col,
-          Frule         = params()$Frule,
-          remove_imputed      = isTRUE(input$remove_imputed),
-          rsd_cutoff          = fc$rsd_cutoff,
-          transform           = input$transform,
-          ex_ISTD             = isTRUE(input$ex_ISTD),
-          keep_corrected_qcs  = isTRUE(input$keep_corrected_qcs),
-          no_control          = isTRUE(input$no_control),
-          control_class       = input$control_class %||% ""
+        p <- list(
+          sample_col        = p_in$sample_col,
+          batch_col         = p_in$batch_col,
+          class_col         = p_in$class_col,
+          order_col         = p_in$order_col,
+          Frule             = p_in$Frule,
+          remove_imputed    = isTRUE(input$remove_imputed),
+          rsd_cutoff        = fc$rsd_cutoff,
+          transform         = input$transform,
+          ex_ISTD           = isTRUE(input$ex_ISTD),
+          keep_corrected_qcs= isTRUE(input$keep_corrected_qcs),
+          no_control        = isTRUE(input$no_control),
+          control_class     = input$control_class %||% ""
         )
         
         rv <- list(
-          cleaned            = cleaned(),
-          filtered           = filtered(),
+          cleaned            = cleaned_r(),
+          filtered           = filtered_r(),
           imputed            = imputed_r(),
           corrected          = cr,
           filtered_corrected = fc,
           transformed        = tr
         )
         
-        wb <- corrected_file_download(params, rv)
+        wb <- corrected_file_download(p, rv)
         openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )
@@ -295,11 +314,22 @@ mod_correct_server <- function(id, cleaned, filtered, params) {
       updateTabsetPanel(session$rootScope(), "main_steps", "tab_visualize")
     })
     
+    correct_params <- reactive(list(
+      remove_imputed     = isTRUE(input$remove_imputed),
+      rsd_cutoff         = filtered_corrected_r()$rsd_cutoff,
+      transform          = input$transform,
+      ex_ISTD            = isTRUE(input$ex_ISTD),
+      keep_corrected_qcs = isTRUE(input$keep_corrected_qcs),
+      no_control         = isTRUE(input$no_control),
+      control_class      = input$control_class %||% ""
+    ))
+    
     list(
       imputed            = imputed_r,
       corrected          = corrected_r,
       filtered_corrected = filtered_corrected_r,
-      transformed        = transformed_r
+      transformed        = transformed_r,
+      params             = correct_params
     )
   })
 }

@@ -482,10 +482,8 @@ corrected_file_download <- function(input, rv) {
   return(wb)
 }
 
-
-# TODO: Update this function to use the make_*_plots functions.
 #-- Download figure zip
-figure_folder_download <- function(input, rv) {
+figure_folder_download <- function(p, d) {
   # create temp folder for figures
   tmp_dir <- tempdir()
   fig_dir <- file.path(tmp_dir, "figures")
@@ -512,10 +510,10 @@ figure_folder_download <- function(input, rv) {
   dir.create(met_fig_dir)
   
   
-  rsd_fig <- make_rsd_plot(input, rv)
+  rsd_fig <- make_rsd_plot(p, d)
   rsd_path <- file.path(rsd_fig_dir,
-                        paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
-  if (input$fig_format == "png") {
+                        paste0("rsd_comparison_", p$rsd_cal, ".", p$fig_format))
+  if (p$fig_format == "png") {
     ggsave(
       rsd_path,
       plot = rsd_fig,
@@ -525,7 +523,7 @@ figure_folder_download <- function(input, rv) {
       dpi = 300,
       bg = "white"
     )
-  } else if (input$fig_format == "pdf") {
+  } else if (p$fig_format == "pdf") {
     ggsave(rsd_path,
            plot = rsd_fig,
            width = 7.5,
@@ -534,10 +532,10 @@ figure_folder_download <- function(input, rv) {
            device = grDevices::cairo_pdf)
   }
   
-  pca_fig <- make_pca_plot(input, rv)
+  pca_fig <- make_pca_plot(p, d)
   pca_path <- file.path(pca_fig_dir,
-                        paste0("pca_comparison_", input$color_col, ".", input$fig_format))
-  if (input$fig_format == "png") {
+                        paste0("pca_comparison_", p$color_col, ".", p$fig_format))
+  if (p$fig_format == "png") {
     ggsave(
       pca_path,
       plot = pca_fig,
@@ -547,7 +545,7 @@ figure_folder_download <- function(input, rv) {
       dpi = 300,
       bg = "white"
     )
-  } else if (input$fig_format == "pdf") {
+  } else if (p$fig_format == "pdf") {
     ggsave(pca_path,
            plot = pca_fig,
            width = 8.333,
@@ -557,18 +555,18 @@ figure_folder_download <- function(input, rv) {
   }
   
   # Create metabolite scatter plots
-  raw_cols <- setdiff(names(rv$filtered$df), c("sample", "batch", "class", "order"))
-  cor_cols <- setdiff(names(rv$filtered_corrected$df),
+  raw_cols <- setdiff(names(d$filtered$df), c("sample", "batch", "class", "order"))
+  cor_cols <- setdiff(names(d$filtered_corrected$df),
                       c("sample", "batch", "class", "order"))
   cols <- intersect(raw_cols, cor_cols)
   n <- length(cols)
   withProgress(message = "Creating figures...", value = 0, {
     for (i in seq_along(cols)) {
       metab <- cols[i]
-      fig <- make_met_scatter(rv, metab)
+      fig <- make_met_scatter(d, metab)
       metab <- sanitize_figname(metab)
-      path <- file.path(met_fig_dir, paste0(metab, ".", input$fig_format))
-      if (input$fig_format == "png") {
+      path <- file.path(met_fig_dir, paste0(metab, ".", p$fig_format))
+      if (p$fig_format == "png") {
         ggsave(
           path,
           plot = fig,
@@ -577,7 +575,7 @@ figure_folder_download <- function(input, rv) {
           units = "in",
           dpi = 300
         )
-      } else if (input$fig_format == "pdf") {
+      } else if (p$fig_format == "pdf") {
         ggsave(path,
                plot = fig,
                width = 5,
