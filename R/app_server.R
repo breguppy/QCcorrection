@@ -12,6 +12,8 @@ app_server <- function(input, output, session) {
   
   viz <- mod_visualize_server("viz",
                               filtered           = import$filtered,
+                              imputed            = correct$imputed,
+                              corrected          = correct$corrected,
                               filtered_corrected = correct$filtered_corrected,
                               transformed        = correct$transformed,
                               params             = import$params)

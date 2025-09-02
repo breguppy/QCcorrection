@@ -51,19 +51,19 @@ mod_visualize_ui <- function(id) {
   )
 }
 
-mod_visualize_server <- function(id, filtered, filtered_corrected, transformed, params) {
+mod_visualize_server <- function(id, filtered, imputed, corrected, filtered_corrected, transformed, params) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
       req(input$rsd_compare, input$rsd_cal)
       
-      make_rsd_plot(input, list(filtered = filtered(), filtered_correced = filtered_corrected(), transformed = transformed()))
+      make_rsd_plot(input, list(filtered = filtered(), filtered_corrected = filtered_corrected(), transformed = transformed()))
     })
     
     #-- PCA plot
     output$pca_plot <- renderPlot({
       req(input$pca_compare, input$color_col)
-      make_pca_plot(input, rv)
+      make_pca_plot(input, list(imputed = imputed(), filtered_corrected = filtered_corrected(), transformed = transformed()))
     }, res = 120)
     
     #-- Let user select which metabolite to display in scatter plot
@@ -78,7 +78,7 @@ mod_visualize_server <- function(id, filtered, filtered_corrected, transformed, 
     
     output$metab_scatter <- renderPlot({
       req(input$met_col)
-      make_met_scatter(rv, input$met_col)
+      make_met_scatter(list(filtered = filtered(), filtered_corrected = filtered_corrected(), corrected = corrected()), input$met_col)
     }, res = 120)
     
     #-- Download all figures as zip folder.
@@ -113,7 +113,17 @@ mod_visualize_server <- function(id, filtered, filtered_corrected, transformed, 
         paste0("figures_", Sys.Date(), ".zip")
       },
       content = function(file) {
-        figs <- figure_folder_download(input, rv)
+        choices <- list(rsd_cal = input$rsd_cal,
+                        rsd_compare = input$rsd_compare,
+                        pca_compare = input$pca_compare,
+                        color_col = input$color_col, 
+                        fig_format = input$fig_format)
+        data <- list(filtered = filtered(), 
+                     imputed = imputed(), 
+                     corrected = corrected(), 
+                     filtered_corrected = filtered_corrected(), 
+                     transformed = transformed())
+        figs <- figure_folder_download(input = choices, rv = data)
         
         zipfile <- tempfile(fileext = ".zip")
         old_wd <- setwd(figs$tmp_dir)
