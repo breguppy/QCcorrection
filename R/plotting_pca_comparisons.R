@@ -1,14 +1,14 @@
 # plotting PCA:
 
 # PCA plots coloring by color_col
-plot_pca <- function(input, before, after, compared_to) {
+plot_pca <- function(p, before, after, compared_to) {
   # Get overlapping metabolite columns
   meta_cols <- c("sample", "batch", "class", "order")
   metab_cols <- intersect(setdiff(names(before$df), meta_cols), setdiff(names(after$df), meta_cols))
   
   # impute missing values in PCA if there are any
   if (any(is.na(after$df[metab_cols]))) {
-    results <- impute_missing(after$df, metab_cols, input$qcImputeM, input$samImputeM)
+    results <- impute_missing(after$df, metab_cols, p$qcImputeM, p$samImputeM)
     after <- results$df
   } else {
     after <- after$df
@@ -87,14 +87,14 @@ plot_pca <- function(input, before, after, compared_to) {
     "#225555"
   )
   
-  color_levels <- sort(unique(c(before_pca_df[[input$color_col]], after_pca_df[[input$color_col]])))
+  color_levels <- sort(unique(c(before_pca_df[[p$color_col]], after_pca_df[[p$color_col]])))
   if (length(color_levels) > length(cbPalette)) {
     stop("Not enough colors in cbPalette for the number of groups in color_col.")
   }
   color_values <- setNames(cbPalette[seq_along(color_levels)], color_levels)
-  combined[[input$color_col]] <- factor(combined[[input$color_col]], levels = color_levels)
-  before_pca_df[[input$color_col]] <- factor(before_pca_df[[input$color_col]], levels = color_levels)
-  after_pca_df [[input$color_col]] <- factor(after_pca_df [[input$color_col]], levels = color_levels)
+  combined[[p$color_col]] <- factor(combined[[p$color_col]], levels = color_levels)
+  before_pca_df[[p$color_col]] <- factor(before_pca_df[[p$color_col]], levels = color_levels)
+  after_pca_df [[p$color_col]] <- factor(after_pca_df [[p$color_col]], levels = color_levels)
   
   
   # Theme with larger fonts
@@ -107,7 +107,7 @@ plot_pca <- function(input, before, after, compared_to) {
       legend.text = element_text(size = 12)
     )
   
-  p1 <- ggplot(before_pca_df, aes(x = PC1, y = PC2, color = .data[[input$color_col]])) +
+  p1 <- ggplot(before_pca_df, aes(x = PC1, y = PC2, color = .data[[p$color_col]])) +
     geom_point(size = 2, alpha = 0.8) +
     labs(
       title = "Before",
@@ -117,7 +117,7 @@ plot_pca <- function(input, before, after, compared_to) {
     xlim(x_limits) + ylim(y_limits) +
     scale_color_manual(
       values = color_values,
-      name = input$color_col,
+      name = p$color_col,
       drop = FALSE,
       na.translate = FALSE
     ) +
@@ -133,7 +133,7 @@ plot_pca <- function(input, before, after, compared_to) {
     )
   
   # Corrected plot with no legend
-  p2 <- ggplot(after_pca_df, aes(x = PC1, y = PC2, color = .data[[input$color_col]])) +
+  p2 <- ggplot(after_pca_df, aes(x = PC1, y = PC2, color = .data[[p$color_col]])) +
     geom_point(size = 2, alpha = 0.8) +
     labs(
       title = "After",
@@ -155,11 +155,11 @@ plot_pca <- function(input, before, after, compared_to) {
       plot.margin = ggplot2::margin(10, 5, 10, 5)
     )
   
-  p_leg <- ggplot(before_pca_df, aes(PC1, PC2, color = .data[[input$color_col]])) +
+  p_leg <- ggplot(before_pca_df, aes(PC1, PC2, color = .data[[p$color_col]])) +
     geom_point(size = 2) +
     scale_color_manual(
       values = color_values,
-      name = input$color_col,
+      name = p$color_col,
       drop = FALSE,
       na.translate = FALSE
     ) +
