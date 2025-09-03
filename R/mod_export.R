@@ -43,7 +43,7 @@ mod_export_server <- function(id, data, params) {
     output$download_all_ui <- renderUI({
       req(d()$transformed)
       downloadButton(
-        outputId = "download_all_zip",
+        outputId = ns("download_all_zip"),
         label = "Download All",
         class = "btn-primary btn-lg"
       )
@@ -58,7 +58,7 @@ mod_export_server <- function(id, data, params) {
         base_dir <- tempfile("bundle_")
         dir.create(base_dir)
         
-        # 1. create and save corrected data file
+        # create and save corrected data file
         cor_data_filename <- paste0("corrected_data_", Sys.Date(), ".xlsx")
         cor_data_path <- file.path(base_dir, cor_data_filename)
         wb <- corrected_file_download(p(), d())
@@ -77,14 +77,14 @@ mod_export_server <- function(id, data, params) {
         
         # create subdirectories (skip ".")
         dirs <- unique(dirname(targets))
-        dirs <- dirs[dirs != "."]               # remove invalid path
+        dirs <- dirs[dirs != "."]   
         for (dir in dirs) dir.create(dir, recursive = TRUE, showWarnings = FALSE)
         
-        # copy files into same relative structure
+        # copy files into same structure
         file.copy(from = files, to = targets, overwrite = TRUE)
         
         # 3. make pdf report
-        generate_cor_report(input, rv, base_dir)
+        generate_cor_report(p(), d(), base_dir)
         
         # make zip file
         zipfile <- tempfile(fileext = ".zip")

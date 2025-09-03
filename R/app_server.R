@@ -16,7 +16,7 @@ app_server <- function(input, output, session) {
                                 data   = base_data,
                                 params = import$params)
   
-  base_params <- reactive( merge_params(import$params(), correct$params()) )
+  base_params <- reactive( merge_lists(import$params(), correct$params()) )
   combined_data <- reactive({
      merge_lists(
        base_data(),
@@ -33,7 +33,7 @@ app_server <- function(input, output, session) {
                                data   = combined_data,
                                params = base_params)
    
-  combined_params <- reactive( merge_params(base_params(), viz$params()) )
+  combined_params <- reactive( merge_lists(base_params(), viz$params()) )
  
   mod_export_server("export",
                    data   = combined_data,

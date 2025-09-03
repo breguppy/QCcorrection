@@ -148,6 +148,7 @@ mod_import_server <- function(id) {
         sample_col = sel$sample, batch_col = sel$batch,
         class_col  = sel$class,  order_col = sel$order,
         withheld_cols = withheld_r(),
+        n_withheld = input$n_withheld %||% 0,
         Frule = input$Frule
       )
     })

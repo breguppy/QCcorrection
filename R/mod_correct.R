@@ -316,6 +316,7 @@ mod_correct_server <- function(id, data, params) {
     
     correct_params <- reactive(list(
       remove_imputed     = isTRUE(input$remove_imputed),
+      post_cor_filter    = input$post_cor_filter,
       rsd_cutoff         = filtered_corrected_r()$rsd_cutoff,
       transform          = input$transform,
       ex_ISTD            = isTRUE(input$ex_ISTD),
