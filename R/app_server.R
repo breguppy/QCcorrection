@@ -1,4 +1,5 @@
-# app_server.R
+#' app_server.R
+#' @export
 
 app_server <- function(input, output, session) {
   session$onSessionEnded(function() { stopApp() })

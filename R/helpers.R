@@ -1,9 +1,4 @@
 # Helper function for app.R
-library(shiny)
-library(bslib)
-library(dplyr)
-library(shinycssloaders)
-library(purrr)
 
 #–– UI snippets ––#
 # Non-metabolite column selection for meta data.

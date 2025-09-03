@@ -1,6 +1,4 @@
 # mod_import.R
-source("R/helpers.R")
-source("R/processing_helpers.R")
 
 mod_import_ui <- function(id) {
   ns <- NS(id)

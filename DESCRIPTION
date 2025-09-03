@@ -1,0 +1,34 @@
+Package: QCcorrection
+Title: Shiny app for QC correction of metabolomics data
+Version: 0.0.0.9000
+Authors@R: 
+    person("Breanna", "Guppy", , "breanna-guppy@uiowa.edu", role = c("aut", "cre"))
+Description: Shiny app for QC correction of metabolomics data
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: false
+Depends: R (>= 4.3)
+Imports:
+    shiny,
+    bslib,
+    shinyjs,
+    shinyBS,
+    shinycssloaders,
+    dplyr,
+    tidyr,
+    purrr,
+    ggplot2,
+    ggtext,
+    cowplot,
+    readxl,
+    openxlsx,
+    tools
+Suggests:
+    BiocStyle,
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+biocViews: Software, ShinyApps, MassSpectrometry, Metabolomics, QualityControl
+Config/testthat/edition: 3
+RoxygenNote: 7.3.2

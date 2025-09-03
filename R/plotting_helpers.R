@@ -1,9 +1,4 @@
 # plotting helpers
-source("R/processing_helpers.R")
-source("R/met_scatter_loess.R")
-source("R/met_scatter_rf.R")
-source("R/plotting_rsd_comparisons.R")
-source("R/plotting_pca_comparisons.R")
 
 # Helper for creating metabolite scatter plot
 make_met_scatter <- function(d, met_col) {

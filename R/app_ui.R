@@ -1,4 +1,5 @@
-#app_ui.R
+#' app_ui.R
+#' @export
 
 app_ui <- function() {
   fluidPage(
