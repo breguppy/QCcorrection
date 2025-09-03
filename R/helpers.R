@@ -7,49 +7,25 @@ library(purrr)
 
 #–– UI snippets ––#
 # Non-metabolite column selection for meta data.
-nonMetColSelectionUI <- function(cols) {
+nonMetColSelectionUI <- function(cols, ns = identity) {
   dropdown_choices <- c("Select a column..." = "", cols)
   
   tagList(
     tooltip(
-      selectInput(
-        "sample_col",
-        "sample column",
-        choices = dropdown_choices,
-        selected = ""
-      ),
-      "Column that contains unique sample names.",
-      placement = "right"
+      selectInput(ns("sample_col"), "sample column", dropdown_choices, ""),
+      "Column that contains unique sample names.", "right"
     ),
     tooltip(
-      selectInput(
-        "batch_col",
-        "batch column",
-        choices = dropdown_choices,
-        selected = ""
-      ),
-      "Column that contains batch information.",
-      placement = "right"
+      selectInput(ns("batch_col"), "batch column", dropdown_choices, ""),
+      "Column that contains batch information.", "right"
     ),
     tooltip(
-      selectInput(
-        "class_col",
-        "class column",
-        choices = dropdown_choices,
-        selected = ""
-      ),
-      "Column that indicates the type of sample. Must contain QC samples labeled as 'NA', 'QC', 'Qc', or 'qc'.",
-      placement = "right"
+      selectInput(ns("class_col"), "class column", dropdown_choices, ""),
+      "Column that indicates the type of sample. Must contain QC samples labeled as 'NA', 'QC', 'Qc', or 'qc'.", "right"
     ),
     tooltip(
-      selectInput(
-        "order_col",
-        "order column",
-        choices = dropdown_choices,
-        selected = ""
-      ),
-      "Column that indicates injection order.",
-      placement = "right"
+      selectInput(ns("order_col"), "injection order column", dropdown_choices, ""),
+      "Column that indicates injection order.", "right"
     )
   )
 }
@@ -232,15 +208,12 @@ qcMissingValueWarning <- function(df) {
 }
 
 # Impute missing QC value options for section 2.1 Choose Correction settings
-qcImputeUI <- function(df, metab_cols) {
+qcImputeUI <- function(df, metab_cols, ns = identity) {
   qc_df <- df %>% filter(df$class == "QC")
   has_qc_na <- any(is.na(qc_df[, metab_cols]))
   
   if (has_qc_na) {
-    radioButtons(
-      inputId = "qcImputeM",
-      label = "QC Imputation Method",
-      choices = list(
+    radioButtons(ns("qcImputeM"), "QC Imputation Method", list(
         "metabolite median" = "median",
         "metabolite mean" = "mean",
         "QC-metabolite median" = "class_median",
@@ -250,8 +223,7 @@ qcImputeUI <- function(df, metab_cols) {
         "KNN" = "KNN",
         "zero" = "zero"
       ),
-      selected = "median",
-      inline = FALSE
+      "median", FALSE
     )
   } else {
     tags$div(icon("check-circle", class = "text-success"),
@@ -260,7 +232,7 @@ qcImputeUI <- function(df, metab_cols) {
 }
 
 # Impute missing sample value options for section 2.1 Choose Correction settings
-sampleImputeUI <- function(df, metab_cols) {
+sampleImputeUI <- function(df, metab_cols, ns =identity) {
   sam_df <- df %>% filter(df$class != "QC")
   has_sam_na <- any(is.na(sam_df[, metab_cols]))
   num_classes <- length(unique(sam_df$class))
@@ -268,7 +240,7 @@ sampleImputeUI <- function(df, metab_cols) {
   if (has_sam_na) {
     if (num_classes > 1){
       radioButtons(
-      inputId = "samImputeM",
+      inputId = ns("samImputeM"),
       label = "Sample Imputation Method",
       choices = list(
         "metabolite median" = "median",
@@ -285,7 +257,7 @@ sampleImputeUI <- function(df, metab_cols) {
       )
     } else {
       radioButtons(
-        inputId = "samImputeM",
+        inputId = ns("samImputeM"),
         label = "Sample Imputation Method",
         choices = list(
           "metabolite median" = "median",
@@ -306,7 +278,7 @@ sampleImputeUI <- function(df, metab_cols) {
 }
 
 # Correction method selection options for section 2.1 Choose Correction settings
-correctionMethodUI <- function(df) {
+correctionMethodUI <- function(df, ns = identity) {
   qc_per_batch <- df %>%
     group_by(batch) %>%
     summarise(qc_in_batch = sum(class == "QC"), .groups = "drop")
@@ -315,7 +287,7 @@ correctionMethodUI <- function(df) {
   if (num_batches == 1) {
     if (any(qc_per_batch$qc_in_batch <= 5)) {
       radioButtons(
-        inputId = "corMethod",
+        inputId = ns("corMethod"),
         label = "Method",
         choices = list(
           "Local Polynomial Fit (LOESS)" = "LOESS"
@@ -324,7 +296,7 @@ correctionMethodUI <- function(df) {
       )
     } else {
       radioButtons(
-        inputId = "corMethod",
+        inputId = ns("corMethod"),
         label = "Method",
         choices = list(
           "Random Forest" = "RF",
@@ -336,7 +308,7 @@ correctionMethodUI <- function(df) {
   } else {
     if (any(qc_per_batch$qc_in_batch < 5)) {
     radioButtons(
-      inputId = "corMethod",
+      inputId = ns("corMethod"),
       label = "Method",
       choices = list(
         "Random Forest" = "RF",
@@ -346,7 +318,7 @@ correctionMethodUI <- function(df) {
     )
   } else {
     radioButtons(
-      inputId = "corMethod",
+      inputId = ns("corMethod"),
       label = "Method",
       choices = list(
         "Random Forest" = "RF",
@@ -461,3 +433,14 @@ postCorFilterInfoUI <- function(filtered_corrected_result, rsd_filter, post_cor_
   }
   do.call(tagList, ui)
 }
+
+merge_lists <- function(...) {
+  Reduce(function(a, b) modifyList(a, b, keep.null = TRUE),
+         Filter(Negate(is.null), list(...)), init = list())
+}
+
+get_or_null <- function(r) {
+  if (is.null(r)) return(NULL)
+  tryCatch(r(), error = function(e) NULL)
+}
+

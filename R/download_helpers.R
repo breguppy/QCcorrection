@@ -3,7 +3,7 @@ library(openxlsx)
 
 
 #-- Downloads corrected data file.
-corrected_file_download <- function(input, rv) {
+corrected_file_download <- function(p, d) {
   # Create a new workbook
   wb <- createWorkbook()
   # make column names bold
@@ -18,7 +18,7 @@ corrected_file_download <- function(input, rv) {
   writeData(
     wb,
     sheet = "0. Raw Data",
-    x = rv$filtered$df,
+    x = d$filtered$df,
     startRow = 3,
     headerStyle = bold_style
   )
@@ -67,20 +67,20 @@ corrected_file_download <- function(input, rv) {
       "Keep Corrected QCs"
     ),
     Values = c(
-      input$sample_col,
-      input$batch_col,
-      input$class_col,
-      input$order_col,
-      paste0(rv$filtered$Frule, "%"),
+      p$sample_col,
+      p$batch_col,
+      p$class_col,
+      p$order_col,
+      paste0(d$filtered$Frule, "%"),
       
-      rv$imputed$qc_str,
-      rv$imputed$sam_str,
-      rv$corrected$str,
-      input$remove_imputed,
-      paste0(rv$filtered_corrected$rsd_cutoff, "%"),
-      input$transform,
-      input$ex_ISTD,
-      input$keep_corrected_qcs
+      d$imputed$qc_str,
+      d$imputed$sam_str,
+      d$corrected$str,
+      p$remove_imputed,
+      paste0(d$filtered_corrected$rsd_cutoff, "%"),
+      p$transform,
+      p$ex_ISTD,
+      p$keep_corrected_qcs
     ),
     stringsAsFactors = FALSE
   )
@@ -122,9 +122,9 @@ corrected_file_download <- function(input, rv) {
   )
   # Append withheld from correction columns
   current_col <- 4
-  if (isTRUE(input$withhold_cols) && !is.null(input$n_withhold)) {
+  if (isTRUE(p$withhold_cols) && !is.null(p$n_withhold)) {
     withheld_df <- data.frame(
-      Columns_Withheld_From_Correction =rv$cleaned$withheld_cols,
+      Columns_Withheld_From_Correction =d$cleaned$withheld_cols,
       stringsAsFactors = FALSE
     )
     writeData(
@@ -147,9 +147,9 @@ corrected_file_download <- function(input, rv) {
     current_col <- current_col + 2
   }
   # Append Missing Value Filtered Metabolites
-  if (length(rv$filtered$mv_removed_cols) > 0) {
+  if (length(d$filtered$mv_removed_cols) > 0) {
     mv_df <- data.frame(
-      Missing_Value_Filtered_Metabolites = rv$filtered$mv_removed_cols,
+      Missing_Value_Filtered_Metabolites = d$filtered$mv_removed_cols,
       stringsAsFactors = FALSE
     )
     writeData(
@@ -172,9 +172,9 @@ corrected_file_download <- function(input, rv) {
     current_col <- current_col + 2
   }
   # Append QC RSD Filtered Metabolites
-  if (length(rv$filtered_corrected$removed_metabolites) > 0) {
+  if (length(d$filtered_corrected$removed_metabolites) > 0) {
     rsd_df <- data.frame(
-      QC_RSD_Filtered_Metabolites = rv$filtered_corrected$removed_metabolites,
+      QC_RSD_Filtered_Metabolites = d$filtered_corrected$removed_metabolites,
       stringsAsFactors = FALSE
     )
     writeData(
@@ -196,9 +196,9 @@ corrected_file_download <- function(input, rv) {
     current_col <- current_col + 2
   }
   # Append withheld from transformation columns
-  if (length(rv$transformed$withheld_cols) > 0) {
+  if (length(d$transformed$withheld_cols) > 0) {
     ex_trn <- data.frame(
-      Exculded_From_Normalization = rv$transformed$withheld_cols,
+      Exculded_From_Normalization = d$transformed$withheld_cols,
       stringsAsFactors = FALSE
     )
     writeData(
@@ -229,19 +229,19 @@ corrected_file_download <- function(input, rv) {
                widths = max_width_vec)
   
   # Add 2. Drift Normalized tab
-  corrected_df <- rv$filtered_corrected$df
+  corrected_df <- d$filtered_corrected$df
   tab2_description <- paste(
     "Tab 2. This tab shows instrument drift corrected values for metabolite levels in experimental samples. Data is corrected using",
-    rv$corrected$str,
+    d$corrected$str,
     "FOr each metabolite, this method",
-    rv$corrected$parameters,
+    d$corrected$parameters,
     "This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
     "This corrects for normal instrument drift during the run.",
     "It produces relative metabolite level values in arbitrary units.",
     "For a given metabolite across the entire run, these values average close to 1 for most metabolites.",
     "These data are further normalized on the next tab."
   )
-  if (!input$keep_corrected_qcs) {
+  if (!p$keep_corrected_qcs) {
     corrected_df <- corrected_df[corrected_df$class != "QC", ]
   }
   addWorksheet(wb, "2. Drift Normalized")
@@ -277,9 +277,9 @@ corrected_file_download <- function(input, rv) {
   )
   
   # Add Scaled or Normalized
-  transformed_df <- rv$transformed$df
-  keep_cols <- setdiff(names(transformed_df), rv$transformed$withheld_cols)
-  if (!input$keep_corrected_qcs) {
+  transformed_df <- d$transformed$df
+  keep_cols <- setdiff(names(transformed_df), d$transformed$withheld_cols)
+  if (!p$keep_corrected_qcs) {
     transformed_df <- transformed_df[transformed_df$class != "QC", keep_cols]
   } else {
     transformed_df <- transformed_df[, keep_cols]
@@ -296,9 +296,9 @@ corrected_file_download <- function(input, rv) {
   )
   Log2_description <- "Tab 3. This tab shows the log 2 transformed metabolite level values."
   none_description <- "Tab 3. No scaling or normalization method has been applied to the data."
-  if (input$transform == "TRN") {
+  if (p$transform == "TRN") {
     tab3_description <- TRN_description
-  } else if (input$transform == "log2") {
+  } else if (p$transform == "log2") {
     tab3_description <- Log2_description
   } else {
     tab3_description <- none_description
@@ -392,14 +392,14 @@ corrected_file_download <- function(input, rv) {
   }
   
   # Add. 5. Grouped Data Fold Change (If control group exists)
-  if (input$no_control == "FALSE" && input$control_class != "") {
-    control_stats <- grouped_data$group_stats_dfs[[input$control_class]]
+  if (p$no_control == "FALSE" && p$control_class != "") {
+    control_stats <- grouped_data$group_stats_dfs[[p$control_class]]
     fold_change <- fold_changes(transformed_df, control_stats[1, ])
     group_fc_data <- group_stats(fold_change)
     addWorksheet(wb, "5. Grouped Data Fold Change")
     tab5_description <- paste(
       "Tab 5. This tab shows post-ratiometrically normalized metabolite level values expressed in terms of fold change relative to the",
-      input$control_class,
+      p$control_class,
       "group mean.",
       "These values have been sorted by group, with group means, standard errors (SE), and coefficients of variation (CV) shown.",
       "Because the Metabolomics Core does not perform formal statistical analysis, these statistical analyses are shown for your convenience and quick appraisal of the data.",
@@ -482,10 +482,8 @@ corrected_file_download <- function(input, rv) {
   return(wb)
 }
 
-
-# TODO: Update this function to use the make_*_plots functions.
 #-- Download figure zip
-figure_folder_download <- function(input, rv) {
+figure_folder_download <- function(p, d) {
   # create temp folder for figures
   tmp_dir <- tempdir()
   fig_dir <- file.path(tmp_dir, "figures")
@@ -512,10 +510,10 @@ figure_folder_download <- function(input, rv) {
   dir.create(met_fig_dir)
   
   
-  rsd_fig <- make_rsd_plot(input, rv)
+  rsd_fig <- make_rsd_plot(p, d)
   rsd_path <- file.path(rsd_fig_dir,
-                        paste0("rsd_comparison_", input$rsd_cal, ".", input$fig_format))
-  if (input$fig_format == "png") {
+                        paste0("rsd_comparison_", p$rsd_cal, ".", p$fig_format))
+  if (p$fig_format == "png") {
     ggsave(
       rsd_path,
       plot = rsd_fig,
@@ -525,7 +523,7 @@ figure_folder_download <- function(input, rv) {
       dpi = 300,
       bg = "white"
     )
-  } else if (input$fig_format == "pdf") {
+  } else if (p$fig_format == "pdf") {
     ggsave(rsd_path,
            plot = rsd_fig,
            width = 7.5,
@@ -534,10 +532,10 @@ figure_folder_download <- function(input, rv) {
            device = grDevices::cairo_pdf)
   }
   
-  pca_fig <- make_pca_plot(input, rv)
+  pca_fig <- make_pca_plot(p, d)
   pca_path <- file.path(pca_fig_dir,
-                        paste0("pca_comparison_", input$color_col, ".", input$fig_format))
-  if (input$fig_format == "png") {
+                        paste0("pca_comparison_", p$color_col, ".", p$fig_format))
+  if (p$fig_format == "png") {
     ggsave(
       pca_path,
       plot = pca_fig,
@@ -547,7 +545,7 @@ figure_folder_download <- function(input, rv) {
       dpi = 300,
       bg = "white"
     )
-  } else if (input$fig_format == "pdf") {
+  } else if (p$fig_format == "pdf") {
     ggsave(pca_path,
            plot = pca_fig,
            width = 8.333,
@@ -557,18 +555,18 @@ figure_folder_download <- function(input, rv) {
   }
   
   # Create metabolite scatter plots
-  raw_cols <- setdiff(names(rv$filtered$df), c("sample", "batch", "class", "order"))
-  cor_cols <- setdiff(names(rv$filtered_corrected$df),
+  raw_cols <- setdiff(names(d$filtered$df), c("sample", "batch", "class", "order"))
+  cor_cols <- setdiff(names(d$filtered_corrected$df),
                       c("sample", "batch", "class", "order"))
   cols <- intersect(raw_cols, cor_cols)
   n <- length(cols)
   withProgress(message = "Creating figures...", value = 0, {
     for (i in seq_along(cols)) {
       metab <- cols[i]
-      fig <- make_met_scatter(rv, metab)
+      fig <- make_met_scatter(d, metab)
       metab <- sanitize_figname(metab)
-      path <- file.path(met_fig_dir, paste0(metab, ".", input$fig_format))
-      if (input$fig_format == "png") {
+      path <- file.path(met_fig_dir, paste0(metab, ".", p$fig_format))
+      if (p$fig_format == "png") {
         ggsave(
           path,
           plot = fig,
@@ -577,7 +575,7 @@ figure_folder_download <- function(input, rv) {
           units = "in",
           dpi = 300
         )
-      } else if (input$fig_format == "pdf") {
+      } else if (p$fig_format == "pdf") {
         ggsave(path,
                plot = fig,
                width = 5,

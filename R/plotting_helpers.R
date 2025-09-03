@@ -6,14 +6,14 @@ source("R/plotting_rsd_comparisons.R")
 source("R/plotting_pca_comparisons.R")
 
 # Helper for creating metabolite scatter plot
-make_met_scatter <- function(rv, met_col) {
+make_met_scatter <- function(d, met_col) {
   # choose the correct plotting function based on the correction method.
-  cor_method <- rv$corrected$str
+  cor_method <- d$corrected$str
   tryCatch({
     if (cor_method %in% c("Random Forest","Batchwise Random Forest")) {
-      met_scatter_rf(rv$filtered$df, rv$filtered_corrected$df, i = met_col)
+      met_scatter_rf(d$filtered$df, d$filtered_corrected$df, i = met_col)
     } else if (cor_method %in% c("LOESS","Batchwise LOESS")) {
-      met_scatter_loess(rv$filtered$df, rv$filtered_corrected$df, i = met_col)
+      met_scatter_loess(d$filtered$df, d$filtered_corrected$df, i = met_col)
     } else {
       ggplot2::ggplot() + ggplot2::labs(title = "No correction method selected.")
     }
@@ -25,15 +25,15 @@ make_met_scatter <- function(rv, met_col) {
 }
 
 # Helper for creating the RSD plot
-make_rsd_plot <- function(input, rv) {
+make_rsd_plot <- function(p, d) {
   
-  df_before <- rv$filtered$df
+  df_before <- d$filtered$df
   # Determine df_after based on rsd_compare selected by user.
-  if (input$rsd_compare == "filtered_cor_data"){
-    df_after <- rv$filtered_corrected$df
+  if (p$rsd_compare == "filtered_cor_data"){
+    df_after <- d$filtered_corrected$df
     compared_to <- "Correction"
   } else {
-    df_after <- rv$transformed$df
+    df_after <- d$transformed$df
     compared_to <- "Correction and Transformation"
   }
   
@@ -44,7 +44,7 @@ make_rsd_plot <- function(input, rv) {
   )
   
   tryCatch({
-    if (identical(input$rsd_cal, "met")) {
+    if (identical(p$rsd_cal, "met")) {
       plot_rsd_comparison(df_before, df_after, compared_to)
     } else {
       plot_rsd_comparison_class_met(df_before, df_after, compared_to)
@@ -57,15 +57,15 @@ make_rsd_plot <- function(input, rv) {
 }
 
 # Helper for creating the PCA plot
-make_pca_plot <- function(input, rv) {
+make_pca_plot <- function(p, d) {
   # get after based on pca_compare selected by user.
-  if (input$pca_compare == "filtered_cor_data"){
-    df <- rv$filtered_corrected$df
-    after <- rv$filtered_corrected
+  if (p$pca_compare == "filtered_cor_data"){
+    df <- d$filtered_corrected$df
+    after <- d$filtered_corrected
     compared_to <- "Correction"
   } else {
-    df <- rv$transformed$df
-    after <- rv$transformed
+    df <- d$transformed$df
+    after <- d$transformed
     compared_to <- "Correction and Transformation"
   }
   mets <- setdiff(names(df), c("sample","batch","class","order"))
@@ -85,9 +85,9 @@ make_pca_plot <- function(input, rv) {
   validate(need(any(keep), "All metabolite columns are constant/invalid after filtering."))
   
   # before data cannot have any missing values.
-  before <- rv$imputed
+  before <- d$imputed
   tryCatch({
-    plot_pca(input, before, after, compared_to)
+    plot_pca(p, before, after, compared_to)
   }, error = function(e) {
     showNotification(paste("PCA failed:", e$message),
                      type = "error", duration = 8)

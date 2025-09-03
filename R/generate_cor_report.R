@@ -2,18 +2,18 @@
 source("R/processing_helpers.R")
 source("R/plotting_helpers.R")
 
-generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
+generate_cor_report <- function(p, d, out_dir, template = "report.Rmd") {
   if (!dir.exists(out_dir)) dir.create(out_dir, recursive = TRUE)
   out_pdf <- file.path(out_dir, "correction_report.pdf")
   env <- new.env(parent = globalenv())
   
   # create plots
   # get 2 columns for met scatter plots
-  if (input$rsd_cal == "met") {
-    top2 <- metabolite_rsd(rv$filtered$df)  %>%
+  if (p$rsd_cal == "met") {
+    top2 <- metabolite_rsd(d$filtered$df)  %>%
     select(Metabolite, RSD_NonQC_before = RSD_NonQC) %>%
     inner_join(
-      metabolite_rsd(rv$filtered_corrected$df) %>%
+      metabolite_rsd(d$filtered_corrected$df) %>%
         select(Metabolite, RSD_NonQC_after = RSD_NonQC),
       by = "Metabolite"
     ) %>%
@@ -23,10 +23,10 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
     slice_head(n = 2) %>%
     pull(Metabolite)
     
-    increased_qc <- metabolite_rsd(rv$filtered$df) %>%
+    increased_qc <- metabolite_rsd(d$filtered$df) %>%
       select(Metabolite, RSD_QC_before = RSD_QC) %>%
       inner_join(
-        metabolite_rsd(rv$filtered_corrected$df) %>%
+        metabolite_rsd(d$filtered_corrected$df) %>%
           select(Metabolite, RSD_QC_after = RSD_QC),
         by = "Metabolite"
       ) %>%
@@ -34,11 +34,11 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
       arrange(desc(RSD_QC_after - RSD_QC_before)) %>%
       pull(Metabolite)
   } else {
-    top2 <- class_metabolite_rsd(rv$filtered$df) %>%
+    top2 <- class_metabolite_rsd(d$filtered$df) %>%
       filter(class != "QC") %>%
       select(Metabolite, RSD_before = RSD) %>%
       inner_join(
-        class_metabolite_rsd(rv$filtered_corrected$df) %>%
+        class_metabolite_rsd(d$filtered_corrected$df) %>%
           filter(class != "QC") %>%
           select(Metabolite, RSD_after = RSD),
         by = "Metabolite"
@@ -50,11 +50,11 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
       slice_head(n = 2) %>%
       pull(Metabolite)
     
-    increased_qc <- class_metabolite_rsd(rv$filtered$df) %>%
+    increased_qc <- class_metabolite_rsd(d$filtered$df) %>%
       filter(class == "QC") %>%
       select(Metabolite, RSD_before = RSD) %>%
       inner_join(
-        class_metabolite_rsd(rv$filtered_corrected$df) %>%
+        class_metabolite_rsd(d$filtered_corrected$df) %>%
           filter(class == "QC") %>%
           select(Metabolite, RSD_after = RSD),
         by = "Metabolite"
@@ -66,39 +66,19 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
   met1 <- top2[1]
   met2 <- top2[2]
   
-  met1_plot <- make_met_scatter(rv, met1)
-  met2_plot <- make_met_scatter(rv, met2)
-  rsd_plot <- make_rsd_plot(input, rv)
-  pca_plot <- make_pca_plot(input, rv)
+  met1_plot <- make_met_scatter(d, met1)
+  met2_plot <- make_met_scatter(d, met2)
+  rsd_plot <- make_rsd_plot(p, d)
+  pca_plot <- make_pca_plot(p, d)
   
-  params <- list(
-    title   = "QC correction report",
-    notes   = input$notes %||% "",
-    plots = list(
-      "Metabolite Scatter 1" = met1_plot,
-      "Metabolite Scatter 2" = met2_plot,
-      "RSD Comparison"       = rsd_plot,
-      "PCA Comparison"       = pca_plot
-    ),
-    include = NULL
-  )
-  
-  choices <- list(
-    rsd_cal         = input$rsd_cal,
-    color_col       = input$color_col,
-    fig_format      = input$fig_format,
-    correction      = rv$corrected$str,
-    cor_param       = rv$corrected$parameters,
-    transformation  = rv$transformed$str,
-    post_cor_filter = input$post_cor_filter,
-    rsd_filter      = input$rsd_filter,
-    rsd_compare     = input$rsd_compare,
-    raw_df          = rv$cleaned$df,
-    replacement_counts = rv$cleaned$replacement_counts,
-    filtered        = rv$filtered,
-    Frule           = input$Frule,
-    filtered_corrected = rv$filtered_corrected
-    
+  final_data <- list(
+    raw_df             = d$cleaned$df,
+    replacement_counts = d$cleaned$replacement_counts,
+    filtered           = d$filtered,
+    filtered_corrected = d$filtered_corrected,
+    Frule              = p$Frule,
+    post_cor_filter    = p$post_cor_filter,
+    rsd_cutoff         = p$rsd_cutoff
   )
   
   # Get descriptions for plots
@@ -115,13 +95,13 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
         })
       )
       ),
-      if (isTRUE(input$withhold_cols) && !is.null(input$n_withhold)) {
+      if (isTRUE(p$withhold_cols) && !is.null(p$n_withhold)) {
         tagList(
           tags$span(
             style = "font-weight:bold;", "The following columns were withheld from correction:"
           ),
           tags$ul(
-          lapply(rv$cleaned$withheld_cols, function(name) {
+          lapply(d$cleaned$withheld_cols, function(name) {
             tags$li(name)
           })
           )
@@ -130,33 +110,33 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
     ),
     "Imputation Description" = sprintf(
       "%s%s%s",
-      if (rv$imputed$qc_str != "nothing to impute") {
-        sprintf("Missing QC values are imputed with %s.<br/>", rv$imputed$qc_str)
+      if (d$imputed$qc_str != "nothing to impute") {
+        sprintf("Missing QC values are imputed with %s.<br/>", d$imputed$qc_str)
       } else { "No missing QC values.<br/>"},
-      if (rv$imputed$sam_str != "nothing to impute") {
-        sprintf("Missing QC values are imputed with %s.", rv$imputed$sam_str)
+      if (d$imputed$sam_str != "nothing to impute") {
+        sprintf("Missing QC values are imputed with %s.", d$imputed$sam_str)
       } else { "No missing sample values."},
-      if (rv$imputed$qc_str == "nothing to impute" && rv$imputed$sam_str == "nothing to impute") {
+      if (d$imputed$qc_str == "nothing to impute" && d$imputed$sam_str == "nothing to impute") {
         ""
-      } else if (input$remove_imputed == TRUE) {
+      } else if (p$remove_imputed == TRUE) {
           "<br/>Imputed values are removed after correction."
       }
       else {""}
     ),
     "Correction Description" = sprintf(
       "Data was corrected using %s. For each metabolite, this method %s This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
-      choices$correction, choices$cor_param
+      d$corrected$str, d$corrected$parameters
     ),
     "Transformation Description" = sprintf(
       "%s <br/> %s", 
-      choices$transformation,
-      if (!is.null(rv$transformed$withheld_cols)) {
+      d$transformed$str,
+      if (length(d$transformed$withheld_cols) > 0) {
         tagList(
           tags$span(
             style = "font-weight:bold;", "The following columns are withheld from the transformation:"
           ),
           tags$ul(
-            lapply(rv$transformed$withheld_cols, function(name) {
+            lapply(d$transformed$withheld_cols, function(name) {
               tags$li(name)
           })
         )
@@ -165,17 +145,17 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
     ),
     "Metabolite Scatter Plots" = sprintf(
       "These plots show a metabolites before and after signal drift correction before any transformation is applied. The two metabolites shown above have the largest decrease in sample variation. The change in variation was determined by calculating relative standard deviation (RSD) for each metabolite %s %s%s A full explanation of RSD is in the next section.",
-      if (choices$rsd_cal == "class_met") "grouping by sample class." else "",
-      if (isTRUE(!choices$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
-      if (isTRUE(!choices$post_cor_filter)) sprintf("%s%%.", choices$rsd_filter) else ""
+      if (p$rsd_cal == "class_met") "grouping by sample class." else "",
+      if (isTRUE(!p$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
+      if (isTRUE(!p$post_cor_filter)) sprintf("%s%%.", p$rsd_cutoff) else ""
       ),
     "RSD Comparison" = sprintf(
       "In these plots, the green indicates RSD decreased after %s, red indicates RSD increased after %s, and gray indicates no change in RSD. For these figures RSD is calculated for each metabolite %s %s%s <br/> %s ",
-      if (choices$rsd_compare == "filtered_cor_data") "correction" else "correction and transformation",
-      if (choices$rsd_compare == "filtered_cor_data") "correction" else "correction and transformation",
-      if (choices$rsd_cal == "class_met") "grouping by sample class." else "",
-      if (isTRUE(!choices$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
-      if (isTRUE(!choices$post_cor_filter)) sprintf("%s%%.", choices$rsd_filter) else "",
+      if (p$rsd_compare == "filtered_cor_data") "correction" else "correction and transformation",
+      if (p$rsd_compare == "filtered_cor_data") "correction" else "correction and transformation",
+      if (p$rsd_cal == "class_met") "grouping by sample class." else "",
+      if (isTRUE(!p$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
+      if (isTRUE(!p$post_cor_filter)) sprintf("%s%%.", p$rsd_cutoff) else "",
       if (length(increased_qc) > 0) {
         sprintf(
           "<br/>The following metabolites increased QC RSD after correction: <br/> %s <br/> More investiagtion is needed to determine if these metabolites should be excluded from the data.",
@@ -187,14 +167,14 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
     ),
     "PCA Comparison" = sprintf(
       "This PCA plot shows both the raw data and %s data colored by %s.",
-      if (input$pca_compare == "filtered_cor_data") "corrected" else "corrected and transformed",
-      choices$color_col
+      if (p$pca_compare == "filtered_cor_data") "corrected" else "corrected and transformed",
+      p$color_col
     )
   )
   
   params <- list(
     title   = "QC Correction Report",
-    notes   = input$notes %||% "",
+    notes   = p$notes %||% "",
     plots = list(
       "Metabolite Scatter 1" = met1_plot,
       "Metabolite Scatter 2" = met2_plot,
@@ -202,7 +182,7 @@ generate_cor_report <- function(input, rv, out_dir, template = "report.Rmd") {
       "PCA Comparison"       = pca_plot
     ),
     include = NULL,
-    choices = choices,
+    choices = final_data,
     descriptions = descriptions
   )
   
