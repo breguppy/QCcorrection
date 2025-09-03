@@ -71,22 +71,14 @@ generate_cor_report <- function(p, d, out_dir, template = "report.Rmd") {
   rsd_plot <- make_rsd_plot(p, d)
   pca_plot <- make_pca_plot(p, d)
   
-  choices <- list(
-    rsd_cal         = p$rsd_cal,
-    color_col       = p$color_col,
-    fig_format      = p$fig_format,
-    correction      = d$corrected$str,
-    cor_param       = d$corrected$parameters,
-    transformation  = d$transformed$str,
-    post_cor_filter = p$post_cor_filter,
-    rsd_cutoff      = p$rsd_cutoff,
-    rsd_compare     = p$rsd_compare,
-    raw_df          = d$cleaned$df,
+  final_data <- list(
+    raw_df             = d$cleaned$df,
     replacement_counts = d$cleaned$replacement_counts,
-    filtered        = d$filtered,
-    Frule           = p$Frule,
-    filtered_corrected = d$filtered_corrected
-    
+    filtered           = d$filtered,
+    filtered_corrected = d$filtered_corrected,
+    Frule              = p$Frule,
+    post_cor_filter    = p$post_cor_filter,
+    rsd_cutoff         = p$rsd_cutoff
   )
   
   # Get descriptions for plots
@@ -133,11 +125,11 @@ generate_cor_report <- function(p, d, out_dir, template = "report.Rmd") {
     ),
     "Correction Description" = sprintf(
       "Data was corrected using %s. For each metabolite, this method %s This model regresses peak areas in experimental samples, on an individual metabolite basis, against peak areas in pooled quality control samples.",
-      choices$correction, choices$cor_param
+      d$corrected$str, d$corrected$parameters
     ),
     "Transformation Description" = sprintf(
       "%s <br/> %s", 
-      choices$transformation,
+      d$transformed$str,
       if (length(d$transformed$withheld_cols) > 0) {
         tagList(
           tags$span(
@@ -153,17 +145,17 @@ generate_cor_report <- function(p, d, out_dir, template = "report.Rmd") {
     ),
     "Metabolite Scatter Plots" = sprintf(
       "These plots show a metabolites before and after signal drift correction before any transformation is applied. The two metabolites shown above have the largest decrease in sample variation. The change in variation was determined by calculating relative standard deviation (RSD) for each metabolite %s %s%s A full explanation of RSD is in the next section.",
-      if (choices$rsd_cal == "class_met") "grouping by sample class." else "",
-      if (isTRUE(!choices$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
-      if (isTRUE(!choices$post_cor_filter)) sprintf("%s%%.", choices$rsd_cutoff) else ""
+      if (p$rsd_cal == "class_met") "grouping by sample class." else "",
+      if (isTRUE(!p$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
+      if (isTRUE(!p$post_cor_filter)) sprintf("%s%%.", p$rsd_cutoff) else ""
       ),
     "RSD Comparison" = sprintf(
       "In these plots, the green indicates RSD decreased after %s, red indicates RSD increased after %s, and gray indicates no change in RSD. For these figures RSD is calculated for each metabolite %s %s%s <br/> %s ",
-      if (choices$rsd_compare == "filtered_cor_data") "correction" else "correction and transformation",
-      if (choices$rsd_compare == "filtered_cor_data") "correction" else "correction and transformation",
-      if (choices$rsd_cal == "class_met") "grouping by sample class." else "",
-      if (isTRUE(!choices$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
-      if (isTRUE(!choices$post_cor_filter)) sprintf("%s%%.", choices$rsd_cutoff) else "",
+      if (p$rsd_compare == "filtered_cor_data") "correction" else "correction and transformation",
+      if (p$rsd_compare == "filtered_cor_data") "correction" else "correction and transformation",
+      if (p$rsd_cal == "class_met") "grouping by sample class." else "",
+      if (isTRUE(!p$post_cor_filter)) "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above " else "",
+      if (isTRUE(!p$post_cor_filter)) sprintf("%s%%.", p$rsd_cutoff) else "",
       if (length(increased_qc) > 0) {
         sprintf(
           "<br/>The following metabolites increased QC RSD after correction: <br/> %s <br/> More investiagtion is needed to determine if these metabolites should be excluded from the data.",
@@ -176,7 +168,7 @@ generate_cor_report <- function(p, d, out_dir, template = "report.Rmd") {
     "PCA Comparison" = sprintf(
       "This PCA plot shows both the raw data and %s data colored by %s.",
       if (p$pca_compare == "filtered_cor_data") "corrected" else "corrected and transformed",
-      choices$color_col
+      p$color_col
     )
   )
   
@@ -190,7 +182,7 @@ generate_cor_report <- function(p, d, out_dir, template = "report.Rmd") {
       "PCA Comparison"       = pca_plot
     ),
     include = NULL,
-    choices = choices,
+    choices = final_data,
     descriptions = descriptions
   )
   
