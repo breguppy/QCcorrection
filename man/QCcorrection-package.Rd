@@ -4,9 +4,9 @@
 \name{QCcorrection-package}
 \alias{QCcorrection}
 \alias{QCcorrection-package}
-\title{QCcorrection: Shiny app for QC correction of metabolomics data}
+\title{QCcorrection: QC-Based Signal Drift Correction and Visualization for LC–MS Metabolomics}
 \description{
-Shiny app for QC correction of metabolomics data
+Shiny app to clean, correct, visualize, and export LC-MS metabolomics data using QC-based signal drift correction and batch-wise options.
 }
 \author{
 \strong{Maintainer}: Breanna Guppy \email{breanna-guppy@uiowa.edu}

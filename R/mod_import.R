@@ -1,4 +1,4 @@
-# mod_import.R
+#' @keywords internal 
 
 mod_import_ui <- function(id) {
   ns <- NS(id)

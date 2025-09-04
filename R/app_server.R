@@ -1,5 +1,5 @@
-#' app_server.R
-#' @export
+#' @keywords internal
+#' @noRd
 
 app_server <- function(input, output, session) {
   session$onSessionEnded(function() { stopApp() })

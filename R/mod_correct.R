@@ -1,4 +1,4 @@
-# mod_correct.R
+#' @keywords internal
 
 mod_correct_ui <- function(id) { 
   ns <- NS(id); 
@@ -90,7 +90,7 @@ mod_correct_ui <- function(id) {
         uiOutput(ns("control_class_selector"))
       )
     ),
-    column(6, tags$h4("2.5 Download Corrected Data Only"),
+    column(6, shiny::tags$h4("2.5 Download Corrected Data Only"),
            tooltip(
              checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file.", FALSE),
              "Check the box if you want corrected QC values in the downloaded corrected data file.", "right"

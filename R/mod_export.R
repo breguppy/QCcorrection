@@ -1,4 +1,4 @@
-# mod_export.R
+#' @keywords internal
 
 mod_export_ui <- function(id) {
   ns <- NS(id)

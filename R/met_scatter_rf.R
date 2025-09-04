@@ -15,7 +15,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
     s <- sd(qc_vals, na.rm=TRUE)
     tibble::tibble(
       y=c(m+s,m-s,m+2*s,m-2*s),
-      sd=factor(c("±1 SD","±1 SD","±2 SD","±2 SD"), levels=c("±1 SD","±2 SD")),
+      sd=factor(c("\u00B1 1 SD","\u00B1 1 SD","\u00B1 2 SD","\u00B1 2 SD"), levels=c("\u00B1 1 SD","\u00B1 2 SD")),
       panel=factor(panel, levels=c("Raw","Corrected"))
     )
   }
@@ -37,7 +37,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
   color_scale <- ggplot2::scale_color_manual(name="Type:",
                                              values=c(Sample="#F5C710", QC="#305CDE"))
   lty_scale <- ggplot2::scale_linetype_manual(name="SD Range:",
-                                              values=c("±1 SD"="dashed","±2 SD"="solid"),
+                                              values=c("\u00B1 1 SD"="dashed","\u00B1 2 SD"="solid"),
                                               guide=ggplot2::guide_legend(
                                                 override.aes=list(color=c("grey20","#950606"))
                                               ))
@@ -47,10 +47,10 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
                        ggplot2::aes(xmin=xmin,xmax=xmax,ymin=-Inf,ymax=Inf,fill=fill),
                        inherit.aes=FALSE, alpha=0.3, show.legend=FALSE) +
     ggplot2::scale_fill_identity(guide="none") +
-    ggplot2::geom_hline(data=sd_df |> dplyr::filter(sd=="±1 SD"),
+    ggplot2::geom_hline(data=sd_df |> dplyr::filter(sd=="\u00B1 1 SD"),
                         ggplot2::aes(yintercept=y, linetype=sd),
                         color="grey20", linewidth=0.75) +
-    ggplot2::geom_hline(data=sd_df |> dplyr::filter(sd=="±2 SD"),
+    ggplot2::geom_hline(data=sd_df |> dplyr::filter(sd=="\u00B1 2 SD"),
                         ggplot2::aes(yintercept=y, linetype=sd),
                         color="#950606", linewidth=0.75) +
     ggplot2::geom_point(

@@ -1,28 +1,29 @@
 Package: QCcorrection
-Title: Shiny app for QC correction of metabolomics data
+Title: QC-Based Signal Drift Correction and Visualization for LC–MS Metabolomics
 Version: 0.0.0.9000
 Authors@R: 
     person("Breanna", "Guppy", , "breanna-guppy@uiowa.edu", role = c("aut", "cre"))
-Description: Shiny app for QC correction of metabolomics data
+Description: Shiny app to clean, correct, visualize, and export LC-MS metabolomics data using QC-based signal drift correction and batch-wise options.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: false
 Depends: R (>= 4.3)
 Imports:
     shiny,
-    bslib,
+    bslib (>= 0.5.0),
     shinyjs,
     shinyBS,
     shinycssloaders,
     dplyr,
     tidyr,
     purrr,
+    tibble,
     ggplot2,
     ggtext,
-    cowplot,
     readxl,
     openxlsx,
-    tools
+    rlang,
+    magrittr
 Suggests:
     BiocStyle,
     knitr,

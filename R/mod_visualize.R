@@ -1,4 +1,5 @@
-# mod_visualize.R
+#' @keywords internal
+
 
 mod_visualize_ui <- function(id) {
   ns <- NS(id)
@@ -102,13 +103,13 @@ mod_visualize_server <- function(id, data, params) {
       req(progress_reactive() > 0, progress_reactive() <= 1)
       div(
         style = "margin-top: 10px;",
-        tags$label("Progress:"),
-        tags$progress(
+        shiny::tags$label("Progress:"),
+        shiny::tags$progress(
           value = progress_reactive(),
           max = 1,
           style = "width: 100%; height: 20px;"
         ),
-        tags$span(sprintf("%.0f%%", progress_reactive() * 100))
+        shiny::tags$span(sprintf("%.0f%%", progress_reactive() * 100))
       )
     })
     
