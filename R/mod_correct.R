@@ -119,25 +119,25 @@ mod_correct_server <- function(id, data, params) {
     
     output$qc_missing_value_warning <- renderUI({
       df <- filtered_r()$df
-      qcMissingValueWarning(df)
+      ui_qc_missing_warning(df)
     })
     output$qcImpute <- renderUI({
       df <- filtered_r()$df
       mc <- setdiff(names(df), c('sample','batch','class','order'))
-      qcImputeUI(df, mc, ns = session$ns)
+      ui_qc_impute(df, mc, ns = session$ns)
     })
     output$sampleImpute <- renderUI({
       df <- filtered_r()$df
       mc <- setdiff(names(df), c('sample','batch','class','order'))
-      sampleImputeUI(df, mc, ns = session$ns)
+      ui_sample_impute(df, mc, ns = session$ns)
     })
     output$correctionMethod <- renderUI({
-      correctionMethodUI(filtered_r()$df, ns = session$ns)
+      ui_correction_method(filtered_r()$df, ns = session$ns)
     })
     output$unavailable_options <- renderUI({
       df <- filtered_r()$df
       mc <- setdiff(names(df), c('sample','batch','class','order'))
-      unavailableOptionsUI(df, mc)
+      ui_unavailable_options(df, mc)
     })
     
     
@@ -235,7 +235,7 @@ mod_correct_server <- function(id, data, params) {
     
     output$post_cor_filter_info <- renderUI({
       req(filtered_corrected_r())
-      postCorFilterInfoUI(filtered_corrected_r(), input$rsd_filter, input$post_cor_filter)
+      ui_postcor_filter_info(filtered_corrected_r(), input$rsd_filter, input$post_cor_filter)
     })
     output$cor_data <- renderTable({
       req(transformed_r())

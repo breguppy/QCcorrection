@@ -22,6 +22,7 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
     get_batches(data_cor, "Corrected")
   )
   
+  # define colors for sample vs QCs
   color_scale <- ggplot2::scale_color_manual(
     name = "Type:", values = c(Sample = "#F5C710", QC = "#305CDE")
   )
@@ -61,7 +62,7 @@ met_scatter_loess <- function(data_raw, data_cor, i) {
       legend.position = "bottom",
       legend.box        = "horizontal",
       legend.box.just   = "center",
-      legend.key.width  = grid::unit(0.5, "cm"),   # shrink keys
+      legend.key.width  = grid::unit(0.5, "cm"),
       legend.key.height = grid::unit(0.3, "cm"),
       legend.margin     = ggplot2::margin(t = 2, b = 2, l = 2, r = 2),
       legend.box.margin = ggplot2::margin(t = 2, b = 2, l = 2, r = 2),

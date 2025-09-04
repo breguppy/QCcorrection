@@ -34,13 +34,13 @@ library(dplyr)
 
 ### Raw Data Basic Information
 ```{r}
-basicInfoUI(params$choices$raw_df, params$choices$replacement_counts)
+ui_basic_info(params$choices$raw_df, params$choices$replacement_counts)
 statement("Withheld Columns")
 ```
 
 ### Missing Value Filter
 ```{r}
-filterInfoUI(params$choices$filtered$mv_removed_cols, params$choices$Frule)
+ui_filter_info(params$choices$filtered$mv_removed_cols, params$choices$Frule)
 ```
 
 ### Missing Value Imputation
@@ -55,7 +55,7 @@ statement("Correction Description")
 
 ### Post-correction Filter
 ```{r}
-postCorFilterInfoUI(params$choices$filtered_corrected, params$choices$rsd_filter, params$choices$post_cor_filter)
+ui_postcor_filter_info(params$choices$filtered_corrected, params$choices$rsd_filter, params$choices$post_cor_filter)
 ```
 
 ### Transformation Description

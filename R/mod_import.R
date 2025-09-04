@@ -72,11 +72,11 @@ mod_import_server <- function(id) {
     }) %>% debounce(200)
     
     output$column_selectors <- renderUI({
-      req(data_raw()); nonMetColSelectionUI(names(data_raw()), ns = NS(session$ns(NULL)))
+      req(data_raw()); ui_nonmet_cols(names(data_raw()), ns = NS(session$ns(NULL)))
     })
     output$column_warning <- renderUI({
       req(data_raw()); sel <- selections_r()
-      columnWarningUI(data_raw(), c(sel$sample, sel$batch, sel$class, sel$order))
+      ui_column_warning(data_raw(), c(sel$sample, sel$batch, sel$class, sel$order))
     })
     
     withheld_ids_r <- reactive({
@@ -128,7 +128,7 @@ mod_import_server <- function(id) {
     
     output$basic_info <- renderUI({
       cd <- cleaned_r(); req(cd)
-      basicInfoUI(cd$df, cd$replacement_counts)
+      ui_basic_info(cd$df, cd$replacement_counts)
     })
     
     filtered_r <- reactive({
@@ -137,7 +137,7 @@ mod_import_server <- function(id) {
     })
     output$filter_info <- renderUI({
       fd <- filtered_r(); req(fd)
-      filterInfoUI(fd$mv_removed_cols, input$Frule)
+      ui_filter_info(fd$mv_removed_cols, input$Frule)
     })
     
     params_r <- reactive({

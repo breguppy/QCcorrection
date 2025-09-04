@@ -1,9 +1,14 @@
 #' @keywords internal 
 
-#library(randomForest)
-#library(dplyr)
-#library(purrr)
-#library(stats)
+merge_lists <- function(...) {
+  Reduce(function(a, b) modifyList(a, b, keep.null = TRUE),
+         Filter(Negate(is.null), list(...)), init = list())
+}
+
+get_or_null <- function(r) {
+  if (is.null(r)) return(NULL)
+  tryCatch(r(), error = function(e) NULL)
+}
 
 #–– Data cleaning helpers ––#
 read_raw_data <- function(file_path) {
@@ -103,7 +108,6 @@ filter_data <- function(df, metab_cols, Frule) {
     mv_removed_cols = mv_removed_cols
   ))
 }
-
 
 #-- Impute missing values based on user selected imputation method
 impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
