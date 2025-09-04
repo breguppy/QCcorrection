@@ -7,9 +7,9 @@ app_server <- function(input, output, session) {
   import <- mod_import_server("import")
   
   base_data <- reactive({
-    merge_lists(list(
-      cleaned  = get_or_null(import$cleaned),
-      filtered = get_or_null(import$filtered)
+    .merge_lists(list(
+      cleaned  = .get_or_null(import$cleaned),
+      filtered = .get_or_null(import$filtered)
     ))
   })
   
@@ -19,13 +19,13 @@ app_server <- function(input, output, session) {
   
   base_params <- reactive( merge_lists(import$params(), correct$params()) )
   combined_data <- reactive({
-     merge_lists(
+     .merge_lists(
        base_data(),
        list(
-         imputed            = get_or_null(correct$imputed),
-         corrected          = get_or_null(correct$corrected),
-         filtered_corrected = get_or_null(correct$filtered_corrected),
-         transformed        = get_or_null(correct$transformed)
+         imputed            = .get_or_null(correct$imputed),
+         corrected          = .get_or_null(correct$corrected),
+         filtered_corrected = .get_or_null(correct$filtered_corrected),
+         transformed        = .get_or_null(correct$transformed)
        )
      )
    })
@@ -34,7 +34,7 @@ app_server <- function(input, output, session) {
                                data   = combined_data,
                                params = base_params)
    
-  combined_params <- reactive( merge_lists(base_params(), viz$params()) )
+  combined_params <- reactive( .merge_lists(base_params(), viz$params()) )
  
   mod_export_server("export",
                    data   = combined_data,
