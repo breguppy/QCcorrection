@@ -7,6 +7,8 @@
 #' @importFrom magrittr %>%
 #'
 #' @importFrom stats ecdf median prcomp predict sd setNames
+#' @importFrom stats loess predict sd median
+#' @importFrom randomForest randomForest
 #' @importFrom utils modifyList read.csv setTxtProgressBar txtProgressBar zip
 #'
 #' @importFrom shiny NS moduleServer fluidPage titlePanel
@@ -29,7 +31,7 @@
 #'
 #' @importFrom tidyr pivot_longer all_of
 #'
-#' @importFrom tibble tibble
+#' @importFrom tibble tibble as_tibble
 #' 
 #' @importFrom readxl read_excel
 #' 
