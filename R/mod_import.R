@@ -123,7 +123,7 @@ mod_import_server <- function(id) {
       withheld <- withheld_r()
       req(all(nzchar(c(sel$sample, sel$batch, sel$class, sel$order))))
       req(length(unique(c(sel$sample, sel$batch, sel$class, sel$order))) == 4)
-      cleanData(df, sel$sample, sel$batch, sel$class, sel$order, withheld)
+      clean_data(df, sel$sample, sel$batch, sel$class, sel$order, withheld)
     }) %>% bindCache(reactiveVal(NULL)(), selections_r(), withheld_r())
     
     output$basic_info <- renderUI({
@@ -133,7 +133,7 @@ mod_import_server <- function(id) {
     
     filtered_r <- reactive({
       cd <- req(cleaned_r())
-      filter_data(cd$df, setdiff(names(cd$df), c("sample","batch","class","order")), input$Frule)
+      filter_by_missing(cd$df, setdiff(names(cd$df), c("sample","batch","class","order")), input$Frule)
     })
     output$filter_info <- renderUI({
       fd <- filtered_r(); req(fd)

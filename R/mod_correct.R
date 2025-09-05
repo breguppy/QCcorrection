@@ -181,9 +181,9 @@ mod_correct_server <- function(id, data, params) {
       base <- if (isTRUE(input$remove_imputed))
         remove_imputed_from_corrected(filtered_r()$df, df_corrected) else df_corrected
       if (isTRUE(input$post_cor_filter))
-        rsd_filter(base, Inf, c("sample","batch","class","order"))
+        filter_by_qc_rsd(base, Inf, c("sample","batch","class","order"))
       else
-        rsd_filter(base, input$rsd_filter, c("sample","batch","class","order"))
+        filter_by_qc_rsd(base, input$rsd_filter, c("sample","batch","class","order"))
     })
     
     

@@ -1,3 +1,5 @@
+#' Internal helper functions for combining lists
+#'
 #' @keywords internal
 #' @noRd 
 
