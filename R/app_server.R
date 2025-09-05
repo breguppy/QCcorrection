@@ -17,7 +17,7 @@ app_server <- function(input, output, session) {
                                 data   = base_data,
                                 params = import$params)
   
-  base_params <- reactive( merge_lists(import$params(), correct$params()) )
+  base_params <- reactive( .merge_lists(import$params(), correct$params()) )
   combined_data <- reactive({
      .merge_lists(
        base_data(),
