@@ -305,7 +305,7 @@ mod_correct_server <- function(id, data, params) {
           transformed        = tr
         )
         
-        wb <- corrected_file_download(p, rv)
+        wb <- export_xlsx(p, rv)
         openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )

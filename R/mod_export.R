@@ -61,7 +61,7 @@ mod_export_server <- function(id, data, params) {
         # create and save corrected data file
         cor_data_filename <- paste0("corrected_data_", Sys.Date(), ".xlsx")
         cor_data_path <- file.path(base_dir, cor_data_filename)
-        wb <- corrected_file_download(p(), d())
+        wb <- export_xlsx(p(), d())
         saveWorkbook(wb, cor_data_path, overwrite = TRUE)
         
         # 2. create and save figure folder

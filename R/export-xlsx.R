@@ -1,0 +1,358 @@
+#' exports corrected data as excel file
+#'
+#' @keywords internal
+#' @noRd
+export_xlsx <- function(p, d, file = NULL) {
+  .require_pkg("openxlsx", "write Excel workbooks")
+  wb <- openxlsx::createWorkbook()
+  # make column names bold and descriptions with orange backgroud
+  bold  <- openxlsx::createStyle(textDecoration = "Bold")
+  note  <- openxlsx::createStyle(wrapText = TRUE,
+                                 valign = "top",
+                                 fgFill = "#f8cbad")
+  
+  .add_sheet <- function(name) {
+    nm <- gsub("[\\[\\]\\*\\?:/\\\\]", "_", name)
+    nm <- substr(nm, 1L, 31L)
+    openxlsx::addWorksheet(wb, nm)
+    nm
+  }
+  
+  # Sheet 0: Raw Data
+  s0 <- .add_sheet("0. Raw Data")
+  openxlsx::writeData(
+    wb,
+    s0,
+    x = d$filtered$df,
+    startRow = 3,
+    headerStyle = bold
+  )
+  txt0 <- paste(
+    "Tab 0. This tab contains raw peak areas for stable isotope-labeled",
+    "(13C, deuterium) internal standards (pre-fix of 0-ISTD) and detected",
+    "metabolites for both pooled quality control (QC) and experimental samples.",
+    "Data within this tab are formatted for instrument drift correction using the",
+    "multiply analyzed pooled QC sample. Batch, class, and order are identifiers",
+    "for the correction methods, with batch and class set to 1 unless different",
+    "batches or sample classes are being analyzed within the same run.",
+    "The correction settings are shown on the next tab."
+  )
+  openxlsx::writeData(wb,
+                      s0,
+                      x = txt0,
+                      startCol = 1,
+                      startRow = 1)
+  openxlsx::mergeCells(wb, s0, cols = 1:12, rows = 1)
+  openxlsx::addStyle(
+    wb,
+    s0,
+    style = note,
+    rows = 1,
+    cols = 1,
+    gridExpand = TRUE
+  )
+  openxlsx::setRowHeights(wb, s0, rows = 1, heights = 60)
+  
+  # Sheet 1: Correction settings
+  s1 <- .add_sheet("1. Correction Settings")
+  settings <- data.frame(
+    Settings = c(
+      "Sample Column Name",
+      "Batch Column Name",
+      "Class Column Name",
+      "Injection Order Column Name",
+      "Missing Value Threshold",
+      "QC Imputation",
+      "Sample Imputation",
+      "Correction Method",
+      "Remove Imputed After Correction?",
+      "QC RSD% Threshold",
+      "Scaling/Normalization",
+      "Exclude ISTD in Scaling/Normalization",
+      "Keep Corrected QCs"
+    ),
+    Values = c(
+      p$sample_col,
+      p$batch_col,
+      p$class_col,
+      p$order_col,
+      sprintf("%s%%", d$filtered$Frule),
+      d$imputed$qc_str,
+      d$imputed$sam_str,
+      d$corrected$str,
+      isTRUE(p$remove_imputed),
+      sprintf("%s%%", d$filtered_corrected$rsd_cutoff),
+      p$transform,
+      isTRUE(p$ex_ISTD),
+      isTRUE(p$keep_corrected_qcs)
+    ),
+    stringsAsFactors = FALSE
+  )
+  txt1 <- paste(
+    "Tab 1. This tab contains the correction settings along a list of metabolites",
+    "that were eliminated throughout the process. The post-QC corrected data are",
+    "shown on the next tab."
+  )
+  openxlsx::writeData(wb,
+                      s1,
+                      x = txt1,
+                      startCol = 1,
+                      startRow = 1)
+  openxlsx::mergeCells(wb, s1, cols = 1:3, rows = 1)
+  openxlsx::addStyle(
+    wb,
+    s1,
+    style = note,
+    rows = 1,
+    cols = 1,
+    gridExpand = TRUE
+  )
+  openxlsx::setRowHeights(wb, s1, rows = 1, heights = 60)
+  openxlsx::writeData(
+    wb,
+    s1,
+    x = settings,
+    startRow = 3,
+    startCol = 1,
+    headerStyle = bold
+  )
+  openxlsx::setColWidths(wb, s1, cols = 1:ncol(settings), widths = "auto")
+  
+  # Optional lists
+  cur_col <- 4
+  add_list <- function(vec, header) {
+    if (length(vec) == 0)
+      return(invisible(NULL))
+    df <- data.frame(setNames(list(vec), header))
+    openxlsx::writeData(
+      wb,
+      s1,
+      x = df,
+      startRow = 3,
+      startCol = cur_col,
+      headerStyle = bold
+    )
+    openxlsx::setColWidths(wb, s1, cols = cur_col, widths = "auto")
+    assign("cur_col", cur_col + 2, inherits = TRUE)
+  }
+  if (isTRUE(p$withhold_cols))
+    add_list(d$cleaned$withheld_cols, "Columns Withheld From Correction")
+  add_list(d$filtered$mv_removed_cols,
+           "Missing-Value Filtered Metabolites")
+  add_list(d$filtered_corrected$removed_metabolites,
+           "QC-RSD Filtered Metabolites")
+  if (length(d$transformed$withheld_cols) > 0)
+    add_list(d$transformed$withheld_cols, "Excluded From Normalization")
+  
+  # Sheet 2: Drift Normalized
+  s2 <- .add_sheet("2. Drift Normalized")
+  df2 <- d$filtered_corrected$df
+  if (!isTRUE(p$keep_corrected_qcs))
+    df2 <- df2[df2$class != "QC", , drop = FALSE]
+  txt2 <- paste(
+    "Tab 2. This tab shows instrument drift corrected values for metabolite levels",
+    "in experimental samples. Data is corrected using",
+    d$corrected$str,
+    "For each metabolite, this method",
+    d$corrected$parameters,
+    "This model regresses",
+    "peak areas in experimental samples, on an individual metabolite basis, against",
+    "peak areas in pooled quality control samples. This corrects for normal instrument",
+    "drift during the run. It produces relative metabolite level values in arbitrary",
+    "units. For a given metabolite across the entire run, these values average close",
+    "to 1 for most metabolites. These data are further normalized on the next tab."
+  )
+  openxlsx::writeData(wb,
+                      s2,
+                      x = txt2,
+                      startCol = 1,
+                      startRow = 1)
+  openxlsx::mergeCells(wb, s2, cols = 1:16, rows = 1)
+  openxlsx::addStyle(
+    wb,
+    s2,
+    style = note,
+    rows = 1,
+    cols = 1,
+    gridExpand = TRUE
+  )
+  openxlsx::setRowHeights(wb, s2, rows = 1, heights = 60)
+  openxlsx::writeData(wb,
+                      s2,
+                      x = df2,
+                      startRow = 3,
+                      headerStyle = bold)
+  openxlsx::setColWidths(wb, s2, cols = 1:ncol(df2), widths = "auto")
+  
+  # Sheet 3: Scaled or Normalized
+  s3 <- .add_sheet("3. Scaled or Normalized")
+  df3 <- d$transformed$df
+  keep <- setdiff(names(df3), d$transformed$withheld_cols)
+  df3 <- if (!isTRUE(p$keep_corrected_qcs))
+    df3[df3$class != "QC", keep, drop = FALSE]
+  else
+    df3[, keep, drop = FALSE]
+  txt3 <- switch(
+    p$transform,
+    "TRN"  = paste(
+      "Tab 3. This tab shows metabolite level values",
+      "ratiometrically normalized to total metabolite signal on a per",
+      "sample basis. This normalization is done by summing all individual",
+      "post-QC corrected metabolite level values within a sample (total",
+      "signal) and then dividing each individual metabolite level value",
+      "within that sample by the total signal. This normalization quantifies",
+      "individual metabolite values across samples based on their proportion",
+      "to total metabolite load, in arbitrary units, within each individual",
+      "sample. These values are displayed on this tab after multiplying",
+      "by the total number of metabolites present in the sample for easier",
+      "visualization. Data remain in arbitrary units. Because arbitary",
+      "units for a given metabolite quantitatively scale across samples,",
+      "levels of a given metabolite may be quantitatively compared across",
+      "samples. Because unit scaling is different for each metabolite,",
+      "different metabolites within in a sample cannot be quantitatively",
+      "compared. However, because differences in arbitrary unit scaling",
+      "between samples cancel out by divsion, within-sample metabolite",
+      "ratios can be quantitatively compared across samples."
+    ),
+    "log2" = "Tab 3. This tab shows the log 2 transformed metabolite level values.",
+    "none" = "Tab 3. No scaling or normalization method has been applied to the data."
+  )
+  openxlsx::writeData(wb,
+                      s3,
+                      x = txt3,
+                      startCol = 1,
+                      startRow = 1)
+  openxlsx::mergeCells(wb, s3, cols = 1:22, rows = 1)
+  openxlsx::addStyle(
+    wb,
+    s3,
+    style = note,
+    rows = 1,
+    cols = 1,
+    gridExpand = TRUE
+  )
+  openxlsx::setRowHeights(wb, s3, rows = 1, heights = 80)
+  openxlsx::writeData(wb,
+                      s3,
+                      x = df3,
+                      startRow = 3,
+                      headerStyle = bold)
+  openxlsx::setColWidths(wb, s3, cols = 1:ncol(df3), widths = "auto")
+  
+  # Sheet 4: Grouped Data organized
+  s4 <- .add_sheet("4. Grouped Data Organized")
+  gdat <- group_stats(df3)
+  openxlsx::writeData(
+    wb,
+    s4,
+    x = paste(
+      "Tab 4. This tab shows post-scaled/normalized metabolite",
+      "level values sorted by group, with group means, standard",
+      "erorrs (SE), and coefficients of variation (CV) shown.",
+      "Because the Metabolomics Core does not perform formal statistical",
+      "analysis, these statistical analyses are shown for your",
+      "convenience and quick appraisal of the data. For publication,",
+      "data should be analyzed according to the standards of your",
+      "field, including with the help of a statistician when needed."
+    ),
+    startCol = 1,
+    startRow = 1
+  )
+  openxlsx::mergeCells(wb, s4, cols = 1:12, rows = 1)
+  openxlsx::addStyle(
+    wb,
+    s4,
+    style = note,
+    rows = 1,
+    cols = 1,
+    gridExpand = TRUE
+  )
+  openxlsx::setRowHeights(wb, s4, rows = 1, heights = 60)
+  r <- 3
+  for (nm in names(gdat$group_dfs)) {
+    openxlsx::writeData(
+      wb,
+      s4,
+      x = gdat$group_dfs[[nm]],
+      startRow = r,
+      headerStyle = bold
+    )
+    r <- r + nrow(gdat$group_dfs[[nm]]) + 1
+    openxlsx::writeData(
+      wb,
+      s4,
+      x = gdat$group_stats_dfs[[nm]],
+      startRow = r,
+      startCol = 2,
+      headerStyle = bold
+    )
+    r <- r + 6
+  }
+  
+  # Sheet 5: Grouped Data Fold Change or appendix
+  if (identical(p$no_control, "FALSE") && nzchar(p$control_class)) {
+    s5 <- .add_sheet("5. Grouped Data Fold Change")
+    ctrl_stats <- gdat$group_stats_dfs[[p$control_class]]
+    fc_df <- fold_changes(df3, ctrl_stats[1, ])
+    gfc   <- group_stats(fc_df)
+    r <- 1
+    openxlsx::writeData(
+      wb,
+      s5,
+      x = paste(
+        "Tab 5. This tab shows post-scaled or normalized metabolite",
+        "level values expressed in terms of fold change relative",
+        "to the",
+        p$control_class,
+        "group mean. These values have",
+        "been sorted by group, with group means, standard errors",
+        "(SE), and coefficients of variation (CV) shown. Because",
+        "the Metabolomics Core does not perform formal statistical",
+        "analysis, these statistical analyses are shown for your",
+        "convenience and quick appraisal of the data. For publication,",
+        "data should be analyzed according to the standards of",
+        "your field, including with the help of a statistician when needed."
+      ),
+      startCol = 1,
+      startRow = r
+    )
+    openxlsx::mergeCells(wb, s5, cols = 1:12, rows = r)
+    openxlsx::setRowHeights(wb, s5, rows = r, heights = 60)
+    r <- r + 2
+    for (nm in names(gfc$group_dfs)) {
+      openxlsx::writeData(
+        wb,
+        s5,
+        x = gfc$group_dfs[[nm]],
+        startRow = r,
+        headerStyle = bold
+      )
+      r <- r + nrow(gfc$group_dfs[[nm]]) + 1
+      openxlsx::writeData(
+        wb,
+        s5,
+        x = gfc$group_stats_dfs[[nm]],
+        startRow = r,
+        startCol = 2,
+        headerStyle = bold
+      )
+      r <- r + 6
+    }
+    tr <- fc_df
+  } else {
+    tf <- df3
+  }
+  # Appendix1. Metaboanalyst Ready
+  s6 <- .add_sheet("Appendix1. Metaboanalyst Ready")
+  names(tf)[names(tf) == "sample"] <- "Sample Name"
+  names(tf)[names(tf) == "class"]  <- "Group"
+  tf$batch <- NULL
+  tf$order <- NULL
+  openxlsx::writeData(wb, s6, x = tf)
+  
+  if (!is.null(file)) {
+    openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+    return(normalizePath(file, winslash = "/"))
+  }
+  return(wb)
+}
