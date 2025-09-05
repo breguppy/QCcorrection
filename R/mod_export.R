@@ -65,7 +65,7 @@ mod_export_server <- function(id, data, params) {
         saveWorkbook(wb, cor_data_path, overwrite = TRUE)
         
         # 2. create and save figure folder
-        fig_info <- figure_folder_download(p(), d())
+        fig_info <- export_figures(p(), d())
         figs_src <- fig_info$fig_dir
         figs_dir <- file.path(base_dir, "figures"); dir.create(figs_dir)
         

@@ -25,6 +25,7 @@ Imports:
     rlang,
     magrittr
 Suggests:
+    pagedown,
     BiocStyle,
     knitr,
     rmarkdown,

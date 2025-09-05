@@ -132,19 +132,15 @@ mod_visualize_server <- function(id, data, params) {
           filtered_corrected = d()$filtered_corrected,
           transformed        = d()$transformed
         )
-        figs <- figure_folder_download(p = choices, d = rv_data)
+        figs <- export_figures(p = choices, d = rv_data, out_dir = tempdir())
         
         zipfile <- tempfile(fileext = ".zip")
-        old_wd <- setwd(figs$tmp_dir)
-        on.exit({
-          unlink(figs$fig_dir, recursive = TRUE)
-          unlink(zipfile)
-          setwd(old_wd)
-        }, add = TRUE)
-        zip(zipfile = zipfile,
-            files = "figures",
-            extras = "-r9Xq")
-        file.copy(zipfile, file)
+        zip_figures_dir(figs$fig_dir, zipfile)
+        
+        file.copy(zipfile, file, overwrite = TRUE)
+        
+        unlink(figs$fig_dir, recursive = TRUE, force = TRUE)
+        unlink(zipfile, force = TRUE)
         
         # Remove progress bar
         progress_reactive(0)

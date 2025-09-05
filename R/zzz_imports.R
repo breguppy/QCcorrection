@@ -40,4 +40,8 @@
 #' @importFrom ggplot2 ggplot aes geom_point geom_line labs guides
 #' @importFrom ggplot2 theme theme_minimal element_text scale_color_manual scale_color_brewer
 #' @importFrom ggplot2 scale_x_continuous scale_y_continuous xlim ylim ggsave
+#' 
+#' @importFrom grDevices cairo_pdf
+#'@importFrom rmarkdown render
+#' @importFrom pagedown chrome_print find_chrome
 NULL

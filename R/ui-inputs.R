@@ -9,17 +9,17 @@ ui_nonmet_cols <- function(cols, ns = identity) {
     tooltip(
       selectInput(ns("sample_col"), "sample column", dropdown_choices, ""),
       "Column that contains unique sample names.",
-      "right"
+      placement ="right"
     ),
     tooltip(
       selectInput(ns("batch_col"), "batch column", dropdown_choices, ""),
       "Column that contains batch information.",
-      "right"
+      placement ="right"
     ),
     tooltip(
       selectInput(ns("class_col"), "class column", dropdown_choices, ""),
       "Column that indicates the type of sample. Must contain QC samples labeled as 'NA', 'QC', 'Qc', or 'qc'.",
-      "right"
+      placement ="right"
     ),
     tooltip(
       selectInput(
@@ -29,7 +29,7 @@ ui_nonmet_cols <- function(cols, ns = identity) {
         ""
       ),
       "Column that indicates injection order.",
-      "right"
+      placement = "right"
     )
   )
 }

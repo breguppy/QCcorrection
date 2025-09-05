@@ -116,7 +116,11 @@ export_xlsx <- function(p, d, file = NULL) {
     startCol = 1,
     headerStyle = bold
   )
-  openxlsx::setColWidths(wb, s1, cols = 1:ncol(settings), widths = "auto")
+  width_vec <- apply(settings, 2, function(x)
+    max(nchar(as.character(x)) + 2, na.rm = TRUE))
+  width_vec_header <- nchar(colnames(settings)) + 2
+  max_width_vec <- pmax(width_vec, width_vec_header)
+  openxlsx::setColWidths(wb, s1, cols = 1:2, widths = max_width_vec)
   
   # Optional lists
   cur_col <- 4
@@ -132,7 +136,11 @@ export_xlsx <- function(p, d, file = NULL) {
       startCol = cur_col,
       headerStyle = bold
     )
-    openxlsx::setColWidths(wb, s1, cols = cur_col, widths = "auto")
+    width_vec <- apply(df, 2, function(x)
+      max(nchar(as.character(x)) + 2, na.rm = TRUE))
+    width_vec_header <- nchar(colnames(df)) + 2
+    max_width_vec <- pmax(width_vec, width_vec_header)
+    openxlsx::setColWidths(wb, s1, cols = cur_col, widths = max_width_vec)
     assign("cur_col", cur_col + 2, inherits = TRUE)
   }
   if (isTRUE(p$withhold_cols))
@@ -182,7 +190,6 @@ export_xlsx <- function(p, d, file = NULL) {
                       x = df2,
                       startRow = 3,
                       headerStyle = bold)
-  openxlsx::setColWidths(wb, s2, cols = 1:ncol(df2), widths = "auto")
   
   # Sheet 3: Scaled or Normalized
   s3 <- .add_sheet("3. Scaled or Normalized")
@@ -237,7 +244,6 @@ export_xlsx <- function(p, d, file = NULL) {
                       x = df3,
                       startRow = 3,
                       headerStyle = bold)
-  openxlsx::setColWidths(wb, s3, cols = 1:ncol(df3), widths = "auto")
   
   # Sheet 4: Grouped Data organized
   s4 <- .add_sheet("4. Grouped Data Organized")
@@ -290,7 +296,7 @@ export_xlsx <- function(p, d, file = NULL) {
   }
   
   # Sheet 5: Grouped Data Fold Change or appendix
-  if (identical(p$no_control, "FALSE") && nzchar(p$control_class)) {
+  if (!isTRUE(p$no_control) && nzchar(p$control_class)) {
     s5 <- .add_sheet("5. Grouped Data Fold Change")
     ctrl_stats <- gdat$group_stats_dfs[[p$control_class]]
     fc_df <- fold_changes(df3, ctrl_stats[1, ])
@@ -317,6 +323,14 @@ export_xlsx <- function(p, d, file = NULL) {
       startRow = r
     )
     openxlsx::mergeCells(wb, s5, cols = 1:12, rows = r)
+    openxlsx::addStyle(
+      wb,
+      s5,
+      style = note,
+      rows = 1,
+      cols = 1,
+      gridExpand = TRUE
+    )
     openxlsx::setRowHeights(wb, s5, rows = r, heights = 60)
     r <- r + 2
     for (nm in names(gfc$group_dfs)) {
@@ -338,7 +352,7 @@ export_xlsx <- function(p, d, file = NULL) {
       )
       r <- r + 6
     }
-    tr <- fc_df
+    tf <- fc_df
   } else {
     tf <- df3
   }
