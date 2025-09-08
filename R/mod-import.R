@@ -5,31 +5,26 @@ mod_import_ui <- function(id) {
   nav_panel(
     title = "1. Import Raw Data",
     value = "tab_import",
-    card(full_screen = TRUE,
-         layout_sidebar(
-           sidebar = sidebar(
-             tags$h4("1.1 Upload Raw Data"),
-             fileInput(ns("file1"), "Choose Raw Data File (.csv, .xls, or .xlsx)",
-                       accept = c(".csv",".xls",".xlsx"), 
-                       buttonLabel = "Browse...",
-                       placeholder = "No file selected"),
-             tags$h6("Raw data must be on the first sheet of .xls or .xlsx file."),
-             tags$h6("Data must begin and end with QC samples when sorted by injection order."),
-             width = 400
-           ),
-           div(style="overflow:auto; max-height:400px;", tableOutput(ns("contents")))
-         )
+    card(
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "1.1 Upload Raw Data",
+          ui_file_upload(ns),
+          help = c(
+            "Raw data must be on the first sheet of .xls or .xlsx file.",
+            "Data must begin and end with QC samples when sorted by injection order."
+          ),
+          width = 400
+        ),
+        ui_table_scroll("contents", ns)
+      )
     ),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("1.2 Select non-metabolite columns"),
-        tags$h6("Please select columns for sample, batch, class, and order."),
+      sidebar = ui_sidebar_block(
+        title = "1.2 Select non-metabolite columns",
         uiOutput(ns("column_selectors")),
         uiOutput(ns("column_warning")),
-        tooltip(
-          checkboxInput(ns("withhold_cols"), "Withhold additional columns from correction?", FALSE),
-          "Select if there are extra non-metabolite or specific metabolite columns to withhold from correction.", "right"
-        ),
+        ui_withhold_toggle(ns),
         uiOutput(ns("n_withhold_ui")),
         uiOutput(ns("withhold_selectors_ui")),
         width = 400
@@ -37,12 +32,9 @@ mod_import_ui <- function(id) {
       uiOutput(ns("basic_info"))
     )),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("1.3 Filter Raw Data"),
-        tooltip(
-          sliderInput(ns("Frule"), "Acceptable % missing per metabolite", 0, 100, 20),
-          "Metabolites above this missing % are removed.", "right"
-        ),
+      sidebar = ui_sidebar_block(
+        title = "1.3 Filter Raw Data",
+        ui_filter_slider(ns),
         width = 400
       ),
       uiOutput(ns("filter_info"))
