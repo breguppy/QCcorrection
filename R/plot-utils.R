@@ -152,7 +152,7 @@ tag_changes <- function(d, a_before, a_after) {
 pct_tbl <- function(d) {
   total <- nrow(d)
   if (!total)
-    return(setNames(
+    return(stats::setNames(
       data.frame(
         change = factor(lab_levels, levels = lab_levels),
         percent = c(0, 0, 0)
