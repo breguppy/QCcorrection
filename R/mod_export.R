@@ -52,47 +52,38 @@ mod_export_server <- function(id, data, params) {
     #-- Allow user to download corrected data, figures, and correction report.
     output$download_all_zip <- downloadHandler(
       filename = function() {
-        paste0("corrected_data_plots_report_", Sys.Date(), ".zip")
+        sprintf("corrected_data_plots_report_%s.zip", Sys.Date())
       },
       content = function(file) {
+        .require_pkg("zip", "create a zip archive")
         base_dir <- tempfile("bundle_")
         dir.create(base_dir)
+        on.exit(unlink(base_dir, recursive = TRUE, force = TRUE), add = TRUE)
         
         # create and save corrected data file
-        cor_data_filename <- paste0("corrected_data_", Sys.Date(), ".xlsx")
-        cor_data_path <- file.path(base_dir, cor_data_filename)
+        xlsx_path <- file.path(base_dir, sprintf("corrected_data_%s.xlsx", Sys.Date()))
         wb <- export_xlsx(p(), d())
-        saveWorkbook(wb, cor_data_path, overwrite = TRUE)
+        saveWorkbook(wb, xlsx_path, overwrite = TRUE)
         
-        # 2. create and save figure folder
-        fig_info <- export_figures(p(), d())
-        figs_src <- fig_info$fig_dir
-        figs_dir <- file.path(base_dir, "figures"); dir.create(figs_dir)
+        # create and save figure folder
+        figs <- export_figures(p(), d(), out_dir = base_dir)
         
-        files <- list.files(figs_src, recursive = TRUE, full.names = TRUE)
-        rel   <- list.files(figs_src, recursive = TRUE, full.names = FALSE)
-        
-        # build target paths
-        targets <- file.path(figs_dir, rel)
-        
-        # create subdirectories (skip ".")
-        dirs <- unique(dirname(targets))
-        dirs <- dirs[dirs != "."]   
-        for (dir in dirs) dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-        
-        # copy files into same structure
-        file.copy(from = files, to = targets, overwrite = TRUE)
-        
-        # 3. make pdf report
-        generate_cor_report(p(), d(), base_dir)
+        # make pdf report
+        render_report(p(), d(), out_dir = base_dir)
         
         # make zip file
-        zipfile <- tempfile(fileext = ".zip")
-        on.exit(unlink(c(base_dir, zipfile), recursive = TRUE), add = TRUE)
-        zip::zipr(zipfile = zipfile,
-                  files = list.files(base_dir, full.names = TRUE), 
-                  include_directories = TRUE)
-        file.copy(zipfile, file, overwrite = TRUE)
+        rel <- c(
+          "figures",                                  
+          basename(xlsx_path),                        
+          "correction_report.html", "correction_report.pdf" 
+        )
+        rel <- rel[file.exists(file.path(base_dir, rel))]
+        
+        tmpzip <- tempfile(fileext = ".zip")
+        on.exit(unlink(tmpzip, force = TRUE), add = TRUE)
+        zip::zipr(zipfile = tmpzip, files = rel, root = base_dir)
+        
+        file.copy(tmpzip, file, overwrite = TRUE)
       }
     )
     

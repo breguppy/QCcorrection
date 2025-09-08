@@ -13,8 +13,6 @@ params:
     value: ""
   plots:
     value: !r character(0)
-  include:
-    value: !r character(0)
   choices:
     value: !r character(0)
   descriptions:
@@ -29,18 +27,19 @@ statement <- function(name) {
 }
 library(htmltools)
 library(dplyr)
+library(QCcorrection)
 ```
 # Preprocessing Steps
 
 ### Raw Data Basic Information
 ```{r}
-ui_basic_info(params$choices$raw_df, params$choices$replacement_counts)
+QCcorrection:::ui_basic_info(params$choices$raw_df, params$choices$replacement_counts)
 statement("Withheld Columns")
 ```
 
 ### Missing Value Filter
 ```{r}
-ui_filter_info(params$choices$filtered$mv_removed_cols, params$choices$Frule)
+QCcorrection:::ui_filter_info(params$choices$filtered$mv_removed_cols, params$choices$Frule)
 ```
 
 ### Missing Value Imputation
@@ -55,7 +54,7 @@ statement("Correction Description")
 
 ### Post-correction Filter
 ```{r}
-ui_postcor_filter_info(params$choices$filtered_corrected, params$choices$rsd_filter, params$choices$post_cor_filter)
+QCcorrection:::ui_postcor_filter_info(params$choices$filtered_corrected, params$choices$rsd_filter, params$choices$post_cor_filter)
 ```
 
 ### Transformation Description
