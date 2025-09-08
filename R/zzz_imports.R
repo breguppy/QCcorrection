@@ -1,6 +1,7 @@
 #' Internal package imports
 #' @name zzz_imports
 #' @keywords internal
+#' @noRd
 #'
 #' @importFrom rlang `%||%`
 #'

@@ -13,39 +13,37 @@ sanitize_figname <- function(name) {
 #' @keywords internal
 #' @noRd
 facet_label_map <- function(df) {
-  by_type <- df |>
-    dplyr::group_split(Type) |>
-    purrr::map( ~ {
-      pt <- pct_tbl(.x)
-      P  <- function(k)
-        pt$percent[pt$change == k]
-      paste0(
-        "<b>",
-        unique(.x$Type),
-        "</b><br>",
-        blk(
-          color_values["Increased"],
-          "Increased",
-          P("Increased"),
-          "33.3%",
-          "left"
-        ),
-        blk(
-          color_values["No Change"],
-          "No change",
-          P("No Change"),
-          "33.3%",
-          "center"
-        ),
-        blk(
-          color_values["Decreased"],
-          "Decreased",
-          P("Decreased"),
-          "33.3%",
-          "right"
-        )
+  by_type <- df |> dplyr::group_split(Type) |> purrr::map( ~ {
+    pt <- pct_tbl(.x)
+    P <- function(k)
+      pt$percent[pt$change == k]
+    paste0(
+      "<b>",
+      unique(.x$Type),
+      "</b><br>",
+      blk(
+        color_values["Increased"],
+        "Increased",
+        P("Increased"),
+        "33.3%",
+        "left"
+      ),
+      blk(
+        color_values["No Change"],
+        "No change",
+        P("No Change"),
+        "33.3%",
+        "center"
+      ),
+      blk(
+        color_values["Decreased"],
+        "Decreased",
+        P("Decreased"),
+        "33.3%",
+        "right"
       )
-    }) |> unlist()
+    )
+  }) |> unlist()
   stats::setNames(by_type, unique(df$Type))
 }
 
@@ -63,7 +61,7 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
       values = color_values,
       breaks = lab_levels,
       labels = c("Increased", "No change", "Decreased"),
-      name = "RSD Change"
+      name   = "RSD Change"
     ) +
     ggplot2::facet_wrap(
       ~ Type,
@@ -114,17 +112,23 @@ blk <- function(col,
                 width = "33.3%",
                 align = "left") {
   sprintf(
-    "<span style='display:inline-block; width:%s; text-align:%s; white-space:nowrap'>%s&nbsp;%s&nbsp;%s%%</span>",
+    "<span style='display:inline-block; width:%s; text-align:%s; white-space:nowrap'>
+            %s&nbsp;%s&nbsp;%s%%
+          </span>",
     width,
     align,
-    sprintf(
-      "<span style='color:%s; font-size:%dpt'>&#9679;</span>",
-      col,
-      12L
-    ),
+    circle(col),
     lab,
     pct
   )
+}
+
+#' @keywords internal
+#' @noRd
+circle <- function(col, ptsize = 12) {
+  sprintf("<span style='color:%s; font-size:%dpt'>&#9679;</span>",
+          col,
+          ptsize)
 }
 
 #' @keywords internal
@@ -148,7 +152,7 @@ tag_changes <- function(d, a_before, a_after) {
 pct_tbl <- function(d) {
   total <- nrow(d)
   if (!total)
-    return(stats::setNames(
+    return(setNames(
       data.frame(
         change = factor(lab_levels, levels = lab_levels),
         percent = c(0, 0, 0)
@@ -158,6 +162,5 @@ pct_tbl <- function(d) {
   d %>% dplyr::count(change, .drop = FALSE) %>%
     tidyr::complete(change = factor(lab_levels, levels = lab_levels),
                     fill = list(n = 0)) %>%
-    dplyr::mutate(percent = round(100 * n / total, 1)) %>%
-    dplyr::select(change, percent)
+    dplyr::mutate(percent = round(100 * n / total, 1)) %>% dplyr::select(change, percent)
 }

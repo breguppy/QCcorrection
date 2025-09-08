@@ -156,7 +156,7 @@ plot_pca <- function(p, before, after, compared_to) {
     big_font_theme + ggplot2::theme(legend.position = "right",
                                     legend.box.margin = ggplot2::margin(0, 0, 0, 0))
   
-  leg <- cowplot::get_legend(p_leg)
+  leg <- cowplot::get_plot_component(p_leg, "guide-box", return_all = TRUE)[[1]]
   comb <- cowplot::plot_grid(
     p1,
     p2,

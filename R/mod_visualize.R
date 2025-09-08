@@ -118,6 +118,7 @@ mod_visualize_server <- function(id, data, params) {
         paste0("figures_", Sys.Date(), ".zip")
       },
       content = function(file) {
+        .require_pkg("zip", "create a zip archive")
         choices <- list(
           rsd_cal     = input$rsd_cal,
           rsd_compare = input$rsd_compare,
@@ -134,8 +135,9 @@ mod_visualize_server <- function(id, data, params) {
         )
         figs <- export_figures(p = choices, d = rv_data, out_dir = tempdir())
         
+        fig_dir <- normalizePath(figs$fig_dir, winslash = "/", mustWork = TRUE)
         zipfile <- tempfile(fileext = ".zip")
-        zip_figures_dir(figs$fig_dir, zipfile)
+        zip::zipr(zipfile, files = fig_dir)
         
         file.copy(zipfile, file, overwrite = TRUE)
         

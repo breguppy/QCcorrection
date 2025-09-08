@@ -1,4 +1,7 @@
+#' Correction module
+#'
 #' @keywords internal
+#' @noRd
 
 mod_correct_ui <- function(id) { 
   ns <- NS(id); 
