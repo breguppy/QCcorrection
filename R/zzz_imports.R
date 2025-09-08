@@ -42,6 +42,6 @@
 #' @importFrom ggplot2 scale_x_continuous scale_y_continuous xlim ylim ggsave
 #' 
 #' @importFrom grDevices cairo_pdf
-#'@importFrom rmarkdown render
+#' @importFrom rmarkdown render
 #' @importFrom pagedown chrome_print find_chrome
 NULL
