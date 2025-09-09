@@ -1,7 +1,8 @@
 #' app_ui.R
 #' @importFrom bslib card navset_tab nav_panel layout_sidebar sidebar bs_theme
 #' @importFrom shiny tags icon fluidPage
-#' @export
+#' @keywords internal
+#' @noRd
 
 app_ui <- function() {
   fluidPage(

@@ -76,7 +76,7 @@ ui_withhold_toggle <- function(ns) {
     checkboxInput(ns("withhold_cols"),
                   "Withhold additional columns from correction?", FALSE),
     "Select if there are extra non-metabolite or specific metabolite columns to withhold.",
-    "right"
+    placement = "right"
   )
 }
 
@@ -98,7 +98,8 @@ ui_withhold_count <- function(ns, max_withhold) {
 ui_filter_slider <- function(ns) {
   tooltip(
     sliderInput(ns("Frule"), "Acceptable % missing per metabolite", 0, 100, 20),
-    "Metabolites above this missing % are removed.", "right"
+    "Metabolites above this missing % are removed.", 
+    placement = "right"
   )
 }
 
@@ -256,4 +257,59 @@ ui_correction_method <- function(df, ns = identity) {
       )
     }
   }
+}
+
+#' Post-correction filtering
+#' @keywords internal
+#' @noRd
+ui_post_cor_filter <- function(ns) {
+  tagList(
+    tooltip(
+      checkboxInput(ns("remove_imputed"), "Remove imputed values after correction?", FALSE),
+      "Check this box if you want to the corrected data to have the same missing values as the raw data.", 
+      placement = "right"
+    ),
+    tooltip(
+      checkboxInput(ns("post_cor_filter"), "Don't filter metabolites based on QC RSD%", FALSE),
+      "Check this box if you don't want any metabolites removed post-correction.", 
+      placement = "right"
+    ),
+    conditionalPanel(
+      condition = sprintf("!input['%s']", ns("post_cor_filter")),
+      tooltip(
+       sliderInput(ns("rsd_filter"),"Metabolite RSD% threshold for QC samples", 0, 100, 50),
+        "Metabolites with QC RSD% above this value will be removed from the corrected data.", 
+       placement = "right"
+      )
+    )
+  )
+}
+
+#' Post-correction transformation
+#' @keywords internal
+#' @noRd
+ui_post_cor_transform <- function(ns) {
+  tagList(
+    radioButtons(ns("transform"), "Method",
+                 choices = list(
+                   "Log 2 Transformation" = "log2",
+                   "Total Ratiometically Normalized (TRN)" = "TRN",
+                   "None" = "none"
+                 ),
+                 "none"
+    ),
+    tooltip(
+      checkboxInput(ns("ex_ISTD"), "Exclude Internal Standards from post-correction transformation/normalization.", TRUE),
+      "Check this box if you do not want internal standards to be included in the transformation or normalization calculation.", 
+      placement = "right"
+    ),
+    conditionalPanel(
+      condition = sprintf("input['%s'] === 'TRN'", ns("transform")),
+      tooltip(
+        checkboxInput(ns("trn_withhold_checkbox"), "Withold column(s) from TRN?", FALSE),
+        "Check this box if there are any columns that should not count in TRN (i.e. TIC column). Sample, batch, class and order are already excluded.", 
+        placement = "right"
+      )
+    ),
+  )
 }

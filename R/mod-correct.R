@@ -25,23 +25,9 @@ mod_correct_ui <- function(id) {
   ),
   card(
     layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("2.2 Post-Correction Filtering"),
-        tooltip(
-          checkboxInput(ns("remove_imputed"), "Remove imputed values after correction?", FALSE),
-          "Check this box if you want to the corrected data to have the same missing values as the raw data.", "right"
-        ),
-        tooltip(
-          checkboxInput(ns("post_cor_filter"), "Don't filter metabolites based on QC RSD%", FALSE),
-          "Check this box if you don't want any metabolites removed post-correction.", "right"
-        ),
-        conditionalPanel(
-          condition = sprintf("!input['%s']", ns("post_cor_filter")),
-          tooltip(
-            sliderInput(ns("rsd_filter"),"Metabolite RSD% threshold for QC samples", 0, 100, 50),
-            "Metabolites with QC RSD% above this value will be removed from the corrected data.", "right"
-          )
-        ),
+      sidebar = ui_sidebar_block(
+        title = "2.2 Post-Correction Filtering",
+        ui_post_cor_filter(ns),
         width = 400
       ),
       uiOutput(ns("post_cor_filter_info")) %>% withSpinner(color = "#404040")
@@ -49,27 +35,9 @@ mod_correct_ui <- function(id) {
   ),
   card(
     layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("2.3 Post-Correction Transformation"),
-        radioButtons(ns("transform"), "Method",
-          choices = list(
-            "Log 2 Transformation" = "log2",
-            "Total Ratiometically Normalized (TRN)" = "TRN",
-            "None" = "none"
-          ),
-          "none"
-        ),
-        tooltip(
-          checkboxInput(ns("ex_ISTD"), "Exclude Internal Standards from post-correction transformation/normalization.", TRUE),
-          "Check this box if you do not want internal standards to be included in the transformation or normalization calculation.", "right"
-        ),
-        conditionalPanel(
-          condition = sprintf("input['%s'] === 'TRN'", ns("transform")),
-          tooltip(
-            checkboxInput(ns("trn_withhold_checkbox"), "Withold column(s) from TRN?", FALSE),
-            "Check this box if there are any columns that should not count in TRN (i.e. TIC column). Sample, batch, class and order are already excluded.", "right"
-          )
-        ),
+      sidebar = ui_sidebar_block(
+        title = "2.3 Post-Correction Transformation",
+        ui_post_cor_transform(ns),
         uiOutput(ns("trn_withhold_ui")),
         uiOutput(ns("trn_withhold_selectors_ui")),
         width = 400
@@ -86,17 +54,19 @@ mod_correct_ui <- function(id) {
       column(6, tags$h4("2.4 Identify Control Group"),
       tooltip(
         checkboxInput(ns("no_control"), "No control group.", FALSE),
-        "Check the box if The data does not have a control group.", "right"
+        "Check the box if The data does not have a control group.", 
+        placement = "right"
       ),
       conditionalPanel(
         condition = sprintf("!input['%s']", ns("no_control")),
         uiOutput(ns("control_class_selector"))
       )
     ),
-    column(6, shiny::tags$h4("2.5 Download Corrected Data Only"),
+    column(6, tags$h4("2.5 Download Corrected Data Only"),
            tooltip(
              checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file.", FALSE),
-             "Check the box if you want corrected QC values in the downloaded corrected data file.", "right"
+             "Check the box if you want corrected QC values in the downloaded corrected data file.", 
+             placement = "right"
            ),
            uiOutput(ns("download_corr_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
            tags$h6("Corrected data can also be downloaded with figure and correction report on tab 4. Export Corrected Data, Plots, and Report")
