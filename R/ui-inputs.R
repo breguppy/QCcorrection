@@ -310,6 +310,51 @@ ui_post_cor_transform <- function(ns) {
         "Check this box if there are any columns that should not count in TRN (i.e. TIC column). Sample, batch, class and order are already excluded.", 
         placement = "right"
       )
-    ),
+    )
+  )
+}
+
+#' visualization rsd evaluation
+#' @keywords internal
+#' @noRd
+ui_rsd_eval <- function(ns) {
+  tagList(
+    radioButtons(ns("rsd_compare"), 
+                 "Compare raw data to", 
+                 list("Corrected data" = "filtered_cor_data", 
+                      "Transformed and corrected data" = "transformed_cor_data"), 
+                 "filtered_cor_data"),
+    radioButtons(ns("rsd_cal"), 
+                 "Calculate RSD by", 
+                 list("Metabolite" = "met", "Class and Metabolite" = "class_met"),
+                 "met")
+  )
+}
+
+#' visualization pca evaluation
+#' @keywords internal
+#' @noRd
+ui_pca_eval <- function(ns){
+  tagList(
+    radioButtons(ns("pca_compare"), 
+                 "Compare raw data to", 
+                 list("Corrected data" = "filtered_cor_data", 
+                      "Transformed and corrected data" = "transformed_cor_data"), 
+                 "filtered_cor_data"),
+    radioButtons(ns("color_col"), 
+                 "Color PCA by", 
+                 list("batch" = "batch", "class" = "class"), 
+                 "batch")
+  )
+}
+
+#' Visualization downloading figure format
+#' @keywords internal
+#' @noRd
+ui_fig_format <- function(ns) {
+  tooltip(
+    radioButtons(ns("fig_format"), "Select figure format:", c("PDF" = "pdf", "PNG" = "png"), "pdf"),
+    "All figures will be saved in this format after clicking download button here or on tab 4. Export Corrected Data, Plots, and Report", 
+    placement = "right"
   )
 }

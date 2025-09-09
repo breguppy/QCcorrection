@@ -7,41 +7,36 @@ mod_visualize_ui <- function(id) {
     title = "3. Evaluation Metrics and Visualization",
     value = "tab_visualize",
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("3.1 Visualize Correction with Metabolite Scatter Plots"),
+      sidebar = ui_sidebar_block(
+        title = "3.1 Visualize Correction with Metabolite Scatter Plots",
         uiOutput(ns("met_plot_selectors")),
-        width = 400,
+        width = 400
       ),
       plotOutput(ns("metab_scatter"), height = "600px", width = "600px"),
     )),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("3.2 RSD Evaluation"),
-        tags$h6("Evaluate correction method by the change in relative standard deviation (RSD)."),
-        radioButtons(ns("rsd_compare"), "Compare raw data to", list("Corrected data" = "filtered_cor_data", "Transformed and corrected data" = "transformed_cor_data"), "filtered_cor_data"),
-        radioButtons(ns("rsd_cal"), "Calculate RSD by", list("Metabolite" = "met", "Class and Metabolite" = "class_met"), "met"),
-        width = 400,
+      sidebar = ui_sidebar_block(
+        title = "3.2 RSD Evaluation",
+        ui_rsd_eval(ns),
+        help = c("Evaluate correction method by the change in relative standard deviation (RSD)."),
+        width = 400
       ),
       plotOutput(ns("rsd_comparison_plot"), height = "540px", width = "900px")
     )),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("3.3 PCA Evaluation"),
-        tags$h6("Evaluate correction using principal component analysis (PCA)."),
-        radioButtons(ns("pca_compare"), "Compare raw data to", list("Corrected data" = "filtered_cor_data", "Transformed and corrected data" = "transformed_cor_data"), "filtered_cor_data"),
-        radioButtons(ns("color_col"), "Color PCA by", list("batch" = "batch", "class" = "class"), "batch"),
-        width = 400,
+      sidebar = ui_sidebar_block(
+        title = "3.3 PCA Evaluation",
+        ui_pca_eval(ns),
+        help = c("Evaluate correction using principal component analysis (PCA)."),
+        width = 400
       ),
       plotOutput(ns("pca_plot"), height = "530px", width = "1000px")
     )),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("3.4 Download Figures Only"),
-        tooltip(
-          radioButtons(ns("fig_format"), "Select figure format:", c("PDF" = "pdf", "PNG" = "png"), "pdf"),
-          "All figures will be saved in this format after clicking download button here or on tab 4. Export Corrected Data, Plots, and Report", "right"
-        ),
-        width = 400,
+      sidebar = ui_sidebar_block(
+        title = "3.4 Download Figures Only",
+        ui_fig_format(ns),
+        width = 400
       ),
       uiOutput(ns("download_fig_zip_btn")),
       uiOutput(ns("progress_ui")),
@@ -55,7 +50,7 @@ mod_visualize_ui <- function(id) {
 mod_visualize_server <- function(id, data, params) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    d <- reactive(data())          # merged data
+    d <- reactive(data())          
     p <- reactive(params()) 
     
     #-- Let user select which metabolite to display in scatter plot
@@ -103,13 +98,13 @@ mod_visualize_server <- function(id, data, params) {
       req(progress_reactive() > 0, progress_reactive() <= 1)
       div(
         style = "margin-top: 10px;",
-        shiny::tags$label("Progress:"),
-        shiny::tags$progress(
+        tags$label("Progress:"),
+        tags$progress(
           value = progress_reactive(),
           max = 1,
           style = "width: 100%; height: 20px;"
         ),
-        shiny::tags$span(sprintf("%.0f%%", progress_reactive() * 100))
+        tags$span(sprintf("%.0f%%", progress_reactive() * 100))
       )
     })
     
