@@ -42,10 +42,7 @@ mod_correct_ui <- function(id) {
         uiOutput(ns("trn_withhold_selectors_ui")),
         width = 400
       ),
-      tags$div(
-        style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
-        tableOutput(ns("cor_data")) %>% withSpinner(color = "#404040")
-      )
+      ui_table_scroll("cor_data", ns) %>% withSpinner(color = "#404040")
     )
   ),
   card(
