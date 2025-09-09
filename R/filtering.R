@@ -2,7 +2,7 @@
 #'
 #' @keywords internal
 #' @noRd
-filter_by_missing <- function(df, metab_cols, Frule) {
+filter_by_missing <- function(df, metab_cols, mv_cutoff) {
   # get metadata columns
   meta_cols <- setdiff(names(df), metab_cols)
   
@@ -11,8 +11,8 @@ filter_by_missing <- function(df, metab_cols, Frule) {
     mean(is.na(col)) * 100
   })
   
-  # Keep only columns with missing percentage <= Frule
-  mv_keep_cols <- metab_cols[missing_pct <= Frule]
+  # Keep only columns with missing percentage <= mv_cutoff
+  mv_keep_cols <- metab_cols[missing_pct <= mv_cutoff]
   
   # list columns removed due to missing value %
   mv_removed_cols <- setdiff(metab_cols, mv_keep_cols)
@@ -22,7 +22,7 @@ filter_by_missing <- function(df, metab_cols, Frule) {
   
   return(list(
     df = df_filtered,
-    Frule = Frule,
+    mv_cutoff = mv_cutoff,
     mv_removed_cols = mv_removed_cols
   ))
 }

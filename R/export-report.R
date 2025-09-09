@@ -154,7 +154,7 @@ render_report <- function(p,
       replacement_counts = d$cleaned$replacement_counts,
       filtered           = d$filtered,
       filtered_corrected = d$filtered_corrected,
-      Frule              = p$Frule,
+      mv_cutoff          = p$mv_cutoff,
       post_cor_filter    = p$post_cor_filter,
       rsd_cutoff         = p$rsd_cutoff
     ),

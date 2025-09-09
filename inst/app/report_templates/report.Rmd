@@ -39,7 +39,7 @@ statement("Withheld Columns")
 
 ### Missing Value Filter
 ```{r}
-QCcorrection:::ui_filter_info(params$choices$filtered$mv_removed_cols, params$choices$Frule)
+QCcorrection:::ui_filter_info(params$choices$filtered$mv_removed_cols, params$choices$mv_cutoff)
 ```
 
 ### Missing Value Imputation

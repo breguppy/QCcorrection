@@ -125,11 +125,11 @@ mod_import_server <- function(id) {
     
     filtered_r <- reactive({
       cd <- req(cleaned_r())
-      filter_by_missing(cd$df, setdiff(names(cd$df), c("sample","batch","class","order")), input$Frule)
+      filter_by_missing(cd$df, setdiff(names(cd$df), c("sample","batch","class","order")), input$mv_cutoff)
     })
     output$filter_info <- renderUI({
       fd <- filtered_r(); req(fd)
-      ui_filter_info(fd$mv_removed_cols, input$Frule)
+      ui_filter_info(fd$mv_removed_cols, input$mv_cutoff)
     })
     
     params_r <- reactive({
@@ -139,7 +139,7 @@ mod_import_server <- function(id) {
         class_col  = sel$class,  order_col = sel$order,
         withheld_cols = withheld_r(),
         n_withheld = input$n_withheld %||% 0,
-        Frule = input$Frule
+        mv_cutoff = input$mv_cutoff
       )
     })
     

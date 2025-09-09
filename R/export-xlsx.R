@@ -76,7 +76,7 @@ export_xlsx <- function(p, d, file = NULL) {
       p$batch_col,
       p$class_col,
       p$order_col,
-      sprintf("%s%%", d$filtered$Frule),
+      sprintf("%s%%", d$filtered$mv_cutoff),
       d$imputed$qc_str,
       d$imputed$sam_str,
       d$corrected$str,

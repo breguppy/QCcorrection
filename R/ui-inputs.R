@@ -97,7 +97,7 @@ ui_withhold_count <- function(ns, max_withhold) {
 #' @noRd
 ui_filter_slider <- function(ns) {
   tooltip(
-    sliderInput(ns("Frule"), "Acceptable % missing per metabolite", 0, 100, 20),
+    sliderInput(ns("mv_cutoff"), "Acceptable % missing per metabolite", 0, 100, 20),
     "Metabolites above this missing % are removed.", 
     placement = "right"
   )

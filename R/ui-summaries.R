@@ -93,14 +93,14 @@ ui_basic_info <- function(df, replacement_counts) {
 }
 
 # Filter info for section 1.4 Filter Raw Data
-ui_filter_info <- function(mv_removed, Frule) {
+ui_filter_info <- function(mv_removed, mv_cutoff) {
   if (length(mv_removed) == 0) {
     tags$div(style = "flex: 1; padding-right: 10px;",
              tags$span(
                style = "color:darkgreen;font-weight:bold;",
                paste0(
                  "No metabolites removed for missing value percentage above ",
-                 Frule,
+                 mv_cutoff,
                  "%."
                )
              ))
@@ -112,7 +112,7 @@ ui_filter_info <- function(mv_removed, Frule) {
         paste0(
           length(mv_removed),
           " metabolites removed based on missing value percentage above ",
-          Frule,
+          mv_cutoff,
           "%"
         )
       ),
