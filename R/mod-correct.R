@@ -187,9 +187,14 @@ mod_correct_server <- function(id, data, params) {
       })
     })
     output$trn_withhold_selectors_ui <- renderUI({
-      req(corrected_r(), input$trn_withhold_n)
+      req(corrected_r(), input$trn_withhold_n, input$ex_ISTD)
       cols <- names(corrected_r()$df)
       cols <- setdiff(cols, c("sample", "batch", "class", "order"))
+      if (input$ex_ISTD) {
+        istd <- grep("ISTD", cols, value = TRUE)
+        itsd <- grep("ITSD", cols, value = TRUE)
+        cols <- setdiff(cols, c(istd, itsd))
+      }
       dropdown_choices <- c("Select a column..." = "", cols)
       
       # Generate list of columns to withhold
