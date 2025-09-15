@@ -86,6 +86,10 @@ To judge how well the correction method worked, we can visualize the change in v
 statement("RSD Comparison")
 ```
 
+```{r}
+QCcorrection:::ui_rsd_stats(list(rsd_compare = params$choices$rsd_compare, rsd_cal = params$choices$rsd_cal), list(filtered = params$choices$filtered, filtered_corrected = params$choices$filtered_corrected, transformed = params$choices$transformed))
+```
+
 ### PCA Comparison
 
 ```{r, echo=FALSE, fig.width=8.333, fig.height=4.417}

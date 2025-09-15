@@ -100,7 +100,7 @@ render_report <- function(p,
         ""
     ),
     "RSD Comparison" = sprintf(
-      "In these plots, the green indicates RSD decreased after %s, red indicates RSD increased after %s, and gray indicates no change in RSD. For these figures RSD is calculated for each metabolite %s %s%s <br/> %s ",
+      "In these plots, the green indicates RSD decreased after %s, red indicates RSD increased after %s, and gray indicates no change in RSD. For these figures RSD is calculated for each metabolite%s. %s%s <br/> %s ",
       if (p$rsd_compare == "filtered_cor_data")
         "correction"
       else
@@ -110,7 +110,7 @@ render_report <- function(p,
       else
         "correction and transformation",
       if (p$rsd_cal == "class_met")
-        "grouping by sample class."
+        " grouping by sample class"
       else
         "",
       if (isTRUE(!p$post_cor_filter))
@@ -154,9 +154,12 @@ render_report <- function(p,
       replacement_counts = d$cleaned$replacement_counts,
       filtered           = d$filtered,
       filtered_corrected = d$filtered_corrected,
+      transformed        = d$transformed,
       mv_cutoff          = p$mv_cutoff,
       post_cor_filter    = p$post_cor_filter,
-      rsd_cutoff         = p$rsd_cutoff
+      rsd_cutoff         = p$rsd_cutoff,
+      rsd_compare        = p$rsd_compare,
+      rsd_cal           = p$rsd_cal
     ),
     descriptions = descriptions
   )
