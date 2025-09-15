@@ -180,3 +180,85 @@ ui_rsd_stats <- function(p, d) {
     )
   )
 }
+
+ui_md_outlier <- function(p, d, digits = 2, max_contrib = 5) {
+  if (p$pca_compare == "filtered_cor_data") {
+    df <- d$filtered_corrected$df
+    after <- d$filtered_corrected
+    compared_to <- "Correction"
+  } else {
+    df <- d$transformed$df
+    after <- d$transformed
+    compared_to <- "Correction and Transformation"
+  }
+  mets <- setdiff(names(df), c("sample", "batch", "class", "order"))
+  shiny::validate(
+    shiny::need(length(mets) >= 2, "Need at least 2 metabolite columns for PCA."),
+    shiny::need(nrow(df) >= 3, "Need at least 3 samples for PCA.")
+  )
+  
+  # Also ensure non-constant / non-NA columns
+  X <- df[, mets, drop = FALSE]
+  keep <- vapply(X, function(v) {
+    v <- suppressWarnings(as.numeric(v))
+    ok <- all(is.finite(v))
+    nz <- (length(unique(v)) >= 2)
+    ok && nz
+  }, logical(1))
+  shiny::validate(need(
+    any(keep),
+    "All metabolite columns are constant/invalid after filtering."
+  ))
+  
+  # before data cannot have any missing values.
+  #before <- d$imputed
+  md_res <- md_outliers_by_group(p, after, after, robust = TRUE, alpha = 0.95)
+  stopifnot(all(c("dataset","group","sample","MD2","is_outlier","top_contributors") %in% names(md_res)))
+  
+  df <- md_res |>
+    dplyr::filter(isTRUE(.data$is_outlier), is.finite(.data$MD2)) |>
+    dplyr::mutate(
+      Sample       = .data$sample,
+      Mahalanobis  = round(sqrt(.data$MD2), digits),
+      Contributors = vapply(.data$top_contributors,
+                            function(x) paste(utils::head(x %||% character(), max_contrib), collapse = ", "),
+                            character(1))
+    ) |>
+    dplyr::select(.data$dataset, .data$group, .data$Sample, .data$Mahalanobis, .data$Contributors)
+  
+  if (nrow(df) == 0L) {
+    return(htmltools::tags$div("No outlier samples detected in PCA."))
+  }
+  
+  by_block <- split(df, list(df$dataset, df$group), drop = TRUE)
+  
+  make_table <- function(block) {
+    ds <- unique(block$dataset)
+    gp <- unique(block$group)
+    htmltools::tags$div(
+      htmltools::tags$h4(sprintf("%s — %s", ds, gp)),
+      htmltools::tags$table(
+        class = "table table-sm table-striped",
+        style = "width:100%; table-layout:fixed; word-wrap:break-word;",
+        htmltools::tags$thead(
+          htmltools::tags$tr(
+            htmltools::tags$th("Sample"),
+            htmltools::tags$th("Mahalanobis distance"),
+            htmltools::tags$th("Top contributors")
+          )
+        ),
+        htmltools::tags$tbody(
+          lapply(seq_len(nrow(block)), function(i) {
+            htmltools::tags$tr(
+              htmltools::tags$td(htmltools::htmlEscape(block$Sample[i])),
+              htmltools::tags$td(format(block$Mahalanobis[i], nsmall = digits, trim = TRUE)),
+              htmltools::tags$td(htmltools::htmlEscape(block$Contributors[i]))
+            )
+          })
+        )
+      )
+    )
+  }
+  
+  htmltools::tagList(lapply(by_block, make_table))
+}
