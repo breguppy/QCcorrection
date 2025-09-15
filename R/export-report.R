@@ -19,6 +19,7 @@ render_report <- function(p,
   met2_plot <- make_met_scatter(d, met_candidates[2])
   rsd_plot  <- make_rsd_plot(p, d)
   pca_plot  <- make_pca_plot(p, d)
+  pca_loading_plot <- make_pca_loading_plot(p, d)
   
   # plain strings only; no shiny::tagList here
   descriptions <- list(
@@ -147,7 +148,8 @@ render_report <- function(p,
       "Metabolite Scatter 1" = met1_plot,
       "Metabolite Scatter 2" = met2_plot,
       "RSD Comparison" = rsd_plot,
-      "PCA Comparison" = pca_plot
+      "PCA Comparison" = pca_plot,
+      "PCA Loading" = pca_loading_plot
     ),
     choices = list(
       raw_df             = d$cleaned$df,

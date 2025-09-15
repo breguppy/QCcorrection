@@ -50,7 +50,7 @@ export_figures <- function(p, d, out_dir = tempdir()) {
   cols <- intersect(raw_cols, cor_cols)
   met_paths <- character(0)
   n <- length(cols)
-  N <- n + 2
+  N <- n + 3
   shiny::withProgress(message = "Creating figures...", value = 0, {
     rsd_plot <- make_rsd_plot(p, d)
     rsd_path <- file.path(rsd_dir, sprintf("rsd_comparison_%s.%s", p$rsd_cal, fmt))
@@ -62,6 +62,12 @@ export_figures <- function(p, d, out_dir = tempdir()) {
                           sprintf("pca_comparison_%s.%s", p$color_col, fmt))
     pca_path <- save_plot(pca_path, pca_plot, 8.333, 4.417)
     shiny::incProgress(1 / N, detail = "Saved: pca figure")
+    
+    pca_loading <-  make_pca_loading_plot(p, d)
+    loading_path <- file.path(pca_dir,
+                              sprintf("pca_loadings.%s", fmt))
+    pca_path <- save_plot(loading_path, pca_loading, 8.75, 4.417)
+    shiny::incProgress(1 / N, detail = "Saved: pca loading figure")
     
     for (i in seq_len(n)) {
       metab <- cols[i]

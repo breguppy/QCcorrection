@@ -101,3 +101,48 @@ make_pca_plot <- function(p, d) {
     ggplot2::ggplot() + ggplot2::labs(title = "PCA failed \u2013 see notification")
   })
 }
+
+#' @keywords internal
+#' @noRd
+# Helper for creating the PCA plot
+make_pca_loading_plot <- function(p, d) {
+  # get after based on pca_compare selected by user.
+  if (p$pca_compare == "filtered_cor_data") {
+    df <- d$filtered_corrected$df
+    after <- d$filtered_corrected
+    compared_to <- "Correction"
+  } else {
+    df <- d$transformed$df
+    after <- d$transformed
+    compared_to <- "Correction and Transformation"
+  }
+  mets <- setdiff(names(df), c("sample", "batch", "class", "order"))
+  shiny::validate(
+    shiny::need(length(mets) >= 2, "Need at least 2 metabolite columns for PCA."),
+    shiny::need(nrow(df) >= 3, "Need at least 3 samples for PCA.")
+  )
+  
+  # Also ensure non-constant / non-NA columns
+  X <- df[, mets, drop = FALSE]
+  keep <- vapply(X, function(v) {
+    v <- suppressWarnings(as.numeric(v))
+    ok <- all(is.finite(v))
+    nz <- (length(unique(v)) >= 2)
+    ok && nz
+  }, logical(1))
+  shiny::validate(need(
+    any(keep),
+    "All metabolite columns are constant/invalid after filtering."
+  ))
+  
+  # before data cannot have any missing values.
+  before <- d$imputed
+  tryCatch({
+    plot_pca_loading(p, before, after, compared_to)
+  }, error = function(e) {
+    shiny::showNotification(paste("PCA failed:", e$message),
+                            type = "error",
+                            duration = 8)
+    ggplot2::ggplot() + ggplot2::labs(title = "PCA Loading failed \u2013 see notification")
+  })
+}

@@ -96,6 +96,10 @@ QCcorrection:::ui_rsd_stats(list(rsd_compare = params$choices$rsd_compare, rsd_c
 print(params$plots[["PCA Comparison"]])
 ```
 
+```{r, echo=FALSE, fig.width=8.75, fig.height=4.417}
+print(params$plots[["PCA Loading"]])
+```
+
 ```{r}
 statement("PCA Comparison")
 ```
