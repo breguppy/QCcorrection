@@ -93,8 +93,8 @@ ui_basic_info <- function(df, replacement_counts) {
 }
 
 # Filter info for section 1.4 Filter Raw Data
-ui_filter_info <- function(mv_removed, mv_cutoff) {
-  if (length(mv_removed) == 0) {
+ui_filter_info <- function(mv_removed, mv_cutoff, qc_missing_mets) {
+  left_col <- if (length(mv_removed) == 0) {
     tags$div(style = "flex: 1; padding-right: 10px;",
              tags$span(
                style = "color:darkgreen;font-weight:bold;",
@@ -120,6 +120,24 @@ ui_filter_info <- function(mv_removed, mv_cutoff) {
     )
   }
   
+  right_col <- if(length(qc_missing_mets) == 0) {
+    tags$div(
+      style = "flex:1; padding-left:10px;",
+      tags$span(style = "color:darkgreen; font-weight:bold;",
+                "No metabolites have missing values in QC samples after filtering."))
+  } else {
+    tags$div(
+      style = "flex:1; padding-left:10px;",
+      tags$span(style = "color:darkorange; font-weight:bold;",
+                paste0(length(qc_missing_mets),
+                       " metabolites have at least one missing value among QC samples after filtering.")),
+      tags$ul(lapply(qc_missing_mets, tags$li)))
+  }
+  
+  tags$div(
+    style = "display:flex; gap:16px; align-items:flex-start;",
+    left_col, right_col
+  )
 }
 
 # Post-correction filtering info for section 2.2 Post-Correction Filtering

@@ -11,7 +11,7 @@ mod_export_ui <- function(id) {
     card_title("Download Data, Plots, and Report"),
     tags$span("Download all to get a ", icon("folder"), " zipped folder containing:"),
     fluidRow(
-      column(4, tags$span(icon("file-excel"), "corrected_data_today's date.xlsx"),
+      column(3, tags$span(icon("file-excel"), "corrected_data_*today's_date*.xlsx"),
              tags$ul(
                tags$li("0. Raw Data"),
                tags$li("1. Correction Settings"),
@@ -21,13 +21,19 @@ mod_export_ui <- function(id) {
                tags$li("5. Grouped Data Fold Change (only when provided a control class)"),
                tags$li("Appendix1. Metaboanalyst Ready")
              )),
-      column(4, tags$span(icon("folder"), " figures"),
+      column(3, tags$span(icon("file-excel"), "rsd_stats_*today's_date*.xlsx"),
+             tags$ul(
+               tags$li("Raw RSD"),
+               tags$li("Corrected RSD or Transformed Corrected RSD"),
+               tags$li("RSD Comparison")
+               )),
+      column(3, tags$span(icon("folder"), " figures"),
              tags$ul(
                tags$li(icon("folder"), " metabolite figures"),
                tags$li(icon("folder"), " RSD figures"),
                tags$li(icon("folder"), "PCA plots")
              )),
-      column(4, tags$span(icon("file-pdf"), " correction_report.pdf"),
+      column(3, tags$span(icon("file-pdf"), " correction_report.pdf"),
              tags$ul(
                tags$li("Report describing the correction steps and figures for evaluating the correction process.")
              ))
@@ -67,6 +73,11 @@ mod_export_server <- function(id, data, params) {
         wb <- export_xlsx(p(), d())
         saveWorkbook(wb, xlsx_path, overwrite = TRUE)
         
+        # Create and save rsd stats data file
+        stats_xlsx_path <- file.path(base_dir, sprintf("rsd_stats_%s.xlsx", Sys.Date()))
+        stats_wb <- export_stats_xlsx(p(), d())
+        saveWorkbook(stats_wb, stats_xlsx_path, overwrite = TRUE)
+        
         # create and save figure folder
         figs <- export_figures(p(), d(), out_dir = base_dir)
         
@@ -76,7 +87,8 @@ mod_export_server <- function(id, data, params) {
         # make zip file
         rel <- c(
           "figures",                                  
-          basename(xlsx_path),                        
+          basename(xlsx_path),
+          basename(stats_xlsx_path),
           "correction_report.html", "correction_report.pdf" 
         )
         rel <- rel[file.exists(file.path(base_dir, rel))]

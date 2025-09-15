@@ -20,10 +20,15 @@ filter_by_missing <- function(df, metab_cols, mv_cutoff) {
   # filter data by metabolite missing value
   df_filtered <- df[, c(meta_cols, mv_keep_cols)]
   
+  # Get metabolites that have QCs with missing values
+  qc_idx <- which(df_filtered$class == "QC")
+  qc_missing_mets <- mv_keep_cols[colSums(is.na(df_filtered[qc_idx, mv_keep_cols])) > 0]
+  
   return(list(
     df = df_filtered,
     mv_cutoff = mv_cutoff,
-    mv_removed_cols = mv_removed_cols
+    mv_removed_cols = mv_removed_cols,
+    qc_missing_mets = qc_missing_mets
   ))
 }
 

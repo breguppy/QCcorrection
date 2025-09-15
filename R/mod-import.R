@@ -129,7 +129,7 @@ mod_import_server <- function(id) {
     })
     output$filter_info <- renderUI({
       fd <- filtered_r(); req(fd)
-      ui_filter_info(fd$mv_removed_cols, input$mv_cutoff)
+      ui_filter_info(fd$mv_removed_cols, input$mv_cutoff, fd$qc_missing_mets)
     })
     
     params_r <- reactive({

@@ -147,6 +147,7 @@ export_xlsx <- function(p, d, file = NULL) {
     add_list(d$cleaned$withheld_cols, "Columns Withheld From Correction")
   add_list(d$filtered$mv_removed_cols,
            "Missing-Value Filtered Metabolites")
+  add_list(d$filtered$qc_missing_mets, "Metabolites with QC Missing Values")
   add_list(d$filtered_corrected$removed_metabolites,
            "QC-RSD Filtered Metabolites")
   if (length(d$transformed$withheld_cols) > 0)
