@@ -129,3 +129,54 @@ ui_unavailable_options <- function(df, metab_cols) {
     return(do.call(tagList, unavail_opts))
   }
 }
+
+ui_rsd_stats <- function(p, d) {
+  df_before <- d$filtered$df
+  # Determine df_after based on rsd_compare selected by user.
+  if (p$rsd_compare == "filtered_cor_data") {
+    df_after <- d$filtered_corrected$df
+  } else {
+    df_after <- d$transformed$df
+  }
+  if (p$rsd_cal == "met") {
+    rsdBefore <- metabolite_rsd(df_before)
+    rsdAfter <- metabolite_rsd(df_after)
+  } else {
+    rsdBefore <- class_metabolite_rsd(df_before)
+    rsdAfter <- class_metabolite_rsd(df_after)
+  }
+  rsd_stats <- delta_rsd_stats(rsdBefore, rsdAfter)
+  
+  df <- data.frame(
+    Metric = c("Average &Delta; QC RSD", 
+               "Median &Delta; QC RSD", 
+               "Average &Delta; Sample RSD", 
+               "Median &Delta; Sample RSD"),
+    Value  = c(rsd_stats$avg_delta_qc,
+               rsd_stats$med_delta_qc,
+               rsd_stats$avg_delta_sample,
+               rsd_stats$med_delta_sample)
+  )
+  
+  df$Value <- sprintf("%.2f%%", df$Value)
+  
+  htmltools::tagList(
+    htmltools::tags$table(
+      style = "border-collapse: collapse; margin-top:10px;",
+      htmltools::tags$thead(
+        htmltools::tags$tr(
+          htmltools::tags$th("Metric",  style="padding:4px 12px; text-align:left; border-bottom:1px solid #ccc;"),
+          htmltools::tags$th("Value",   style="padding:4px 12px; text-align:right; border-bottom:1px solid #ccc;")
+        )
+      ),
+      htmltools::tags$tbody(
+        lapply(seq_len(nrow(df)), function(i) {
+          htmltools::tags$tr(
+            htmltools::tags$td(HTML(df$Metric[i]), style="padding:4px 12px; text-align:left;"),
+            htmltools::tags$td(df$Value[i],  style="padding:4px 12px; text-align:right;")
+          )
+        })
+      )
+    )
+  )
+}

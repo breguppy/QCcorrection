@@ -18,7 +18,7 @@ mod_visualize_ui <- function(id) {
       sidebar = ui_sidebar_block(
         title = "3.2 RSD Evaluation",
         ui_rsd_eval(ns),
-        help = c("Evaluate correction method by the change in relative standard deviation (RSD)."),
+        uiOutput(ns("rsd_comparison_stats")),
         width = 400
       ),
       plotOutput(ns("rsd_comparison_plot"), height = "540px", width = "900px")
@@ -27,7 +27,6 @@ mod_visualize_ui <- function(id) {
       sidebar = ui_sidebar_block(
         title = "3.3 PCA Evaluation",
         ui_pca_eval(ns),
-        help = c("Evaluate correction using principal component analysis (PCA)."),
         width = 400
       ),
       plotOutput(ns("pca_plot"), height = "530px", width = "1000px")
@@ -75,6 +74,11 @@ mod_visualize_server <- function(id, data, params) {
       req(input$rsd_compare, input$rsd_cal)
       
       make_rsd_plot(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal), d())
+    })
+    
+    output$rsd_comparison_stats <- renderUI({
+      req(input$rsd_compare, input$rsd_cal)
+      ui_rsd_stats(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal), d())
     })
     
     #-- PCA plot
