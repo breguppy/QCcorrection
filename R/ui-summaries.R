@@ -111,7 +111,7 @@ ui_filter_info <- function(mv_removed, mv_cutoff, qc_missing_mets) {
         style = "color:darkorange;font-weight:bold;",
         paste0(
           length(mv_removed),
-          " metabolites removed based on missing value percentage above ",
+          " metabolite(s) removed based on missing value percentage above ",
           mv_cutoff,
           "%"
         )
@@ -130,7 +130,7 @@ ui_filter_info <- function(mv_removed, mv_cutoff, qc_missing_mets) {
       style = "flex:1; padding-left:10px;",
       tags$span(style = "color:darkorange; font-weight:bold;",
                 paste0(length(qc_missing_mets),
-                       " metabolites have at least one missing value among QC samples after filtering.")),
+                       " metabolite(s) with at least one QC missing value after filtering.")),
       tags$ul(lapply(qc_missing_mets, tags$li)))
   }
   
