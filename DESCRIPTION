@@ -23,7 +23,9 @@ Imports:
     readxl,
     openxlsx,
     rlang,
-    magrittr
+    magrittr,
+    robustbase,
+    outliers
 Suggests:
     pagedown,
     BiocStyle,
