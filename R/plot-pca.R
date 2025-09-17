@@ -84,8 +84,8 @@ plot_pca <- function(p, before, after, compared_to) {
       ),
       axis.title = ggplot2::element_text(size = 14, face = "bold"),
       axis.text  = ggplot2::element_text(size = 10),
-      legend.title = ggplot2::element_text(size = 14, face = "bold"),
-      legend.text  = ggplot2::element_text(size = 12)
+      legend.title = ggplot2::element_text(size = 12, face = "bold"),
+      legend.text  = ggplot2::element_text(size = 10)
     )
   
   # before plot
@@ -162,7 +162,7 @@ plot_pca <- function(p, before, after, compared_to) {
     p2,
     leg,
     nrow = 1,
-    rel_widths = c(1, 1, 0.22),
+    rel_widths = c(1, 1, 0.3),
     labels = NULL,
     align = "hv",
     axis = "tblr"

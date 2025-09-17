@@ -16,21 +16,6 @@ loess_correction <- function(df,
   y    <- seq_len(nrow(df))
   df_corrected <- df
   
-  impute_half_min_by_class <- function(x, cls) {
-    cls <- addNA(as.factor(cls))
-    for (lev in levels(cls)) {
-      idx  <- which(cls == lev)
-      gmin <- suppressWarnings(min(x[idx], na.rm = TRUE))
-      if (is.finite(gmin)) {
-        x[idx][is.na(x[idx])] <- gmin / 2
-      } else {
-        allmin <- suppressWarnings(min(x, na.rm = TRUE))
-        if (is.finite(allmin)) x[idx][is.na(x[idx])] <- allmin / 2
-      }
-    }
-    x
-  }
-  
   for (metab in metab_cols) {
     loess_model <- stats::loess(df[[metab]][qcid] ~ qcid,
                                 span   = span,
@@ -64,22 +49,6 @@ bw_loess_correction <- function(df,
                                 degree = 2,
                                 min_qc = 5,
                                 clamp_eps = .Machine$double.eps) {
-  # helper: class-wise half-min imputation
-  impute_half_min_by_class <- function(x, cls) {
-    cls <- as.factor(cls)
-    for (lev in levels(cls)) {
-      idx <- which(cls == lev)
-      gmin <- suppressWarnings(min(x[idx], na.rm = TRUE))
-      if (is.finite(gmin)) {
-        x[idx][is.na(x[idx])] <- gmin / 2
-      } else {
-        # fallback if an entire class is NA
-        allmin <- suppressWarnings(min(x, na.rm = TRUE))
-        if (is.finite(allmin)) x[idx][is.na(x[idx])] <- allmin / 2
-      }
-    }
-    x
-  }
   
   df_corrected <- df
   batches <- unique(df$batch)
@@ -112,12 +81,19 @@ bw_loess_correction <- function(df,
       # remove negatives → NA
       corrected[corrected <= 0] <- NA
       
-      # impute NA by class (QC vs samples or any class labels)
-      corrected <- impute_half_min_by_class(corrected, as.factor(sub$class))
-      
       # write back
       df_corrected[[metab]][b_idx] <- corrected
     }
   }
+  
+  metab_matrix <- as.matrix(df_corrected[metab_cols])
+  transposed <- t(metab_matrix)
+  knn_result <- impute::impute.knn(transposed,
+                                   rowmax = 0.99,
+                                   colmax = 0.99,
+                                   maxp = 15000)
+  imputed_matrix <- t(knn_result$data)
+  df_corrected[metab_cols] <- as.data.frame(imputed_matrix)
+  
   df_corrected
 }
