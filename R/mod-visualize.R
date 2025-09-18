@@ -30,8 +30,7 @@ mod_visualize_ui <- function(id) {
         width = 400
       ),
       plotOutput(ns("pca_plot"), height = "530px", width = "1000px"),
-      plotOutput(ns("pca_loading_plot"), height = "530px", width = "1050px"),
-      uiOutput(ns("outliers_table")),
+      plotOutput(ns("pca_loading_plot"), height = "530px", width = "1050px")
     )),
     card(layout_sidebar(
       sidebar = ui_sidebar_block(
@@ -93,11 +92,6 @@ mod_visualize_server <- function(id, data, params) {
       req(input$pca_compare, input$color_col)
       make_pca_loading_plot(list(pca_compare = input$pca_compare, color_col = input$color_col), d())
     }, res = 120)
-    
-    output$outliers_table <- renderUI({
-      req(input$pca_compare, input$color_col)
-      ui_outliers(input$pca_compare, d())
-    })
     
     #-- Download all figures as zip folder.
     output$download_fig_zip_btn <- renderUI({

@@ -314,6 +314,25 @@ ui_post_cor_transform <- function(ns) {
   )
 }
 
+#' Options for outlier detection
+#' @keywords internal
+#' @noRd
+ui_detect_outliers_options <- function(ns) {
+  tagList(
+    radioButtons(ns("out_data"), 
+                 "Detect outliers in", 
+                 list("Corrected data" = "filtered_cor_data", 
+                      "Transformed and corrected data" = "transformed_cor_data"), 
+                 "filtered_cor_data"),
+    tooltip(
+      checkboxInput(ns("sample_grouping"), 
+                 "Group experimental samples by class", FALSE),
+      "Check this box if you want to campare samples within the same class.",
+      placement = "right"
+    )
+  )
+}
+
 #' visualization rsd evaluation
 #' @keywords internal
 #' @noRd

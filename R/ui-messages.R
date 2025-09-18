@@ -181,68 +181,71 @@ ui_rsd_stats <- function(p, d) {
   )
 }
 
-ui_outliers <- function(pca_compare, d, max_top = 5, digits = 2) {
-  if (pca_compare == "filtered_cor_data") {
+ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
+                        max_top = 5, digits = 2) {
+  if (p$out_data == "filtered_cor_data") {
     df <- d$filtered_corrected$df
   } else {
     df <- d$transformed$df
   }
-  res <- detect_qc_aware_outliers(df)
-  stopifnot(is.list(res), all(c("sample_md","confirmations") %in% names(res)))
-  if (!requireNamespace("htmltools", quietly = TRUE)) {
-    stop("htmltools is required")
-  }
+  res <- detect_qc_aware_outliers(df, group_nonqc_by_class = p$sample_grouping)
+  
+  if (!requireNamespace("htmltools", quietly = TRUE)) stop("htmltools is required")
   tags <- htmltools::tags
+  
+  # Accept either the full result list, or separate pieces
+  if (is.null(res)) res <- list(confirmations = confirmations, sample_md = sample_md)
+  if (!is.list(res)) stop("ui_outliers: supply the full result list or confirmations+sample_md")
   
   conf <- res$confirmations
   md   <- res$sample_md
+  if (is.null(conf) || is.null(md)) stop("ui_outliers: missing confirmations or sample_md")
   
-  # keep only confirmed calls
+  # choose grouping column present in md (group_id for new code, else class)
+  group_col <- if ("group_id" %in% names(md)) "group_id" else "class"
+  
   conf_ok <- subset(conf, decision == "confirm")
-  if (nrow(conf_ok) == 0) {
-    return(tags$span("No outliers detected"))
-  }
+  if (nrow(conf_ok) == 0) return(tags$span("No outliers detected"))
   
-  # summary per sample: MD + top confirmed metabolites (by |z|)
   conf_ok$abs_z <- abs(conf_ok$z)
+  
   top_by_sample <- lapply(split(conf_ok, conf_ok$sample), function(d) {
-    # order by |z| descending
     d <- d[order(-d$abs_z), ]
     d <- head(d, max_top)
     data.frame(
-      sample      = d$sample[1],
-      class       = d$class[1],
-      top_mets    = paste0(d$metabolite, " (z=", sprintf("%.*f", digits, d$z), 
-                           ", QC RSD=", ifelse(is.na(d$qc_rsd), "NA", sprintf("%.*f%%", digits, d$qc_rsd)),
-                           ", ", d$method, ":p=", ifelse(is.na(d$p_value), "NA", sprintf("%.*f", digits, d$p_value)), ")",
-                           collapse = "; ")
+      sample   = d$sample[1],
+      groupval = d[[group_col]][1],
+      top_mets = paste0(
+        d$metabolite,
+        " (z=", sprintf("%.*f", digits, d$z),
+        ", QC RSD=", ifelse(is.na(d$qc_rsd), "NA", sprintf("%.*f%%", digits, d$qc_rsd)),
+        ", ", d$method, ":p=", ifelse(is.na(d$p_value), "NA", sprintf("%.*f", digits, d$p_value)),
+        ")",
+        collapse = "; "
+      ),
+      stringsAsFactors = FALSE
     )
   })
   top_by_sample <- do.call(rbind, top_by_sample)
   
-  # join Mahalanobis distance and flag
-  md_keep <- md[, c("sample","class","md","cutoff","flagged")]
-  out_tbl <- merge(top_by_sample, md_keep, by = c("sample","class"), all.x = TRUE)
+  md_keep <- md[, c("sample", group_col, "md", "cutoff", "flagged")]
+  names(md_keep)[names(md_keep) == group_col] <- "groupval"
+  out_tbl <- merge(top_by_sample, md_keep, by = c("sample","groupval"), all.x = TRUE)
   
-  # order: flagged first, then by descending MD
-  out_tbl$flagged <- isTRUE(out_tbl$flagged) | (!is.na(out_tbl$md) & out_tbl$md > out_tbl$cutoff)
+  out_tbl$flagged <- with(out_tbl, isTRUE(flagged) | (!is.na(md) & md > cutoff))
   out_tbl <- out_tbl[order(-as.numeric(out_tbl$flagged), -out_tbl$md), ]
   
-  # render HTML table
   header <- tags$thead(
     tags$tr(
-      tags$th("Sample"),
-      tags$th("Class"),
-      tags$th("Mahalanobis"),
-      tags$th("Cutoff"),
-      tags$th("Flagged"),
-      tags$th(paste0("Top metabolites (max ", max_top, ")"))
+      tags$th("Sample"), tags$th("Group"),
+      tags$th("Mahalanobis"), tags$th("Cutoff"),
+      tags$th("Flagged"), tags$th(paste0("Top metabolites (max ", max_top, ")"))
     )
   )
   body_rows <- apply(out_tbl, 1, function(r) {
     tags$tr(
       tags$td(r[["sample"]]),
-      tags$td(r[["class"]]),
+      tags$td(r[["groupval"]]),
       tags$td(ifelse(is.na(r[["md"]]), "NA", sprintf("%.*f", digits, as.numeric(r[["md"]])))),
       tags$td(ifelse(is.na(r[["cutoff"]]), "NA", sprintf("%.*f", digits, as.numeric(r[["cutoff"]])))),
       tags$td(ifelse(isTRUE(as.logical(r[["flagged"]])), "yes", "no")),
@@ -252,12 +255,11 @@ ui_outliers <- function(pca_compare, d, max_top = 5, digits = 2) {
   
   tags$table(
     style = "border-collapse:collapse; width:100%; font-size:90%;",
-    tags$style(HTML("
+    tags$style(htmltools::HTML("
       table, th, td { border: 1px solid #ccc; }
       th, td { padding: 6px 8px; vertical-align: top; }
       th { background:#f7f7f7; text-align:left; }
     ")),
-    header,
-    tags$tbody(body_rows)
+    header, tags$tbody(body_rows)
   )
 }

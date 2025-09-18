@@ -46,9 +46,20 @@ mod_correct_ui <- function(id) {
     )
   ),
   card(
+    layout_sidebar(
+      sidebar = ui_sidebar_block(
+        title = "2.4 Canidate Outliers",
+        ui_detect_outliers_options(ns),
+        #TODO: add selection options for comparing corrected or transformed and corrected data. Also add grouping samples by class option.
+        help = c("The samples listed in the table are consisdered outliers by robust Mahalanobis distance in PCA and the metabolites listed for each sample are the top 5 driver metabolite with robust z-score with a cutoff weighted by QC variability.")
+      ),
+      uiOutput(ns("outliers_table")),
+    )
+  ),
+  card(
     style = "background-color: #eeeeee;",
     fluidRow(
-      column(6, tags$h4("2.4 Identify Control Group"),
+      column(6, tags$h4("2.5 Identify Control Group"),
       tooltip(
         checkboxInput(ns("no_control"), "No control group.", FALSE),
         "Check the box if The data does not have a control group.", 
@@ -59,7 +70,7 @@ mod_correct_ui <- function(id) {
         uiOutput(ns("control_class_selector"))
       )
     ),
-    column(6, tags$h4("2.5 Download Corrected Data Only"),
+    column(6, tags$h4("2.6 Download Corrected Data Only"),
            tooltip(
              checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file.", FALSE),
              "Check the box if you want corrected QC values in the downloaded corrected data file.", 
@@ -215,6 +226,13 @@ mod_correct_server <- function(id, data, params) {
     output$cor_data <- renderTable({
       req(transformed_r())
       transformed_r()$df
+    })
+    
+    output$outliers_table <- renderUI({
+      req(filtered_corrected_r(), transformed_r())
+      d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
+      p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
+      ui_outliers(p, d)
     })
     
     output$control_class_selector <- renderUI({
