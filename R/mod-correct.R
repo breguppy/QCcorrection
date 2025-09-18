@@ -313,6 +313,8 @@ mod_correct_server <- function(id, data, params) {
       rsd_cutoff         = filtered_corrected_r()$rsd_cutoff,
       transform          = input$transform,
       ex_ISTD            = isTRUE(input$ex_ISTD),
+      out_data           = input$out_data,
+      sample_grouping    = input$sample_grouping,
       keep_corrected_qcs = isTRUE(input$keep_corrected_qcs),
       no_control         = isTRUE(input$no_control),
       control_class      = input$control_class %||% ""

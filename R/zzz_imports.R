@@ -27,7 +27,7 @@
 #'
 #' @importFrom shinycssloaders withSpinner
 #'
-#' @importFrom dplyr group_by summarise summarize mutate arrange filter select bind_rows bind_cols
+#' @importFrom dplyr group_by summarise summarize mutate arrange filter select bind_rows bind_cols transmute
 #' @importFrom dplyr rename inner_join left_join distinct n_distinct desc slice_head pull across ungroup
 #'
 #' @importFrom tidyr pivot_longer all_of

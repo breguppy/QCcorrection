@@ -21,13 +21,20 @@ mod_export_ui <- function(id) {
                tags$li("5. Grouped Data Fold Change (only when provided a control class)"),
                tags$li("Appendix1. Metaboanalyst Ready")
              )),
-      column(3, tags$span(icon("file-excel"), "rsd_stats_*today's_date*.xlsx"),
+      column(2, tags$span(icon("file-excel"), "rsd_stats_*today's_date*.xlsx"),
              tags$ul(
                tags$li("Raw RSD"),
                tags$li("Corrected RSD or Transformed Corrected RSD"),
                tags$li("RSD Comparison")
                )),
-      column(3, tags$span(icon("folder"), " figures"),
+      column(2, tags$span(icon("file-excel"), "candidate_outliers_*today's_date*.xlsx"),
+             tags$ul(
+               tags$li("QC RSD"),
+               tags$li("Sample MD"),
+               tags$li("Candidates"),
+               tags$li("Confirmations")
+               )),
+      column(2, tags$span(icon("folder"), " figures"),
              tags$ul(
                tags$li(icon("folder"), " metabolite figures"),
                tags$li(icon("folder"), " RSD figures"),
@@ -78,6 +85,11 @@ mod_export_server <- function(id, data, params) {
         stats_wb <- export_stats_xlsx(p(), d())
         saveWorkbook(stats_wb, stats_xlsx_path, overwrite = TRUE)
         
+        # Create and save outlier data file
+        outlier_xlsx_path <- file.path(base_dir, sprintf("candidate_outliers_%s.xlsx", Sys.Date()))
+        outlier_wb <- export_outliers_xlsx(p(), d())
+        saveWorkbook(outlier_wb, outlier_xlsx_path, overwrite = TRUE)
+        
         # create and save figure folder
         figs <- export_figures(p(), d(), out_dir = base_dir)
         
@@ -89,6 +101,7 @@ mod_export_server <- function(id, data, params) {
           "figures",                                  
           basename(xlsx_path),
           basename(stats_xlsx_path),
+          basename(outlier_xlsx_path),
           "correction_report.html", "correction_report.pdf" 
         )
         rel <- rel[file.exists(file.path(base_dir, rel))]
