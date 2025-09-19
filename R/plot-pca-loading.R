@@ -9,7 +9,7 @@ plot_pca_loading <- function(p, before, after, compared_to,
                            setdiff(names(after$df),  meta_cols))
   
   # Impute 'after' like in plot_pca()
-  if (any(is.na(after$df[metab_cols]))) {
+  if (any(is.na(after$df[ , metab_cols, drop = FALSE]))) {
     results <- impute_missing(after$df, metab_cols, p$qcImputeM, p$samImputeM)
     after_df_only <- results$df
   } else {
