@@ -85,12 +85,19 @@ mod_visualize_server <- function(id, data, params) {
     #-- PCA plot
     output$pca_plot <- renderPlot({
       req(input$pca_compare, input$color_col)
-      make_pca_plot(list(pca_compare = input$pca_compare, color_col = input$color_col), d())
+      pca_p <- p()
+      pca_p$pca_compare <- input$pca_compare
+      pca_p$color_col <- input$color_col
+      print(pca_p)
+      make_pca_plot(pca_p, d())
     }, res = 120)
     
     output$pca_loading_plot <- renderPlot({
       req(input$pca_compare, input$color_col)
-      make_pca_loading_plot(list(pca_compare = input$pca_compare, color_col = input$color_col), d())
+      pca_p <- p()
+      pca_p$pca_compare <- input$pca_compare
+      pca_p$color_col <- input$color_col
+      make_pca_loading_plot(pca_p, d())
     }, res = 120)
     
     #-- Download all figures as zip folder.

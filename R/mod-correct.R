@@ -50,7 +50,6 @@ mod_correct_ui <- function(id) {
       sidebar = ui_sidebar_block(
         title = "2.4 Canidate Outliers",
         ui_detect_outliers_options(ns),
-        #TODO: add selection options for comparing corrected or transformed and corrected data. Also add grouping samples by class option.
         help = c("The samples listed in the table are consisdered outliers by robust Mahalanobis distance in PCA and the metabolites listed for each sample are the top 5 driver metabolite with robust z-score with a cutoff weighted by QC variability.")
       ),
       uiOutput(ns("outliers_table")),
@@ -159,12 +158,20 @@ mod_correct_server <- function(id, data, params) {
     filtered_corrected_r <- reactive({
       req(filtered_r(), corrected_r())
       df_corrected <- corrected_r()$df
-      base <- if (isTRUE(input$remove_imputed))
-        remove_imputed_from_corrected(filtered_r()$df, df_corrected) else df_corrected
-      if (isTRUE(input$post_cor_filter))
-        filter_by_qc_rsd(base, Inf, c("sample","batch","class","order"))
-      else
-        filter_by_qc_rsd(base, input$rsd_filter, c("sample","batch","class","order"))
+      
+      if (isTRUE(input$remove_imputed)) {
+        fil_cor_df <- remove_imputed_from_corrected(filtered_r()$df, df_corrected)
+      } else  {
+        fil_cor_df <- df_corrected
+      }
+      
+      if (isTRUE(input$post_cor_filter)) {
+        fil_cor_df <- filter_by_qc_rsd(fil_cor_df, Inf, c("sample","batch","class","order"))
+      } else {
+        fil_cor_df <- filter_by_qc_rsd(fil_cor_df, input$rsd_filter, c("sample","batch","class","order"))
+      }
+       
+      fil_cor_df 
     })
     
     
@@ -308,6 +315,8 @@ mod_correct_server <- function(id, data, params) {
     })
     
     correct_params <- reactive(list(
+      qcImputeM          = input$qcImputeM,
+      samImputeM         = input$samImputeM,
       remove_imputed     = isTRUE(input$remove_imputed),
       post_cor_filter    = input$post_cor_filter,
       rsd_cutoff         = filtered_corrected_r()$rsd_cutoff,

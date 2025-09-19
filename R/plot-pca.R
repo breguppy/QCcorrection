@@ -8,7 +8,7 @@ plot_pca <- function(p, before, after, compared_to) {
   metab_cols <- intersect(setdiff(names(before$df), meta_cols), setdiff(names(after$df), meta_cols))
   
   # impute missing values in PCA if there are any
-  if (any(is.na(after$df[metab_cols]))) {
+  if (any(is.na(after$df[,metab_cols, drop = FALSE]))) {
     results <- impute_missing(after$df, metab_cols, p$qcImputeM, p$samImputeM)
     after <- results$df
   } else {
