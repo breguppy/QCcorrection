@@ -2,7 +2,7 @@
 #' @noRd
 detect_qc_aware_outliers <- function(df,
                                      group_nonqc_by_class,
-                                     z_threshold = 3.5,
+                                     z_threshold = 4,
                                      qc_rsd_stable = 0.20,
                                      qc_rsd_unstable = 0.30,
                                      alpha = 0.05,
