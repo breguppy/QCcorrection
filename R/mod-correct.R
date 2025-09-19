@@ -315,8 +315,8 @@ mod_correct_server <- function(id, data, params) {
     })
     
     correct_params <- reactive(list(
-      qcImputeM          = input$qcImputeM,
-      samImputeM         = input$samImputeM,
+      qcImputeM          = input$qcImputeM %||% "median",
+      samImputeM         = input$samImputeM %||% "median",
       remove_imputed     = isTRUE(input$remove_imputed),
       post_cor_filter    = input$post_cor_filter,
       rsd_cutoff         = filtered_corrected_r()$rsd_cutoff,

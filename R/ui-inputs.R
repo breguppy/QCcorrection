@@ -201,6 +201,7 @@ ui_sample_impute <- function(df, metab_cols, ns = identity) {
   } else {
     tags$div(icon("check-circle", class = "text-success"),
              span("No Sample missing values"))
+    
   }
 }
 

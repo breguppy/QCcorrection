@@ -161,8 +161,10 @@ render_report <- function(p,
       post_cor_filter    = p$post_cor_filter,
       rsd_cutoff         = p$rsd_cutoff,
       rsd_compare        = p$rsd_compare,
-      rsd_cal           = p$rsd_cal
-    ),
+      rsd_cal            = p$rsd_cal,
+      out_data           = p$out_data,
+      sample_grouping    = p$sample_grouping
+        ),
     descriptions = descriptions
   )
   

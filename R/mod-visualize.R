@@ -88,7 +88,6 @@ mod_visualize_server <- function(id, data, params) {
       pca_p <- p()
       pca_p$pca_compare <- input$pca_compare
       pca_p$color_col <- input$color_col
-      print(pca_p)
       make_pca_plot(pca_p, d())
     }, res = 120)
     

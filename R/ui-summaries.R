@@ -172,19 +172,13 @@ ui_postcor_filter_info <- function(filtered_corrected_result,
 }
 
 ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
-                        max_top = 5, digits = 2,
-                        table_max_height = "340px") {
-  if (p$out_data == "filtered_cor_data") {
-    df <- d$filtered_corrected$df
-  } else {
-    df <- d$transformed$df
-  }
+                        digits = 2, n_top = 10) {
+  df <- if (p$out_data == "filtered_cor_data") d$filtered_corrected$df else d$transformed$df
   res <- detect_qc_aware_outliers(df, group_nonqc_by_class = p$sample_grouping)
   
   if (!requireNamespace("htmltools", quietly = TRUE)) stop("htmltools is required")
   tags <- htmltools::tags
   
-  # Accept either the full result list, or separate pieces
   if (is.null(res)) res <- list(confirmations = confirmations, sample_md = sample_md)
   if (!is.list(res)) stop("ui_outliers: supply the full result list or confirmations+sample_md")
   
@@ -192,9 +186,7 @@ ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
   md   <- res$sample_md
   if (is.null(conf) || is.null(md)) stop("ui_outliers: missing confirmations or sample_md")
   
-  # choose grouping column present in md (group_id for new code, else class)
   group_col <- if ("group_id" %in% names(md)) "group_id" else "class"
-  
   conf_ok <- subset(conf, decision == "confirm")
   
   n_samples_with_outlier <- if (nrow(conf_ok)) length(unique(conf_ok$sample)) else 0L
@@ -204,79 +196,73 @@ ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
     return(tagList(
       tags$div(
         style = "display:flex; gap:16px; margin-bottom:12px;",
-        metric_card("Samples with ≥1 potential outlier", n_samples_with_outlier),
+        metric_card("Samples with at least 1 potential outlier", n_samples_with_outlier),
         metric_card("Candidate outlier values", n_candidate_values)
       ),
       tags$span("No outliers detected")
     ))
   }
   
-  conf_ok$abs_z <- abs(conf_ok$z)
-  
-  top_by_sample <- lapply(split(conf_ok, conf_ok$sample), function(d) {
-    d <- d[order(-d$abs_z), ]
-    d <- head(d, max_top)
-    data.frame(
-      sample   = d$sample[1],
-      groupval = d[[group_col]][1],
-      top_mets = paste0(
-        d$metabolite,
-        " (z=", sprintf("%.*f", digits, d$z),
-        ", QC RSD=", ifelse(is.na(d$qc_rsd), "NA", sprintf("%.*f%%", digits, d$qc_rsd)),
-        ", ", d$method, ":p=", ifelse(is.na(d$p_value), "NA", sprintf("%.*f", digits, d$p_value)),
-        ")",
-        collapse = "; "
-      ),
-      stringsAsFactors = FALSE
-    )
-  })
-  top_by_sample <- do.call(rbind, top_by_sample)
-  
+  # join Mahalanobis info for each (sample, group)
   md_keep <- md[, c("sample", group_col, "md", "cutoff", "flagged")]
   names(md_keep)[names(md_keep) == group_col] <- "groupval"
-  out_tbl <- merge(top_by_sample, md_keep, by = c("sample","groupval"), all.x = TRUE)
   
-  out_tbl$flagged <- with(out_tbl, isTRUE(flagged) | (!is.na(md) & md > cutoff))
-  out_tbl <- out_tbl[order(-as.numeric(out_tbl$flagged), -out_tbl$md), ]
+  conf_ok$abs_z <- abs(conf_ok$z)
+  conf_ok$groupval <- conf_ok[[group_col]]
+  top <- merge(conf_ok, md_keep, by = c("sample","groupval"), all.x = TRUE)
   
+  # rank by |z|, then MD desc
+  top <- top[order(-top$abs_z, -as.numeric(top$md)), ]
+  top <- head(top, n_top)
+  
+  # format rows
   header <- tags$thead(
     tags$tr(
-      tags$th("Sample"), tags$th("Group"),
-      tags$th("Mahalanobis"), tags$th("Cutoff"),
-      #tags$th("Flagged"), 
-      tags$th(paste0("Top metabolites (max ", max_top, ")"))
+      tags$th("#"),
+      tags$th("Sample"),
+      tags$th("Group"),
+      tags$th("Metabolite"),
+      tags$th("|z|"),
+      tags$th("z"),
+      tags$th("QC RSD"),
+      tags$th("Method"),
+      tags$th("p"),
+      tags$th("Mahalanobis"),
+      tags$th("Cutoff")
     )
   )
-  body_rows <- apply(out_tbl, 1, function(r) {
+  
+  body_rows <- lapply(seq_len(nrow(top)), function(i) {
+    r <- top[i, ]
     tags$tr(
-      tags$td(r[["sample"]]),
-      tags$td(r[["groupval"]]),
-      tags$td(ifelse(is.na(r[["md"]]), "NA", sprintf("%.*f", digits, as.numeric(r[["md"]])))),
-      tags$td(ifelse(is.na(r[["cutoff"]]), "NA", sprintf("%.*f", digits, as.numeric(r[["cutoff"]])))),
-      #tags$td(ifelse(isTRUE(as.logical(r[["flagged"]])), "yes", "no")),
-      tags$td(r[["top_mets"]])
+      tags$td(i),
+      tags$td(r$sample),
+      tags$td(r$groupval),
+      tags$td(r$metabolite),
+      tags$td(sprintf("%.*f", digits, r$abs_z)),
+      tags$td(sprintf("%.*f", digits, r$z)),
+      tags$td(ifelse(is.na(r$qc_rsd), "NA", sprintf("%.*f%%", digits, r$qc_rsd))),
+      tags$td(r$method),
+      tags$td(ifelse(is.na(r$p_value), "NA", sprintf("%.*f", digits, r$p_value))),
+      tags$td(ifelse(is.na(r$md), "NA", sprintf("%.*f", digits, r$md))),
+      tags$td(ifelse(is.na(r$cutoff), "NA", sprintf("%.*f", digits, r$cutoff)))
     )
   })
   
   tagList(
-    # summary cards
     tags$div(
       style = "display:flex; gap:16px; margin-bottom:12px;",
-      metric_card("Samples with ≥1 potential outlier", n_samples_with_outlier),
+      metric_card("Samples with at least 1 potential outlier", n_samples_with_outlier),
       metric_card("Candidate outlier values", n_candidate_values)
     ),
-    # scrollable table
     tags$div(
-      style = paste0(
-        "max-height:", table_max_height, "; overflow-y:auto; ",
-        "border:1px solid #ddd; border-radius:6px; padding:0; background:white;"
-      ),
+      style = "border:1px solid #ddd; border-radius:6px; background:white;",
       tags$table(
         style = "border-collapse:collapse; width:100%; font-size:90%;",
         tags$style(htmltools::HTML("
           table, th, td { border: 1px solid #ccc; }
           th, td { padding: 6px 8px; vertical-align: top; }
-          th { background:#f7f7f7; text-align:left; position: sticky; top: 0; z-index: 1; }
+          th { background:#f7f7f7; text-align:left; }
         ")),
         header, tags$tbody(body_rows)
       )
