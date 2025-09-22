@@ -1,4 +1,7 @@
-# mod_correct.R
+#' Correction module
+#'
+#' @keywords internal
+#' @noRd
 
 mod_correct_ui <- function(id) { 
   ns <- NS(id); 
@@ -22,23 +25,9 @@ mod_correct_ui <- function(id) {
   ),
   card(
     layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("2.2 Post-Correction Filtering"),
-        tooltip(
-          checkboxInput(ns("remove_imputed"), "Remove imputed values after correction?", FALSE),
-          "Check this box if you want to the corrected data to have the same missing values as the raw data.", "right"
-        ),
-        tooltip(
-          checkboxInput(ns("post_cor_filter"), "Don't filter metabolites based on QC RSD%", FALSE),
-          "Check this box if you don't want any metabolites removed post-correction.", "right"
-        ),
-        conditionalPanel(
-          condition = sprintf("!input['%s']", ns("post_cor_filter")),
-          tooltip(
-            sliderInput(ns("rsd_filter"),"Metabolite RSD% threshold for QC samples", 0, 100, 50),
-            "Metabolites with QC RSD% above this value will be removed from the corrected data.", "right"
-          )
-        ),
+      sidebar = ui_sidebar_block(
+        title = "2.2 Post-Correction Filtering",
+        ui_post_cor_filter(ns),
         width = 400
       ),
       uiOutput(ns("post_cor_filter_info")) %>% withSpinner(color = "#404040")
@@ -46,54 +35,45 @@ mod_correct_ui <- function(id) {
   ),
   card(
     layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("2.3 Post-Correction Transformation"),
-        radioButtons(ns("transform"), "Method",
-          choices = list(
-            "Log 2 Transformation" = "log2",
-            "Total Ratiometically Normalized (TRN)" = "TRN",
-            "None" = "none"
-          ),
-          "none"
-        ),
-        tooltip(
-          checkboxInput(ns("ex_ISTD"), "Exclude Internal Standards from post-correction transformation/normalization.", TRUE),
-          "Check this box if you do not want internal standards to be included in the transformation or normalization calculation.", "right"
-        ),
-        conditionalPanel(
-          condition = sprintf("input['%s'] === 'TRN'", ns("transform")),
-          tooltip(
-            checkboxInput(ns("trn_withhold_checkbox"), "Withold column(s) from TRN?", FALSE),
-            "Check this box if there are any columns that should not count in TRN (i.e. TIC column). Sample, batch, class and order are already excluded.", "right"
-          )
-        ),
+      sidebar = ui_sidebar_block(
+        title = "2.3 Post-Correction Transformation",
+        ui_post_cor_transform(ns),
         uiOutput(ns("trn_withhold_ui")),
         uiOutput(ns("trn_withhold_selectors_ui")),
         width = 400
       ),
-      tags$div(
-        style = "overflow-x: auto; overflow-y: auto; max-height: 400px; border: 1px solid #ccc;",
-        tableOutput(ns("cor_data")) %>% withSpinner(color = "#404040")
-      )
+      ui_table_scroll("cor_data", ns) %>% withSpinner(color = "#404040")
+    )
+  ),
+  card(
+    layout_sidebar(
+      sidebar = ui_sidebar_block(
+        title = "2.4 Canidate Outliers",
+        ui_detect_outliers_options(ns),
+        help = c("The samples listed in the table are consisdered outliers by robust Mahalanobis distance in PCA and the metabolites listed for each sample are considered outliers by robust z-score with a cutoff weighted by QC variability.")
+      ),
+      uiOutput(ns("outliers_table")),
     )
   ),
   card(
     style = "background-color: #eeeeee;",
     fluidRow(
-      column(6, tags$h4("2.4 Identify Control Group"),
+      column(6, tags$h4("2.5 Identify Control Group"),
       tooltip(
         checkboxInput(ns("no_control"), "No control group.", FALSE),
-        "Check the box if The data does not have a control group.", "right"
+        "Check the box if The data does not have a control group.", 
+        placement = "right"
       ),
       conditionalPanel(
         condition = sprintf("!input['%s']", ns("no_control")),
         uiOutput(ns("control_class_selector"))
       )
     ),
-    column(6, tags$h4("2.5 Download Corrected Data Only"),
+    column(6, tags$h4("2.6 Download Corrected Data Only"),
            tooltip(
              checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file.", FALSE),
-             "Check the box if you want corrected QC values in the downloaded corrected data file.", "right"
+             "Check the box if you want corrected QC values in the downloaded corrected data file.", 
+             placement = "right"
            ),
            uiOutput(ns("download_corr_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
            tags$h6("Corrected data can also be downloaded with figure and correction report on tab 4. Export Corrected Data, Plots, and Report")
@@ -119,25 +99,25 @@ mod_correct_server <- function(id, data, params) {
     
     output$qc_missing_value_warning <- renderUI({
       df <- filtered_r()$df
-      qcMissingValueWarning(df)
+      ui_qc_missing_warning(df)
     })
     output$qcImpute <- renderUI({
       df <- filtered_r()$df
       mc <- setdiff(names(df), c('sample','batch','class','order'))
-      qcImputeUI(df, mc, ns = session$ns)
+      ui_qc_impute(df, mc, ns = session$ns)
     })
     output$sampleImpute <- renderUI({
       df <- filtered_r()$df
       mc <- setdiff(names(df), c('sample','batch','class','order'))
-      sampleImputeUI(df, mc, ns = session$ns)
+      ui_sample_impute(df, mc, ns = session$ns)
     })
     output$correctionMethod <- renderUI({
-      correctionMethodUI(filtered_r()$df, ns = session$ns)
+      ui_correction_method(filtered_r()$df, ns = session$ns)
     })
     output$unavailable_options <- renderUI({
       df <- filtered_r()$df
       mc <- setdiff(names(df), c('sample','batch','class','order'))
-      unavailableOptionsUI(df, mc)
+      ui_unavailable_options(df, mc)
     })
     
     
@@ -178,12 +158,20 @@ mod_correct_server <- function(id, data, params) {
     filtered_corrected_r <- reactive({
       req(filtered_r(), corrected_r())
       df_corrected <- corrected_r()$df
-      base <- if (isTRUE(input$remove_imputed))
-        remove_imputed_from_corrected(filtered_r()$df, df_corrected) else df_corrected
-      if (isTRUE(input$post_cor_filter))
-        rsd_filter(base, Inf, c("sample","batch","class","order"))
-      else
-        rsd_filter(base, input$rsd_filter, c("sample","batch","class","order"))
+      
+      if (isTRUE(input$remove_imputed)) {
+        fil_cor_df <- remove_imputed_from_corrected(filtered_r()$df, df_corrected)
+      } else  {
+        fil_cor_df <- df_corrected
+      }
+      
+      if (isTRUE(input$post_cor_filter)) {
+        fil_cor_df <- filter_by_qc_rsd(fil_cor_df, Inf, c("sample","batch","class","order"))
+      } else {
+        fil_cor_df <- filter_by_qc_rsd(fil_cor_df, input$rsd_filter, c("sample","batch","class","order"))
+      }
+       
+      fil_cor_df 
     })
     
     
@@ -217,9 +205,14 @@ mod_correct_server <- function(id, data, params) {
       })
     })
     output$trn_withhold_selectors_ui <- renderUI({
-      req(corrected_r(), input$trn_withhold_n)
+      req(corrected_r(), input$trn_withhold_n, input$ex_ISTD)
       cols <- names(corrected_r()$df)
       cols <- setdiff(cols, c("sample", "batch", "class", "order"))
+      if (input$ex_ISTD) {
+        istd <- grep("ISTD", cols, value = TRUE)
+        itsd <- grep("ITSD", cols, value = TRUE)
+        cols <- setdiff(cols, c(istd, itsd))
+      }
       dropdown_choices <- c("Select a column..." = "", cols)
       
       # Generate list of columns to withhold
@@ -235,11 +228,18 @@ mod_correct_server <- function(id, data, params) {
     
     output$post_cor_filter_info <- renderUI({
       req(filtered_corrected_r())
-      postCorFilterInfoUI(filtered_corrected_r(), input$rsd_filter, input$post_cor_filter)
+      ui_postcor_filter_info(filtered_corrected_r(), input$rsd_filter, input$post_cor_filter)
     })
     output$cor_data <- renderTable({
       req(transformed_r())
       transformed_r()$df
+    })
+    
+    output$outliers_table <- renderUI({
+      req(filtered_corrected_r(), transformed_r())
+      d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
+      p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
+      ui_outliers(p, d)
     })
     
     output$control_class_selector <- renderUI({
@@ -305,7 +305,7 @@ mod_correct_server <- function(id, data, params) {
           transformed        = tr
         )
         
-        wb <- corrected_file_download(p, rv)
+        wb <- export_xlsx(p, rv)
         openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )
@@ -315,11 +315,15 @@ mod_correct_server <- function(id, data, params) {
     })
     
     correct_params <- reactive(list(
+      qcImputeM          = input$qcImputeM %||% "median",
+      samImputeM         = input$samImputeM %||% "median",
       remove_imputed     = isTRUE(input$remove_imputed),
       post_cor_filter    = input$post_cor_filter,
       rsd_cutoff         = filtered_corrected_r()$rsd_cutoff,
       transform          = input$transform,
       ex_ISTD            = isTRUE(input$ex_ISTD),
+      out_data           = input$out_data,
+      sample_grouping    = input$sample_grouping,
       keep_corrected_qcs = isTRUE(input$keep_corrected_qcs),
       no_control         = isTRUE(input$no_control),
       control_class      = input$control_class %||% ""

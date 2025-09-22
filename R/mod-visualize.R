@@ -1,4 +1,5 @@
-# mod_visualize.R
+#' @keywords internal
+
 
 mod_visualize_ui <- function(id) {
   ns <- NS(id)
@@ -6,41 +7,36 @@ mod_visualize_ui <- function(id) {
     title = "3. Evaluation Metrics and Visualization",
     value = "tab_visualize",
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("3.1 Visualize Correction with Metabolite Scatter Plots"),
+      sidebar = ui_sidebar_block(
+        title = "3.1 Visualize Correction with Metabolite Scatter Plots",
         uiOutput(ns("met_plot_selectors")),
-        width = 400,
+        width = 400
       ),
       plotOutput(ns("metab_scatter"), height = "600px", width = "600px"),
     )),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("3.2 RSD Evaluation"),
-        tags$h6("Evaluate correction method by the change in relative standard deviation (RSD)."),
-        radioButtons(ns("rsd_compare"), "Compare raw data to", list("Corrected data" = "filtered_cor_data", "Transformed and corrected data" = "transformed_cor_data"), "filtered_cor_data"),
-        radioButtons(ns("rsd_cal"), "Calculate RSD by", list("Metabolite" = "met", "Class and Metabolite" = "class_met"), "met"),
-        width = 400,
+      sidebar = ui_sidebar_block(
+        title = "3.2 RSD Evaluation",
+        ui_rsd_eval(ns),
+        uiOutput(ns("rsd_comparison_stats")),
+        width = 400
       ),
       plotOutput(ns("rsd_comparison_plot"), height = "540px", width = "900px")
     )),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("3.3 PCA Evaluation"),
-        tags$h6("Evaluate correction using principal component analysis (PCA)."),
-        radioButtons(ns("pca_compare"), "Compare raw data to", list("Corrected data" = "filtered_cor_data", "Transformed and corrected data" = "transformed_cor_data"), "filtered_cor_data"),
-        radioButtons(ns("color_col"), "Color PCA by", list("batch" = "batch", "class" = "class"), "batch"),
-        width = 400,
+      sidebar = ui_sidebar_block(
+        title = "3.3 PCA Evaluation",
+        ui_pca_eval(ns),
+        width = 400
       ),
-      plotOutput(ns("pca_plot"), height = "530px", width = "1000px")
+      plotOutput(ns("pca_plot"), height = "530px", width = "1000px"),
+      plotOutput(ns("pca_loading_plot"), height = "530px", width = "1050px")
     )),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("3.4 Download Figures Only"),
-        tooltip(
-          radioButtons(ns("fig_format"), "Select figure format:", c("PDF" = "pdf", "PNG" = "png"), "pdf"),
-          "All figures will be saved in this format after clicking download button here or on tab 4. Export Corrected Data, Plots, and Report", "right"
-        ),
-        width = 400,
+      sidebar = ui_sidebar_block(
+        title = "3.4 Download Figures Only",
+        ui_fig_format(ns),
+        width = 400
       ),
       uiOutput(ns("download_fig_zip_btn")),
       uiOutput(ns("progress_ui")),
@@ -54,7 +50,7 @@ mod_visualize_ui <- function(id) {
 mod_visualize_server <- function(id, data, params) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    d <- reactive(data())          # merged data
+    d <- reactive(data())          
     p <- reactive(params()) 
     
     #-- Let user select which metabolite to display in scatter plot
@@ -81,10 +77,26 @@ mod_visualize_server <- function(id, data, params) {
       make_rsd_plot(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal), d())
     })
     
+    output$rsd_comparison_stats <- renderUI({
+      req(input$rsd_compare, input$rsd_cal)
+      ui_rsd_stats(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal), d())
+    })
+    
     #-- PCA plot
     output$pca_plot <- renderPlot({
       req(input$pca_compare, input$color_col)
-      make_pca_plot(list(pca_compare = input$pca_compare, color_col = input$color_col), d())
+      pca_p <- p()
+      pca_p$pca_compare <- input$pca_compare
+      pca_p$color_col <- input$color_col
+      make_pca_plot(pca_p, d())
+    }, res = 120)
+    
+    output$pca_loading_plot <- renderPlot({
+      req(input$pca_compare, input$color_col)
+      pca_p <- p()
+      pca_p$pca_compare <- input$pca_compare
+      pca_p$color_col <- input$color_col
+      make_pca_loading_plot(pca_p, d())
     }, res = 120)
     
     #-- Download all figures as zip folder.
@@ -117,6 +129,7 @@ mod_visualize_server <- function(id, data, params) {
         paste0("figures_", Sys.Date(), ".zip")
       },
       content = function(file) {
+        .require_pkg("zip", "create a zip archive")
         choices <- list(
           rsd_cal     = input$rsd_cal,
           rsd_compare = input$rsd_compare,
@@ -131,19 +144,16 @@ mod_visualize_server <- function(id, data, params) {
           filtered_corrected = d()$filtered_corrected,
           transformed        = d()$transformed
         )
-        figs <- figure_folder_download(p = choices, d = rv_data)
+        figs <- export_figures(p = choices, d = rv_data, out_dir = tempdir())
         
+        fig_dir <- normalizePath(figs$fig_dir, winslash = "/", mustWork = TRUE)
         zipfile <- tempfile(fileext = ".zip")
-        old_wd <- setwd(figs$tmp_dir)
-        on.exit({
-          unlink(figs$fig_dir, recursive = TRUE)
-          unlink(zipfile)
-          setwd(old_wd)
-        }, add = TRUE)
-        zip(zipfile = zipfile,
-            files = "figures",
-            extras = "-r9Xq")
-        file.copy(zipfile, file)
+        zip::zipr(zipfile, files = fig_dir)
+        
+        file.copy(zipfile, file, overwrite = TRUE)
+        
+        unlink(figs$fig_dir, recursive = TRUE, force = TRUE)
+        unlink(zipfile, force = TRUE)
         
         # Remove progress bar
         progress_reactive(0)

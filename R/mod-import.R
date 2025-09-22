@@ -1,37 +1,30 @@
-# mod_import.R
-source("R/helpers.R")
-source("R/processing_helpers.R")
+#' @keywords internal 
 
 mod_import_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
     title = "1. Import Raw Data",
     value = "tab_import",
-    card(full_screen = TRUE,
-         layout_sidebar(
-           sidebar = sidebar(
-             tags$h4("1.1 Upload Raw Data"),
-             fileInput(ns("file1"), "Choose Raw Data File (.csv, .xls, or .xlsx)",
-                       accept = c(".csv",".xls",".xlsx"), 
-                       buttonLabel = "Browse...",
-                       placeholder = "No file selected"),
-             tags$h6("Raw data must be on the first sheet of .xls or .xlsx file."),
-             tags$h6("Data must begin and end with QC samples when sorted by injection order."),
-             width = 400
-           ),
-           div(style="overflow:auto; max-height:400px;", tableOutput(ns("contents")))
-         )
+    card(
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "1.1 Upload Raw Data",
+          ui_file_upload(ns),
+          help = c(
+            "Raw data must be on the first sheet of .xls or .xlsx file.",
+            "Data must begin and end with QC samples when sorted by injection order."
+          ),
+          width = 400
+        ),
+        ui_table_scroll("contents", ns)
+      )
     ),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("1.2 Select non-metabolite columns"),
-        tags$h6("Please select columns for sample, batch, class, and order."),
+      sidebar = ui_sidebar_block(
+        title = "1.2 Select non-metabolite columns",
         uiOutput(ns("column_selectors")),
         uiOutput(ns("column_warning")),
-        tooltip(
-          checkboxInput(ns("withhold_cols"), "Withhold additional columns from correction?", FALSE),
-          "Select if there are extra non-metabolite or specific metabolite columns to withhold from correction.", "right"
-        ),
+        ui_withhold_toggle(ns),
         uiOutput(ns("n_withhold_ui")),
         uiOutput(ns("withhold_selectors_ui")),
         width = 400
@@ -39,12 +32,9 @@ mod_import_ui <- function(id) {
       uiOutput(ns("basic_info"))
     )),
     card(layout_sidebar(
-      sidebar = sidebar(
-        tags$h4("1.3 Filter Raw Data"),
-        tooltip(
-          sliderInput(ns("Frule"), "Acceptable % missing per metabolite", 0, 100, 20),
-          "Metabolites above this missing % are removed.", "right"
-        ),
+      sidebar = ui_sidebar_block(
+        title = "1.3 Filter Raw Data",
+        ui_filter_slider(ns),
         width = 400
       ),
       uiOutput(ns("filter_info"))
@@ -74,11 +64,11 @@ mod_import_server <- function(id) {
     }) %>% debounce(200)
     
     output$column_selectors <- renderUI({
-      req(data_raw()); nonMetColSelectionUI(names(data_raw()), ns = NS(session$ns(NULL)))
+      req(data_raw()); ui_nonmet_cols(names(data_raw()), ns = NS(session$ns(NULL)))
     })
     output$column_warning <- renderUI({
       req(data_raw()); sel <- selections_r()
-      columnWarningUI(data_raw(), c(sel$sample, sel$batch, sel$class, sel$order))
+      ui_column_warning(data_raw(), c(sel$sample, sel$batch, sel$class, sel$order))
     })
     
     withheld_ids_r <- reactive({
@@ -125,21 +115,21 @@ mod_import_server <- function(id) {
       withheld <- withheld_r()
       req(all(nzchar(c(sel$sample, sel$batch, sel$class, sel$order))))
       req(length(unique(c(sel$sample, sel$batch, sel$class, sel$order))) == 4)
-      cleanData(df, sel$sample, sel$batch, sel$class, sel$order, withheld)
+      clean_data(df, sel$sample, sel$batch, sel$class, sel$order, withheld)
     }) %>% bindCache(reactiveVal(NULL)(), selections_r(), withheld_r())
     
     output$basic_info <- renderUI({
       cd <- cleaned_r(); req(cd)
-      basicInfoUI(cd$df, cd$replacement_counts)
+      ui_basic_info(cd$df, cd$replacement_counts)
     })
     
     filtered_r <- reactive({
       cd <- req(cleaned_r())
-      filter_data(cd$df, setdiff(names(cd$df), c("sample","batch","class","order")), input$Frule)
+      filter_by_missing(cd$df, setdiff(names(cd$df), c("sample","batch","class","order")), input$mv_cutoff)
     })
     output$filter_info <- renderUI({
       fd <- filtered_r(); req(fd)
-      filterInfoUI(fd$mv_removed_cols, input$Frule)
+      ui_filter_info(fd$mv_removed_cols, input$mv_cutoff, fd$qc_missing_mets)
     })
     
     params_r <- reactive({
@@ -149,7 +139,7 @@ mod_import_server <- function(id) {
         class_col  = sel$class,  order_col = sel$order,
         withheld_cols = withheld_r(),
         n_withheld = input$n_withheld %||% 0,
-        Frule = input$Frule
+        mv_cutoff = input$mv_cutoff
       )
     })
     
