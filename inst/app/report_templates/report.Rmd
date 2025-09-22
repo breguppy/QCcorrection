@@ -64,6 +64,10 @@ statement("Transformation Description")
 
 ### Candidate Outliers
 ```{r}
+statement("Candidate Outliers")
+```
+
+```{r}
 QCcorrection:::ui_outliers(list(out_data = params$choices$out_data, sample_grouping = params$choices$sample_grouping), list(filtered_corrected = params$choices$filtered_corrected, transformed = params$choices$transformed))
 ```
 

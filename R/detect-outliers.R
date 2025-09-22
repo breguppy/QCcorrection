@@ -130,31 +130,67 @@ detect_qc_aware_outliers <- function(df,
       k_keep <- min(length(pos), n - 1)
     V <- vecs[, pos[seq_len(k_keep)], drop = FALSE]
     Ts <- Z %*% V
+    p <- ncol(Ts)
     
-    if (has_rb && n > (k_keep + 1)) {
-      mcd <- tryCatch(
-        robustbase::covMcd(Ts),
-        error = function(e)
-          NULL
-      )
-      if (!is.null(mcd) &&
-          is.finite(det(mcd$cov))) {
+    # further cap PCs if sample size is too small for robust MCD
+    if (p > 0 && n < 2 * p) {
+      keep_p <- max(1, min(p, floor((n - 1) / 2)))
+      if (keep_p < p) {
+        Ts <- Ts[, seq_len(keep_p), drop = FALSE]
+        p  <- keep_p
+      }
+    }
+    
+    # choose covariance estimator
+    if (p == 1) {
+      mu <- colMeans(Ts, na.rm = TRUE)
+      Cv <- matrix(stats::var(as.numeric(Ts), na.rm = TRUE), 1, 1)
+    } else if (has_rb && n >= 2 * p) {
+      # safe to use MCD only when n >= 2p
+      mcd <- tryCatch(robustbase::covMcd(Ts), error = function(e) NULL)
+      if (!is.null(mcd) && is.matrix(mcd$cov) && all(is.finite(mcd$cov))) {
         mu <- mcd$center
         Cv <- mcd$cov
       } else {
         mu <- colMeans(Ts, na.rm = TRUE)
         Cv <- stats::cov(Ts, use = "pairwise.complete.obs")
       }
+    } else if (requireNamespace("robustbase", quietly = TRUE)) {
+      # OGK is robust and works better when n << p
+      ogk <- tryCatch(robustbase::covOGK(Ts), error = function(e) NULL)
+      if (!is.null(ogk) && is.matrix(ogk$cov) && all(is.finite(ogk$cov))) {
+        mu <- ogk$center
+        Cv <- ogk$cov
+      } else {
+        mu <- colMeans(Ts, na.rm = TRUE)
+        Cv <- stats::cov(Ts, use = "pairwise.complete.obs")
+      }
+    } else if (requireNamespace("corpcor", quietly = TRUE)) {
+      # shrinkage covariance is well-conditioned for small n
+      mu <- colMeans(Ts, na.rm = TRUE)
+      Cv <- corpcor::cov.shrink(Ts)
     } else {
+      # classical covariance as last resort
       mu <- colMeans(Ts, na.rm = TRUE)
       Cv <- stats::cov(Ts, use = "pairwise.complete.obs")
     }
+    
+    # ensure positive-definite covariance
+    ok <- tryCatch({
+      ev <- eigen(Cv, symmetric = TRUE, only.values = TRUE)$values
+      all(is.finite(ev)) && min(ev, na.rm = TRUE) > 1e-8
+    }, error = function(e) FALSE)
+    if (!ok) {
+      eps <- 1e-6
+      Cv  <- Cv + diag(eps, ncol(Ts))
+    }
+    
     md <- tryCatch(
       stats::mahalanobis(Ts, center = mu, cov = Cv),
-      error = function(e)
-        rep(NA_real_, nrow(Ts))
+      error = function(e) rep(NA_real_, nrow(Ts))
     )
-    cut <- chisq_cut(k_keep)
+    
+    cut <- stats::qchisq(md_cutoff_quantile, df = ncol(Ts))
     data.frame(
       sample = dg$sample,
       group_id = dg$group_id,

@@ -255,6 +255,7 @@ ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
       metric_card("Samples with at least 1 potential outlier", n_samples_with_outlier),
       metric_card("Candidate outlier values", n_candidate_values)
     ),
+    tags$span("Top 10 potential outliers are listed below. The full list of potential outliers (candidate_outliers_*today's_date*.xlsx) is availble for download on tab 4. Export Corrected Data, Plots, Stats, and Report."),
     tags$div(
       style = "border:1px solid #ddd; border-radius:6px; background:white;",
       tags$table(

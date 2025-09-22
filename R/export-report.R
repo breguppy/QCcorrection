@@ -85,6 +85,20 @@ render_report <- function(p,
     } else {
       ""
     }),
+    "Candidate Outliers" = paste(
+      "Possible outlier samples are detected with squared Mahalanois distance in the robust PC score space within each group.",
+      "The robust PC space is computed by standardizing each metabolite with robust centering (median) and scaling (MAD, IQR/1.349, SD, or 1) within each group.",
+      "The sandardized metabolites undergoes PCA where we retain PCs to reach at least 80% variance.",
+      "Then a robust covariance is computed using the minimum covariance determinant (MCD), Orthogonalized Gnanadesikan–Kettenring (OGK), shrinkage, or classical formula depending on sample size and number of PCs retained.",
+      "Furthermore, candidate outlier metabolite values are determined with the within group robust z-score of the standardized metabolites.",
+      "from the possible outlier samples, metabolites are only displayed if the absolute value of the z-score is above 4.",
+      "This conservative z-score cutoff to prevent false positives.",
+      "For each candidate, if the QC RSD is stable (QC RSD <= 20%) the candidate is tested to confirm if it is an outlier.",
+      "If the QC RSD is borderline (20% < QC RSD <= 30%) and absolute value of the z-score is greater than or equal to 5, the value is tested.",
+      "If the QC RSD is unstable (greater than 30%) the candidate is not tested.",
+      "Dixon method is used if the candidate is the group's min/max, otherwise Grubbs test is used to confirm outliers.",
+      "The confirmed candidates are POSSIBLE outliers. Futher investigation should be done before removing the metabolite values."
+    ),
     "Metabolite Scatter Plots" = sprintf(
       "These plots show a metabolites before and after signal drift correction before any transformation is applied. The two metabolites shown above have the largest decrease in sample variation. The change in variation was determined by calculating relative standard deviation (RSD) for each metabolite %s %s%s A full explanation of RSD is in the next section.",
       if (p$rsd_cal == "class_met")

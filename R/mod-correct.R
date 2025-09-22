@@ -50,7 +50,7 @@ mod_correct_ui <- function(id) {
       sidebar = ui_sidebar_block(
         title = "2.4 Canidate Outliers",
         ui_detect_outliers_options(ns),
-        help = c("The samples listed in the table are consisdered outliers by robust Mahalanobis distance in PCA and the metabolites listed for each sample are the top 5 driver metabolite with robust z-score with a cutoff weighted by QC variability.")
+        help = c("The samples listed in the table are consisdered outliers by robust Mahalanobis distance in PCA and the metabolites listed for each sample are considered outliers by robust z-score with a cutoff weighted by QC variability.")
       ),
       uiOutput(ns("outliers_table")),
     )

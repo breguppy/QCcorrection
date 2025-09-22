@@ -5,7 +5,7 @@
 export_stats_xlsx <- function(p, d, file = NULL) {
   .require_pkg("openxlsx", "write Excel workbooks")
   wb <- openxlsx::createWorkbook()
-  # make column names bold and descriptions with orange backgroud
+  # make column names bold and descriptions with orange background
   bold  <- openxlsx::createStyle(textDecoration = "Bold")
   note  <- openxlsx::createStyle(wrapText = TRUE,
                                  valign = "top",
@@ -47,7 +47,7 @@ export_stats_xlsx <- function(p, d, file = NULL) {
   } else {
     rsdBefore <- class_metabolite_rsd(df_before)
     rsdAfter <- class_metabolite_rsd(df_after)
-    txt < "RSD values are computed for each metabolite and class. For each metabolite, RSD = 100% * (class standard deviation) / (class mean)."
+    txt <- "RSD values are computed for each metabolite and class. For each metabolite, RSD = 100% * (class standard deviation) / (class mean)."
     df_compare <- inner_join(
       rsdBefore %>% rename(RSD_before = RSD),
       rsdAfter %>% rename(RSD_after  = RSD),
