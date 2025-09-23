@@ -13,32 +13,55 @@ loess_correction <- function(df,
   }
   
   qcid <- which(df$class == "QC")
+  
+  if (length(qcid) < 2L)
+    stop("Need at least 2 QC rows for LOESS.")
+  
   y    <- seq_len(nrow(df))
   df_corrected <- df
   
   for (metab in metab_cols) {
-    loess_model <- stats::loess(df[[metab]][qcid] ~ qcid,
-                                span   = span,
-                                degree = degree)
+    qc_y <- df[[metab]][qcid]
     
-    predicted <- stats::predict(loess_model, y)
-    # correction
-    corrected <- as.numeric(df[[metab]] / predicted)
-    
-    # clamp: negatives replaced with NA
-    corrected[corrected <= 0] <- NA
+    # if no finite variability in QC, skip fit and mark for cleanup
+    if (sum(is.finite(qc_y)) < 2L || length(unique(qc_y[is.finite(qc_y)])) < 2L) {
+      corrected <- rep(NA_real_, nrow(df))
+    } else {
+      deg <- min(degree, max(1L, length(qcid) - 1L))
+      fit <- stats::loess(qc_y ~ qcid, span = span, degree = deg)
+      pred <- suppressWarnings(stats::predict(fit, y))
+      pred[!is.finite(pred) | pred <= 0] <- NA_real_
+      corrected <- as.numeric(df[[metab]] / pred)
+      corrected[!is.finite(corrected) | corrected <= 0] <- NA_real_
+    }
     
     df_corrected[[metab]] <- corrected
   }
   
-  metab_matrix <- as.matrix(df_corrected[metab_cols])
-  transposed <- t(metab_matrix)
-  knn_result <- impute::impute.knn(transposed,
-                                   rowmax = 0.99,
-                                   colmax = 0.99,
-                                   maxp = 15000)
-  imputed_matrix <- t(knn_result$data)
-  df_corrected[metab_cols] <- as.data.frame(imputed_matrix)
+  need_knn <- anyNA(df_corrected[metab_cols])
+  if (need_knn) {
+    # prefill columns with extreme missingness to avoid knn error
+    for (metab in metab_cols) {
+      x <- df_corrected[[metab]]
+      if (mean(is.na(x)) >= 0.99) {
+        min_pos <- suppressWarnings(min(x[x > 0], na.rm = TRUE))
+        if (is.finite(min_pos)) x[is.na(x)] <- min_pos else x[is.na(x)] <- 0
+        df_corrected[[metab]] <- x
+      }
+    }
+    m <- as.matrix(df_corrected[metab_cols])
+    m <- t(m)
+    kn <- impute::impute.knn(m, rowmax = 1, colmax = 1, maxp = 15000)
+    df_corrected[metab_cols] <- as.data.frame(t(kn$data))
+  }
+  
+  # final cleanup: smallest positive per metabolite, else 0; never negative
+  df_corrected[metab_cols] <- lapply(df_corrected[metab_cols], function(x) {
+    x[!is.finite(x) | x < 0] <- NA_real_
+    mp <- suppressWarnings(min(x[x > 0], na.rm = TRUE))
+    if (is.finite(mp)) x[is.na(x)] <- mp else x[is.na(x)] <- 0
+    x
+  })
   
   df_corrected
 }
@@ -47,8 +70,7 @@ bw_loess_correction <- function(df,
                                 metab_cols,
                                 span = 0.75,
                                 degree = 2,
-                                min_qc = 5,
-                                clamp_eps = .Machine$double.eps) {
+                                min_qc = 5) {
   
   df_corrected <- df
   batches <- unique(df$batch)
@@ -69,31 +91,43 @@ bw_loess_correction <- function(df,
         next
       }
       
-      # fit and predict on batch indices
-      fit  <- stats::loess(sub[[metab]][qcid] ~ qcid, span = span, degree = degree)
-      y    <- seq_len(nrow(sub))
-      pred <- stats::predict(fit, y)
-      #pred <- pmax(pred, clamp_eps)
-      
-      # correction
-      corrected <- as.numeric(sub[[metab]]) / pred
-      
-      # remove negatives → NA
-      corrected[corrected <= 0] <- NA
-      
-      # write back
+      qc_y <- sub[[metab]][qcid]
+      if (sum(is.finite(qc_y)) < 2L || length(unique(qc_y[is.finite(qc_y)])) < 2L) {
+        corrected <- rep(NA_real_, nrow(sub))
+      } else {
+        deg <- min(degree, max(1L, length(qcid) - 1L))
+        fit <- stats::loess(qc_y ~ qcid, span = span, degree = deg)
+        y   <- seq_len(nrow(sub))
+        pred <- suppressWarnings(stats::predict(fit, y))
+        pred[!is.finite(pred) | pred <= 0] <- NA_real_
+        corrected <- as.numeric(sub[[metab]] / pred)
+        corrected[!is.finite(corrected) | corrected <= 0] <- NA_real_
+      }
       df_corrected[[metab]][b_idx] <- corrected
     }
   }
   
-  metab_matrix <- as.matrix(df_corrected[metab_cols])
-  transposed <- t(metab_matrix)
-  knn_result <- impute::impute.knn(transposed,
-                                   rowmax = 0.99,
-                                   colmax = 0.99,
-                                   maxp = 15000)
-  imputed_matrix <- t(knn_result$data)
-  df_corrected[metab_cols] <- as.data.frame(imputed_matrix)
+  # KNN if helpful, with prefill to avoid 99%-missing error
+  if (anyNA(df_corrected[metab_cols])) {
+    for (metab in metab_cols) {
+      x <- df_corrected[[metab]]
+      if (mean(is.na(x)) >= 0.99) {
+        mp <- suppressWarnings(min(x[x > 0], na.rm = TRUE))
+        if (is.finite(mp)) x[is.na(x)] <- mp else x[is.na(x)] <- 0
+        df_corrected[[metab]] <- x
+      }
+    }
+    m <- t(as.matrix(df_corrected[metab_cols]))
+    kn <- impute::impute.knn(m, rowmax = 1, colmax = 1, maxp = 15000)
+    df_corrected[metab_cols] <- as.data.frame(t(kn$data))
+  }
+  
+  df_corrected[metab_cols] <- lapply(df_corrected[metab_cols], function(x) {
+    x[!is.finite(x) | x < 0] <- NA_real_
+    mp <- suppressWarnings(min(x[x > 0], na.rm = TRUE))
+    if (is.finite(mp)) x[is.na(x)] <- mp else x[is.na(x)] <- 0
+    x
+  })
   
   df_corrected
 }
