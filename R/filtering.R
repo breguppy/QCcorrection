@@ -18,11 +18,16 @@ filter_by_missing <- function(df, metab_cols, mv_cutoff) {
   mv_removed_cols <- setdiff(metab_cols, mv_keep_cols)
   
   # filter data by metabolite missing value
-  df_filtered <- df[, c(meta_cols, mv_keep_cols)]
+  df_filtered <- df[, c(meta_cols, mv_keep_cols), drop = FALSE]
   
   # Get metabolites that have QCs with missing values
   qc_idx <- which(df_filtered$class == "QC")
-  qc_missing_mets <- mv_keep_cols[colSums(is.na(df_filtered[qc_idx, mv_keep_cols])) > 0]
+  if (length(mv_keep_cols) == 0L || length(qc_idx) == 0L) {
+    qc_missing_mets <- character(0)
+  } else {
+    sub <- df_filtered[qc_idx, mv_keep_cols, drop = FALSE]
+    qc_missing_mets <- mv_keep_cols[colSums(is.na(sub)) > 0]
+  }
   
   return(list(
     df = df_filtered,
@@ -50,9 +55,10 @@ filter_by_qc_rsd <- function(df,
   rsd_df <- metabolite_rsd(df, metadata_cols)
   
   # Identify which metabolites to keep and remove
-  keep_metabolites <- rsd_df$Metabolite[is.na(rsd_df$RSD_QC) |
+  keep_metabolites <- rsd_df$Metabolite[!is.na(rsd_df$RSD_QC) &
                                           rsd_df$RSD_QC <= rsd_cutoff]
-  remove_metabolites <- rsd_df$Metabolite[!is.na(rsd_df$RSD_QC) &
+  
+  remove_metabolites <- rsd_df$Metabolite[is.na(rsd_df$RSD_QC) |
                                             rsd_df$RSD_QC > rsd_cutoff]
   
   # Columns to retain in filtered data
