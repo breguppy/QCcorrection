@@ -8,13 +8,18 @@
   }
   qx <- qcid[ok]; qy <- qc_y[ok]
   
-  # too few unique QC y or x → linear interp
+  # If there are less than 2 unique QC values: linear interp
   if (length(unique(qy)) < 2L || length(qx) < 2L) {
     return(stats::approx(qx, qy, xout = newx, rule = 2)$y)
   }
   
+  # If there are at least 2 unique QC values: 
+  # LOESS degree 1 if there are only 2 unique QCs 
+  # LOESS degree 2 if there are >= 3 unique QC values
   deg <- min(degree, max(1L, length(qx) - 1L))
-  spn <- max(span, min(1, 3 / length(qx)))  # inflate for tiny QC counts
+  
+  # minimumn required span is 3 / number of unique QCs
+  spn <- max(span, min(1, 3 / length(qx)))
   
   pred <- tryCatch({
     suppressWarnings({
@@ -26,6 +31,8 @@
     })
   }, error = function(e) NA_real_)
   
+  
+  # If LOESS fails: linear interpolation.
   if (!is.numeric(pred) || all(!is.finite(pred))) {
     stats::approx(qx, qy, xout = newx, rule = 2)$y
   } else {
