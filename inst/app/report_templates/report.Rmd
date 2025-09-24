@@ -112,4 +112,5 @@ statement("PCA Comparison")
 ```{r, echo=FALSE, fig.width=8.75, fig.height=4.417}
 print(params$plots[["PCA Loading"]])
 ```
+
 The loading values for the top 10 metabolites for each PC are plotted above. The magnitude of the loading corresponds to the metabolite's strength of correlation to that PC. A metabolite with a large magnitude (close to 1 or -1) has a strong influence/contribution to that PC and a metabolite with a small magnitude close to 0 has weak influence/contribution to that PC. A positive loading means that a high value in that metabolite corresponds to a high value in that PC. A negative loading means a high value in that metabolite corresponds to a low value in that PC.  

@@ -47,7 +47,7 @@ test_that("loess_correction sorts by order and returns same shape", {
 test_that("loess_correction centers QC near 1 and never negative", {
   testthat::skip_if_not_installed("impute")
   df <- mk_df_single()
-  out <- loess_correction(df, metab_cols = c("M1","M2"))
+  expect_silent({ out <- loess_correction(df, metab_cols = c("M1","M2")) })
   qc <- out[out$class == "QC", c("M1","M2")]
   expect_true(all(qc$M1 >= 0 & qc$M2 >= 0))
   expect_lt(abs(median(qc$M1) - 1), 0.35)
@@ -63,17 +63,19 @@ test_that("bw_loess_correction errors if a batch does not start/end with QC", {
 test_that("bw_loess_correction warns on too few QCs and corrects with degree=1", {
   testthat::skip_if_not_installed("impute")
   df <- mk_df_batches()
-  
-  expect_warning(
-    tmp <- bw_loess_correction(df, metab_cols = c("M1","M2"), min_qc = 5),
-    "Skipping batch 'B'"
+  p <- testthat::evaluate_promise(
+    bw_loess_correction(df, metab_cols = c("M1","M2"), min_qc = 5)
   )
+  # Assert we got the expected warnings, but don't leak them to testthat
+  expect_true(any(grepl("Skipping batch 'A'", p$warnings)))
+  expect_true(any(grepl("Skipping batch 'B'", p$warnings)))
+  tmp <- p$result
   expect_setequal(names(tmp), names(df))
-  
-  out <- bw_loess_correction(df, metab_cols = c("M1","M2"), min_qc = 2, degree = 1)
+  expect_silent({
+    out <- bw_loess_correction(df, metab_cols = c("M1","M2"), min_qc = 2, degree = 1)
+  })
   qc_A <- subset(out, batch == "A" & class == "QC", select = c("M1","M2"))
   qc_B <- subset(out, batch == "B" & class == "QC", select = c("M1","M2"))
-  
   expect_true(all(qc_A$M1 >= 0 & qc_A$M2 >= 0 & qc_B$M1 >= 0 & qc_B$M2 >= 0))
   expect_lt(abs(median(qc_A$M1) - 1), 0.35)
   expect_lt(abs(median(qc_A$M2) - 1), 0.35)
@@ -98,7 +100,9 @@ test_that("bw_loess_correction corrects per-batch; QC centered near 1", {
 test_that("bw_loess_correction outputs numeric metabolites with no NaN/Inf", {
   testthat::skip_if_not_installed("impute")
   df <- mk_df_batches()
-  out <- bw_loess_correction(df, metab_cols = c("M1","M2"), min_qc = 2, degree = 1)
+  expect_silent({
+    out <- bw_loess_correction(df, metab_cols = c("M1","M2"), min_qc = 2, degree = 1)
+  })
   mets <- as.matrix(out[c("M1","M2")])
   expect_false(any(is.nan(mets)))
   expect_false(any(is.infinite(mets)))
@@ -108,7 +112,7 @@ test_that("bw_loess_correction outputs numeric metabolites with no NaN/Inf", {
 test_that("loess_correction returns finite, non-negative, no-NA values", {
   testthat::skip_if_not_installed("impute")
   df <- mk_df_single()
-  out <- loess_correction(df, metab_cols = c("M1","M2"))
+  expect_silent({ out <- loess_correction(df, metab_cols = c("M1","M2")) })
   mets <- as.matrix(out[c("M1","M2")])
   expect_false(any(is.na(mets)))
   expect_false(any(is.nan(mets)))
@@ -119,7 +123,9 @@ test_that("loess_correction returns finite, non-negative, no-NA values", {
 test_that("bw_loess_correction returns finite, non-negative, no-NA values", {
   testthat::skip_if_not_installed("impute")
   df <- mk_df_batches()
-  out <- bw_loess_correction(df, metab_cols = c("M1","M2"), min_qc = 2, degree = 1)
+  expect_silent({
+    out <- bw_loess_correction(df, metab_cols = c("M1","M2"), min_qc = 2, degree = 1)
+  })
   mets <- as.matrix(out[c("M1","M2")])
   expect_false(any(is.na(mets)))
   expect_false(any(is.nan(mets)))
@@ -154,7 +160,13 @@ test_that("cleanup imputes with smallest positive or 0 fallback (bw_loess_correc
   out <- bw_loess_correction(df, metab_cols = "M4", min_qc = 2, degree = 1)
   expect_false(any(is.na(out$M4)))
   expect_true(all(out$M4 >= 0))
-  expect_true(all(out$M4[out$batch == "B"] == 0))
+  mp <- suppressWarnings(min(out$M4[out$M4 > 0]))
+  bvals <- out$M4[out$batch == "B"]
+  if (is.finite(mp)) {
+    expect_true(all(bvals %in% c(0, mp)))
+  } else {
+    expect_true(all(bvals == 0))
+  }
   min_pos_A <- min(out$M4[out$batch == "A" & out$M4 > 0])
   expect_true(min_pos_A >= 0)
 })

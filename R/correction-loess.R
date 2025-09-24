@@ -1,88 +1,91 @@
-#' LOESS correction methods
-#'
 #' @keywords internal
 #' @noRd
-loess_correction <- function(df,
-                             metab_cols,
-                             degree = 2,
-                             span   = 0.75) {
-  df <- df[order(df$order), , drop = FALSE]
-  if (!(identical(df$class[1], "QC") &&
-        identical(df$class[nrow(df)], "QC"))) {
-    stop("First and last samples must be QCs.")
+.safe_loess_predict <- function(qcid, qc_y, newx, span, degree) {
+  ok <- is.finite(qc_y)
+  if (sum(ok) < 2L) {
+    # no usable QC points → flat 1s
+    return(rep(1, length(newx)))
+  }
+  qx <- qcid[ok]; qy <- qc_y[ok]
+  
+  # too few unique QC y or x → linear interp
+  if (length(unique(qy)) < 2L || length(qx) < 2L) {
+    return(stats::approx(qx, qy, xout = newx, rule = 2)$y)
   }
   
+  deg <- min(degree, max(1L, length(qx) - 1L))
+  spn <- max(span, min(1, 3 / length(qx)))  # inflate for tiny QC counts
+  
+  pred <- tryCatch({
+    suppressWarnings({
+      fit <- stats::loess(qy ~ qx,
+                          span   = spn,
+                          degree = deg,
+                          control = stats::loess.control(surface = "direct"))
+      stats::predict(fit, newx)
+    })
+  }, error = function(e) NA_real_)
+  
+  if (!is.numeric(pred) || all(!is.finite(pred))) {
+    stats::approx(qx, qy, xout = newx, rule = 2)$y
+  } else {
+    pred
+  }
+}
+
+loess_correction <- function(df, metab_cols, degree = 2, span = 0.75) {
+  df <- df[order(df$order), , drop = FALSE]
+  if (!(identical(df$class[1], "QC") && identical(df$class[nrow(df)], "QC")))
+    stop("First and last samples must be QCs.")
+  
   qcid <- which(df$class == "QC")
+  if (length(qcid) < 2L) stop("Need at least 2 QC rows for LOESS.")
   
-  if (length(qcid) < 2L)
-    stop("Need at least 2 QC rows for LOESS.")
-  
-  y    <- seq_len(nrow(df))
-  df_corrected <- df
+  y <- seq_len(nrow(df))
+  out <- df
   
   for (metab in metab_cols) {
     qc_y <- df[[metab]][qcid]
-    
-    # if no finite variability in QC, skip fit and mark for cleanup
-    if (sum(is.finite(qc_y)) < 2L || length(unique(qc_y[is.finite(qc_y)])) < 2L) {
-      corrected <- rep(NA_real_, nrow(df))
-    } else {
-      deg <- min(degree, max(1L, length(qcid) - 1L))
-      fit <- stats::loess(qc_y ~ qcid, span = span, degree = deg)
-      pred <- suppressWarnings(stats::predict(fit, y))
-      pred[!is.finite(pred) | pred <= 0] <- NA_real_
-      corrected <- as.numeric(df[[metab]] / pred)
-      corrected[!is.finite(corrected) | corrected <= 0] <- NA_real_
-    }
-    
-    df_corrected[[metab]] <- corrected
+    pred <- .safe_loess_predict(qcid, qc_y, newx = y, span = span, degree = degree)
+    pred[!is.finite(pred) | pred <= 0] <- NA_real_
+    corr <- as.numeric(df[[metab]]) / pred
+    corr[!is.finite(corr) | corr <= 0] <- NA_real_
+    out[[metab]] <- corr
   }
   
-  need_knn <- anyNA(df_corrected[metab_cols])
-  if (need_knn) {
-    # prefill columns with extreme missingness to avoid knn error
+  if (anyNA(out[metab_cols])) {
     for (metab in metab_cols) {
-      x <- df_corrected[[metab]]
+      x <- out[[metab]]
       if (mean(is.na(x)) >= 0.99) {
-        min_pos <- suppressWarnings(min(x[x > 0], na.rm = TRUE))
-        if (is.finite(min_pos)) x[is.na(x)] <- min_pos else x[is.na(x)] <- 0
-        df_corrected[[metab]] <- x
+        mp <- suppressWarnings(min(x[x > 0], na.rm = TRUE))
+        x[is.na(x)] <- if (is.finite(mp)) mp else 0
+        out[[metab]] <- x
       }
     }
-    m <- as.matrix(df_corrected[metab_cols])
-    m <- t(m)
-    kn <- impute::impute.knn(m, rowmax = 1, colmax = 1, maxp = 15000)
-    df_corrected[metab_cols] <- as.data.frame(t(kn$data))
+    kn <- impute::impute.knn(t(as.matrix(out[metab_cols])), rowmax = 1, colmax = 1, maxp = 15000)
+    out[metab_cols] <- as.data.frame(t(kn$data))
   }
   
-  # final cleanup: smallest positive per metabolite, else 0; never negative
-  df_corrected[metab_cols] <- lapply(df_corrected[metab_cols], function(x) {
+  out[metab_cols] <- lapply(out[metab_cols], function(x) {
     x[!is.finite(x) | x < 0] <- NA_real_
     mp <- suppressWarnings(min(x[x > 0], na.rm = TRUE))
-    if (is.finite(mp)) x[is.na(x)] <- mp else x[is.na(x)] <- 0
+    x[is.na(x)] <- if (is.finite(mp)) mp else 0
     x
   })
-  
-  df_corrected
+  out
 }
 
-bw_loess_correction <- function(df,
-                                metab_cols,
-                                span = 0.75,
-                                degree = 2,
-                                min_qc = 5) {
-  
-  df_corrected <- df
-  batches <- unique(df$batch)
-  
+#' @keywords internal
+#' @noRd
+bw_loess_correction <- function(df, metab_cols, span = 0.75, degree = 2, min_qc = 5) {
+  out <- df
   for (metab in metab_cols) {
-    for (b in batches) {
+    for (b in unique(df$batch)) {
       b_idx <- which(df$batch == b)
       sub   <- df[b_idx, , drop = FALSE]
       
-      if (!(identical(sub$class[1], "QC") && identical(sub$class[nrow(sub)], "QC"))) {
+      if (!(identical(sub$class[1], "QC") && identical(sub$class[nrow(sub)], "QC")))
         stop(sprintf("Batch '%s' must start and end with QC.", b))
-      }
       
       qcid <- which(sub$class == "QC")
       if (length(qcid) < min_qc) {
@@ -91,43 +94,33 @@ bw_loess_correction <- function(df,
         next
       }
       
-      qc_y <- sub[[metab]][qcid]
-      if (sum(is.finite(qc_y)) < 2L || length(unique(qc_y[is.finite(qc_y)])) < 2L) {
-        corrected <- rep(NA_real_, nrow(sub))
-      } else {
-        deg <- min(degree, max(1L, length(qcid) - 1L))
-        fit <- stats::loess(qc_y ~ qcid, span = span, degree = deg)
-        y   <- seq_len(nrow(sub))
-        pred <- suppressWarnings(stats::predict(fit, y))
-        pred[!is.finite(pred) | pred <= 0] <- NA_real_
-        corrected <- as.numeric(sub[[metab]] / pred)
-        corrected[!is.finite(corrected) | corrected <= 0] <- NA_real_
-      }
-      df_corrected[[metab]][b_idx] <- corrected
+      y <- seq_len(nrow(sub))
+      pred <- .safe_loess_predict(qcid, sub[[metab]][qcid], newx = y, span = span, degree = degree)
+      pred[!is.finite(pred) | pred <= 0] <- NA_real_
+      corr <- as.numeric(sub[[metab]]) / pred
+      corr[!is.finite(corr) | corr <= 0] <- NA_real_
+      out[[metab]][b_idx] <- corr
     }
   }
   
-  # KNN if helpful, with prefill to avoid 99%-missing error
-  if (anyNA(df_corrected[metab_cols])) {
+  if (anyNA(out[metab_cols])) {
     for (metab in metab_cols) {
-      x <- df_corrected[[metab]]
+      x <- out[[metab]]
       if (mean(is.na(x)) >= 0.99) {
         mp <- suppressWarnings(min(x[x > 0], na.rm = TRUE))
-        if (is.finite(mp)) x[is.na(x)] <- mp else x[is.na(x)] <- 0
-        df_corrected[[metab]] <- x
+        x[is.na(x)] <- if (is.finite(mp)) mp else 0
+        out[[metab]] <- x
       }
     }
-    m <- t(as.matrix(df_corrected[metab_cols]))
-    kn <- impute::impute.knn(m, rowmax = 1, colmax = 1, maxp = 15000)
-    df_corrected[metab_cols] <- as.data.frame(t(kn$data))
+    kn <- impute::impute.knn(t(as.matrix(out[metab_cols])), rowmax = 1, colmax = 1, maxp = 15000)
+    out[metab_cols] <- as.data.frame(t(kn$data))
   }
   
-  df_corrected[metab_cols] <- lapply(df_corrected[metab_cols], function(x) {
+  out[metab_cols] <- lapply(out[metab_cols], function(x) {
     x[!is.finite(x) | x < 0] <- NA_real_
     mp <- suppressWarnings(min(x[x > 0], na.rm = TRUE))
-    if (is.finite(mp)) x[is.na(x)] <- mp else x[is.na(x)] <- 0
+    x[is.na(x)] <- if (is.finite(mp)) mp else 0
     x
   })
-  
-  df_corrected
+  out
 }
