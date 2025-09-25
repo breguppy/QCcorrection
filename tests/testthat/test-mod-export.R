@@ -1,0 +1,36 @@
+library(testthat)
+library(shinytest2)
+
+test_that("export module creates a zip bundle", {
+  options(shiny.port = NULL, shiny.launch.browser = FALSE)
+  Sys.unsetenv("SHINY_PORT")
+  
+  app <- AppDriver$new(
+    test_path("_apps/mod_export"),
+    name = "mod_export_basic",
+    seed = 123,
+    variant = platform_variant(),
+    shiny_args = list(host="127.0.0.1", port=httpuv::randomPort()),
+    view = "none",
+    load_timeout = 20000
+  )
+  
+  app$wait_for_value(output = "export-download_all_ui")
+  
+  # Use whichever helper your shinytest2 provides
+  zip_path <- if (is.function(app$download)) {
+    app$download("export-download_all_zip")
+  } else {
+    app$get_download("export-download_all_zip")
+  }
+  
+  expect_true(file.exists(zip_path))
+  expect_gt(file.size(zip_path), 0)
+  
+  lst <- utils::unzip(zip_path, list = TRUE)
+  expect_true(any(grepl("^figures/?", lst$Name)))
+  expect_true(any(grepl("^corrected_data_.*\\.xlsx$", lst$Name)))
+  expect_true(any(grepl("^rsd_stats_.*\\.xlsx$", lst$Name)))
+  expect_true(any(grepl("^candidate_outliers_.*\\.xlsx$", lst$Name)))
+  expect_true(any(grepl("^correction_report\\.(html|pdf)$", lst$Name)))
+})
