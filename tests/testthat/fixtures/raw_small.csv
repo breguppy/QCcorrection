@@ -1,0 +1,4 @@
+sample,batch,class,order,metabolite_A,metabolite_B
+S1,B1,QC,1,10,20
+S2,B1,Sample,2,,25
+S3,B1,QC,3,12,22
