@@ -12,7 +12,7 @@ mod_visualize_ui <- function(id) {
         uiOutput(ns("met_plot_selectors")),
         width = 400
       ),
-      plotOutput(ns("metab_scatter"), height = "600px", width = "600px"),
+      plotOutput(ns("metab_scatter"), height = "600px", width = "600px") %>% withSpinner(color = "#404040"),
     )),
     card(layout_sidebar(
       sidebar = ui_sidebar_block(
@@ -21,7 +21,7 @@ mod_visualize_ui <- function(id) {
         uiOutput(ns("rsd_comparison_stats")),
         width = 400
       ),
-      plotOutput(ns("rsd_comparison_plot"), height = "540px", width = "900px")
+      plotOutput(ns("rsd_comparison_plot"), height = "540px", width = "900px") %>% withSpinner(color = "#404040")
     )),
     card(layout_sidebar(
       sidebar = ui_sidebar_block(
@@ -29,8 +29,8 @@ mod_visualize_ui <- function(id) {
         ui_pca_eval(ns),
         width = 400
       ),
-      plotOutput(ns("pca_plot"), height = "530px", width = "1000px"),
-      plotOutput(ns("pca_loading_plot"), height = "530px", width = "1050px")
+      plotOutput(ns("pca_plot"), height = "530px", width = "1000px") %>% withSpinner(color = "#404040"),
+      plotOutput(ns("pca_loading_plot"), height = "530px", width = "1050px") %>% withSpinner(color = "#404040")
     )),
     card(layout_sidebar(
       sidebar = ui_sidebar_block(
