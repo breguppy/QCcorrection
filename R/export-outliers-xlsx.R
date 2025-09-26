@@ -30,7 +30,7 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
       "The squared Mahalanobis distance of the sample is computed in the robust PC score space within each group.",
       "First, each metabolite is standardized with robust centering (median) and scaling (MAD, IQR/1.349, SD, or 1) within each group.",
       "The sandardized metabolites undergoes PCA where we retain PCs to reach at least 80% variance.",
-      "Then a robust covariance is computed using the minimum covariance determinant (MCD), Orthogonalized Gnanadesikan–Kettenring (OGK), shrinkage, or classical formula depending on sample size and number of PCs retained.",
+      "Then a robust covariance is computed using the minimum covariance determinant (MCD), Orthogonalized Gnanadesikan\u002DKettenring (OGK), shrinkage, or classical formula depending on sample size and number of PCs retained.",
       "The next tab will show candidate driver metabolites for the flagged outlier samples."
     )
     openxlsx::writeData(wb,

@@ -1,6 +1,10 @@
 library(testthat)
 library(shinytest2)
 
+testthat::skip_on_cran()
+testthat::skip_if_not_installed("shinytest2")
+testthat::skip_if_not_installed("chromote")
+
 test_that("export module creates a zip bundle", {
   options(shiny.port = NULL, shiny.launch.browser = FALSE)
   Sys.unsetenv("SHINY_PORT")

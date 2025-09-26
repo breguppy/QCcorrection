@@ -1,6 +1,10 @@
 library(testthat)
 library(shinytest2)
 
+testthat::skip_on_cran()
+testthat::skip_if_not_installed("shinytest2")
+testthat::skip_if_not_installed("chromote")
+
 test_that("import module loads, selects columns, filters, and navigates", {
   # ensure no fixed port is forced
   options(shiny.port = NULL); Sys.unsetenv("SHINY_PORT")
