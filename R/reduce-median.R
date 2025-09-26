@@ -1,48 +1,59 @@
-#' Internal function for computing median across models
-#'
+#' Median across model outputs with key alignment
 #' @keywords internal
 #' @noRd
 .median_across_models <- function(df_list,
-                                     metadata_cols = c("Sample", "Batch", "Order", "Treatment")) {
-  # Get metabolite column names from the first dataframe
-  all_cols <- colnames(df_list[[1]])
-  metabolite_cols <- setdiff(all_cols, metadata_cols)
+                                  metadata_cols = c("sample","batch","class","order")) {
+  stopifnot(length(df_list) >= 1L)
   
-  # Add a composite key for alignment
-  df_list_keyed <- lapply(df_list, function(df) {
-    df$key <- do.call(paste, c(df[metadata_cols], sep = "||"))
-    df
-  })
-  
-  # Sort by the composite key
-  df_list_sorted <- lapply(df_list_keyed, function(df)
-    df[order(df$key), ])
-  
-  # Sanity check: all keys must align
-  key_ref <- df_list_sorted[[1]]$key
-  if (!all(sapply(df_list_sorted, function(df)
-    all(df$key == key_ref)))) {
-    stop("Composite keys are not aligned across all data frames.")
+  # schema check
+  ref_cols <- names(df_list[[1]])
+  for (i in seq_along(df_list)) {
+    if (!setequal(names(df_list[[i]]), ref_cols))
+      stop("Model data frames have different columns.")
   }
   
-  # Extract aligned metabolite matrices
-  metabolite_array <- array(sapply(df_list_sorted, function(df)
-    as.matrix(df[, metabolite_cols])),
-    dim = c(
-      nrow(df_list_sorted[[1]]),
-      length(metabolite_cols),
-      length(df_list_sorted)
-    ))
+  metab_cols <- setdiff(ref_cols, metadata_cols)
+  if (!length(metab_cols)) stop("No metabolite columns detected.")
   
-  # Compute median along third dimension
-  median_matrix <- apply(metabolite_array, c(1, 2), median, na.rm = TRUE)
+  # enforce numeric metabolite columns
+  for (i in seq_along(df_list)) {
+    nn <- !vapply(df_list[[i]][metab_cols], is.numeric, TRUE)
+    if (any(nn)) df_list[[i]][metab_cols[nn]] <- lapply(df_list[[i]][metab_cols[nn]], as.numeric)
+  }
   
-  # Reconstruct result
-  median_df <- df_list_sorted[[1]][, metadata_cols]
-  median_df <- cbind(median_df, as.data.frame(median_matrix))
-  colnames(median_df)[-(1:length(metadata_cols))] <- metabolite_cols
+  make_key <- function(d) {
+    if (any(!metadata_cols %in% names(d)))
+      stop("Missing metadata columns in a model output.")
+    if (any(duplicated(d[metadata_cols])))
+      stop("Duplicate key rows found in a model output.")
+    do.call(paste, c(d[metadata_cols], sep = "\r"))
+  }
   
-  median_df <- median_df[order(median_df$order), ]
+  keys_list   <- lapply(df_list, make_key)
+  common_keys <- Reduce(intersect, keys_list)
+  if (!length(common_keys)) stop("No overlapping rows across model outputs.")
   
-  return(median_df)
+  # align each df to common keys
+  align_to <- function(d, keys) {
+    k <- make_key(d)
+    idx <- match(keys, k)
+    if (anyNA(idx)) stop("Internal alignment failure.")
+    d[idx, c(metadata_cols, metab_cols), drop = FALSE]
+  }
+  aligned <- lapply(df_list, align_to, keys = common_keys)
+  
+  # stack metabolite matrices: row x metab x models
+  mats <- lapply(aligned, function(d) as.matrix(d[metab_cols]))
+  arr  <- simplify2array(mats)
+  med  <- apply(arr, c(1, 2), stats::median, na.rm = TRUE)
+  
+  out <- cbind(aligned[[1]][metadata_cols], as.data.frame(med))
+  names(out) <- c(metadata_cols, metab_cols)
+  
+  # stable order
+  if (all(c("batch","order") %in% names(out))) {
+    out <- out[order(out$batch, out$order), , drop = FALSE]
+    rownames(out) <- NULL
+  }
+  out
 }

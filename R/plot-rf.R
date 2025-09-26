@@ -28,7 +28,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
     if (!is.finite(m) || !is.finite(s)) return(tibble::tibble(y = numeric(0), sd = factor(), panel = factor()))
     tibble::tibble(
       y     = c(m + s, m - s, m + 2*s, m - 2*s),
-      sd    = factor(c("±1 SD","±1 SD","±2 SD","±2 SD"), levels = c("±1 SD","±2 SD")),
+      sd    = factor(c("\u00B11 SD","\u00B11 SD","\u00B12 SD","\u00B12 SD"), levels = c("\u00B11 SD","\u00B12 SD")),
       panel = factor(panel, levels = c("Raw","Corrected"))
     )
   }
@@ -67,7 +67,7 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
   )
   lty_scale <- ggplot2::scale_linetype_manual(
     name = "SD Range:",
-    values = c("±1 SD" = "dashed", "±2 SD" = "solid"),
+    values = c("\u00B11 SD" = "dashed", "\u00B12 SD" = "solid"),
     guide  = ggplot2::guide_legend(override.aes = list(color = c("grey20", "#950606")))
   )
   
@@ -88,12 +88,12 @@ met_scatter_rf <- function(data_raw, data_cor, i) {
   if (nrow(sd_df)) {
     p <- p +
       ggplot2::geom_hline(
-        data = sd_df |> dplyr::filter(sd == "±1 SD"),
+        data = sd_df |> dplyr::filter(sd == "\u00B11 SD"),
         ggplot2::aes(yintercept = y, linetype = sd),
         color = "grey20", linewidth = 0.75
       ) +
       ggplot2::geom_hline(
-        data = sd_df |> dplyr::filter(sd == "±2 SD"),
+        data = sd_df |> dplyr::filter(sd == "\u00B12 SD"),
         ggplot2::aes(yintercept = y, linetype = sd),
         color = "#950606", linewidth = 0.75
       )

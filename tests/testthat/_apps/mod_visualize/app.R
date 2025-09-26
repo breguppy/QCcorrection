@@ -1,0 +1,49 @@
+options(shiny.testmode = TRUE)
+
+library(shiny)
+if (!requireNamespace("QCcorrection", quietly = TRUE)) {
+  if (!requireNamespace("pkgload", quietly = TRUE)) stop("pkgload needed")
+  pkgload::load_all(path = "../../..", helpers = FALSE, quiet = TRUE)
+}
+library(QCcorrection)
+
+# minimal synthetic dataset
+df <- data.frame(
+  sample = c("S1","S2","S3","S4","S5","S6"),
+  batch  = c("B1","B1","B1","B2","B2","B2"),
+  class  = c("QC","Sample","Sample","Sample","Sample","QC"),
+  order  = 1:6,
+  A = c(10,11,13,12,14,11),
+  B = c(20,22,21,23,24,21),
+  C = c(30,31,29,32,33,30),
+  check.names = FALSE
+)
+
+rv_list <- list(df = df)
+data_stub <- reactiveVal(list(
+  filtered           = rv_list,
+  imputed            = rv_list,
+  corrected          = rv_list,
+  filtered_corrected = rv_list,
+  transformed        = rv_list
+))
+params_stub <- reactiveVal(list(
+  rsd_compare = NULL, rsd_cal = NULL, pca_compare = NULL, color_col = NULL, fig_format = NULL
+))
+
+ui <- fluidPage(
+  tabsetPanel(id = "main_steps",
+              QCcorrection:::mod_visualize_ui("visualize"),
+              tabPanel("4. Export", value = "tab_export", "ok")
+  )
+)
+
+server <- function(input, output, session) {
+  QCcorrection:::mod_visualize_server(
+    "visualize",
+    data   = function() data_stub(),
+    params = function() params_stub()
+  )
+}
+
+shinyApp(ui, server)

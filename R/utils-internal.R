@@ -31,5 +31,7 @@ utils::globalVariables(c(
   "setColWidths", "setNames", "setRowHeights", "setTxtProgressBar",
   "showNotification", "slice_head", "stopApp", "tagList", "theme",
   "theme_minimal", "tibble", "type", "ungroup", "withProgress", "withSpinner", 
-  "writeData", "xlim", "xmax", "xmin", "y", "ylim", "zip"
+  "writeData", "xlim", "xmax", "xmin", "y", "ylim", "zip", "RSD_a","RSD_b",
+  "delta","flagged","group_id","z","panel","variable_wrapped","loading",
+  "decision"," "
 ))

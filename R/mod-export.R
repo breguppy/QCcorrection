@@ -29,7 +29,6 @@ mod_export_ui <- function(id) {
                )),
       column(2, tags$span(icon("file-excel"), "candidate_outliers_*today's_date*.xlsx"),
              tags$ul(
-               tags$li("QC RSD"),
                tags$li("Sample MD"),
                tags$li("Candidates"),
                tags$li("Confirmations")
@@ -40,7 +39,7 @@ mod_export_ui <- function(id) {
                tags$li(icon("folder"), " RSD figures"),
                tags$li(icon("folder"), "PCA plots")
              )),
-      column(3, tags$span(icon("file-pdf"), " correction_report.pdf"),
+      column(3, tags$span(icon("file-pdf"), " correction_report(.pdf/.html)"),
              tags$ul(
                tags$li("Report describing the correction steps and figures for evaluating the correction process.")
              ))
@@ -78,17 +77,17 @@ mod_export_server <- function(id, data, params) {
         # create and save corrected data file
         xlsx_path <- file.path(base_dir, sprintf("corrected_data_%s.xlsx", Sys.Date()))
         wb <- export_xlsx(p(), d())
-        saveWorkbook(wb, xlsx_path, overwrite = TRUE)
+        openxlsx::saveWorkbook(wb, xlsx_path, overwrite = TRUE)
         
         # Create and save rsd stats data file
         stats_xlsx_path <- file.path(base_dir, sprintf("rsd_stats_%s.xlsx", Sys.Date()))
         stats_wb <- export_stats_xlsx(p(), d())
-        saveWorkbook(stats_wb, stats_xlsx_path, overwrite = TRUE)
+        openxlsx::saveWorkbook(stats_wb, stats_xlsx_path, overwrite = TRUE)
         
         # Create and save outlier data file
         outlier_xlsx_path <- file.path(base_dir, sprintf("candidate_outliers_%s.xlsx", Sys.Date()))
         outlier_wb <- export_outliers_xlsx(p(), d())
-        saveWorkbook(outlier_wb, outlier_xlsx_path, overwrite = TRUE)
+        openxlsx::saveWorkbook(outlier_wb, outlier_xlsx_path, overwrite = TRUE)
         
         # create and save figure folder
         figs <- export_figures(p(), d(), out_dir = base_dir)

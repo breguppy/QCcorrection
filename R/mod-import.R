@@ -1,4 +1,4 @@
-#' @keywords internal 
+#' @keywords internal
 
 mod_import_ui <- function(id) {
   ns <- NS(id)
@@ -32,15 +32,16 @@ mod_import_ui <- function(id) {
       uiOutput(ns("basic_info"))
     )),
     card(layout_sidebar(
-      sidebar = ui_sidebar_block(
-        title = "1.3 Filter Raw Data",
-        ui_filter_slider(ns),
-        width = 400
-      ),
+      sidebar = ui_sidebar_block(title = "1.3 Filter Raw Data", ui_filter_slider(ns), width = 400),
       uiOutput(ns("filter_info"))
     )),
-    card(actionButton(ns("next_correction"), "Next: Choose Correction Settings",
-                      class = "btn-primary btn-lg"))
+    card(
+      actionButton(
+        ns("next_correction"),
+        "Next: Choose Correction Settings",
+        class = "btn-primary btn-lg"
+      )
+    )
   )
 }
 
@@ -64,22 +65,30 @@ mod_import_server <- function(id) {
     }) %>% debounce(200)
     
     output$column_selectors <- renderUI({
-      req(data_raw()); ui_nonmet_cols(names(data_raw()), ns = NS(session$ns(NULL)))
+      req(data_raw())
+      ui_nonmet_cols(names(data_raw()), ns = session$ns)
     })
     output$column_warning <- renderUI({
-      req(data_raw()); sel <- selections_r()
-      ui_column_warning(data_raw(), c(sel$sample, sel$batch, sel$class, sel$order))
+      req(data_raw())
+      sel <- selections_r()
+      ui_column_warning(data_raw(),
+                        c(sel$sample, sel$batch, sel$class, sel$order))
     })
     
     withheld_ids_r <- reactive({
-      if (!isTRUE(input$withhold_cols)) return(character(0))
+      if (!isTRUE(input$withhold_cols))
+        return(character(0))
       n <- input$n_withhold %||% 0
-      if (n <= 0) return(character(0))
+      if (n <= 0)
+        return(character(0))
       paste0("withhold_col_", seq_len(n))
     })
     withheld_r <- reactive({
-      ids <- withheld_ids_r(); if (!length(ids)) return(character(0))
-      vals <- vapply(ids, function(id) input[[id]] %||% "", character(1))
+      ids <- withheld_ids_r()
+      if (!length(ids))
+        return(character(0))
+      vals <- vapply(ids, function(id)
+        input[[id]] %||% "", character(1))
       vals <- unique(vals[nzchar(vals)])
       sel <- selections_r()
       setdiff(vals, c(sel$sample, sel$batch, sel$class, sel$order))
@@ -90,22 +99,38 @@ mod_import_server <- function(id) {
       max_withhold <- max(ncol(data_raw()) - 4, 0)
       output$n_withhold_ui <- renderUI({
         if (isTRUE(input$withhold_cols))
-          numericInput(ns("n_withhold"), "Number of columns to withhold", 1, 1, max_withhold)
+          numericInput(ns("n_withhold"),
+                       "Number of columns to withhold",
+                       1,
+                       1,
+                       max_withhold)
       })
     })
     
     output$withhold_selectors_ui <- renderUI({
       req(data_raw(), input$n_withhold)
       sel <- selections_r()
-      cols <- setdiff(names(data_raw()), c(sel$sample, sel$batch, sel$class, sel$order))
-      ids <- withheld_ids_r(); if (!length(ids)) return(NULL)
-      prev_all <- isolate(vapply(ids, function(id) input[[id]] %||% "", character(1)))
+      cols <- setdiff(names(data_raw()),
+                      c(sel$sample, sel$batch, sel$class, sel$order))
+      ids <- withheld_ids_r()
+      if (!length(ids))
+        return(NULL)
+      prev_all <- isolate(vapply(ids, function(id)
+        input[[id]] %||% "", character(1)))
       lapply(seq_along(ids), function(i) {
-        id <- ids[i]; prev <- prev_all[i]
+        id <- ids[i]
+        prev <- prev_all[i]
         other <- setdiff(prev_all, prev)
         choices_i <- c("Select a column..." = "", setdiff(cols, other))
-        selectInput(ns(id), paste("Select column to withhold #", i),
-                    choices = choices_i, selected = if (nzchar(prev) && prev %in% choices_i) prev else "")
+        selectInput(
+          ns(id),
+          paste("Select column to withhold #", i),
+          choices = choices_i,
+          selected = if (nzchar(prev) && prev %in% choices_i)
+            prev
+          else
+            ""
+        )
       })
     })
     
@@ -113,47 +138,57 @@ mod_import_server <- function(id) {
       df  <- req(data_raw())
       sel <- selections_r()
       withheld <- withheld_r()
-      req(all(nzchar(c(sel$sample, sel$batch, sel$class, sel$order))))
-      req(length(unique(c(sel$sample, sel$batch, sel$class, sel$order))) == 4)
+      req(all(nzchar(
+        c(sel$sample, sel$batch, sel$class, sel$order)
+      )))
+      req(length(unique(
+        c(sel$sample, sel$batch, sel$class, sel$order)
+      )) == 4)
       clean_data(df, sel$sample, sel$batch, sel$class, sel$order, withheld)
     }) %>% bindCache(reactiveVal(NULL)(), selections_r(), withheld_r())
     
     output$basic_info <- renderUI({
-      cd <- cleaned_r(); req(cd)
+      cd <- cleaned_r()
+      req(cd)
       ui_basic_info(cd$df, cd$replacement_counts)
     })
     
     filtered_r <- reactive({
       cd <- req(cleaned_r())
-      filter_by_missing(cd$df, setdiff(names(cd$df), c("sample","batch","class","order")), input$mv_cutoff)
+      filter_by_missing(cd$df, setdiff(names(cd$df), c("sample", "batch", "class", "order")), input$mv_cutoff)
     })
     output$filter_info <- renderUI({
-      fd <- filtered_r(); req(fd)
-      ui_filter_info(fd$mv_removed_cols, input$mv_cutoff, fd$qc_missing_mets)
+      fd <- filtered_r()
+      req(fd)
+      ui_filter_info(fd$mv_removed_cols,
+                     input$mv_cutoff,
+                     fd$qc_missing_mets)
     })
     
     params_r <- reactive({
       sel <- selections_r()
       list(
-        sample_col = sel$sample, batch_col = sel$batch,
-        class_col  = sel$class,  order_col = sel$order,
+        sample_col = sel$sample,
+        batch_col = sel$batch,
+        class_col  = sel$class,
+        order_col = sel$order,
         withheld_cols = withheld_r(),
-        n_withheld = input$n_withheld %||% 0,
+        n_withhold = input$n_withhold %||% 0,
         mv_cutoff = input$mv_cutoff
       )
     })
     
     observeEvent(input$next_correction, {
-      validate(need(!is.null(cleaned_r()), "Missing cleaned data"),
-               need(!is.null(filtered_r()), "Missing filtered data"))
+      validate(
+        need(!is.null(cleaned_r()), "Missing cleaned data"),
+        need(!is.null(filtered_r()), "Missing filtered data")
+      )
       updateTabsetPanel(session$rootScope(), "main_steps", "tab_correct")
     })
     
     # module output
-    list(
-      cleaned  = cleaned_r,
-      filtered = filtered_r,
-      params   = params_r
-    )
+    list(cleaned  = cleaned_r,
+         filtered = filtered_r,
+         params   = params_r)
   })
 }

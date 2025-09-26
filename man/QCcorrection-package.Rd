@@ -6,7 +6,7 @@
 \alias{QCcorrection-package}
 \title{QCcorrection: QC-Based Signal Drift Correction and Visualization for LC–MS Metabolomics}
 \description{
-Shiny app to clean, correct, visualize, and export LC-MS metabolomics data using QC-based signal drift correction and batch-wise options.
+Shiny app to clean, correct, visualize, and export LC-MS metabolomics data using QC-based signal drift correction with batch-wise options.
 }
 \author{
 \strong{Maintainer}: Breanna Guppy \email{breanna-guppy@uiowa.edu}

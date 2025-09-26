@@ -55,82 +55,89 @@ export_stats_xlsx <- function(p, d, file = NULL) {
     ) %>%
       transmute(Metabolite, class, delta_RSD = RSD_after - RSD_before)
   }
-  # Create excel sheet for RSD values
-  s1 <- .add_sheet("Raw RSD")
-  openxlsx::writeData(wb,
-                      s1,
-                      x = rsdBefore,
-                      startRow = 3,
-                      headerStyle = bold)
-  openxlsx::writeData(wb,
-                      s1,
-                      x = txt,
-                      startCol = 1,
-                      startRow = 1)
-  openxlsx::mergeCells(wb, s1, cols = 1:12, rows = 1)
-  openxlsx::addStyle(
-    wb,
-    s1,
-    style = note,
-    rows = 1,
-    cols = 1,
-    gridExpand = TRUE
-  )
-  openxlsx::setRowHeights(wb, s1, rows = 1, heights = 40)
   
-  s2 <- .add_sheet(s2_name)
-  openxlsx::writeData(wb,
-                      s2,
-                      x = rsdAfter,
-                      startRow = 3,
-                      headerStyle = bold)
-  openxlsx::writeData(wb,
-                      s2,
-                      x = txt,
-                      startCol = 1,
-                      startRow = 1)
-  openxlsx::mergeCells(wb, s2, cols = 1:12, rows = 1)
-  openxlsx::addStyle(
-    wb,
-    s2,
-    style = note,
-    rows = 1,
-    cols = 1,
-    gridExpand = TRUE
-  )
-  openxlsx::setRowHeights(wb, s2, rows = 1, heights = 40)
-  
-  # Compare before and after RSD
-  s3 <- .add_sheet("RSD Comparison")
-  openxlsx::writeData(wb,
-                      s3,
-                      x = df_compare,
-                      startRow = 3,
-                      headerStyle = bold)
-  openxlsx::writeData(
-    wb,
-    s3,
-    x = paste(
-      txt,
-      "The change in RSD (delta = after - before) values will be negative for a decrease in RSD, positive for an increase in RSD, and zero for no change in RSD."
-    ),
-    startCol = 1,
-    startRow = 1
-  )
-  openxlsx::mergeCells(wb, s3, cols = 1:12, rows = 1)
-  openxlsx::addStyle(
-    wb,
-    s3,
-    style = note,
-    rows = 1,
-    cols = 1,
-    gridExpand = TRUE
-  )
-  openxlsx::setRowHeights(wb, s3, rows = 1, heights = 40)
-  
-  if (!is.null(file)) {
-    openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
-    return(normalizePath(file, winslash = "/"))
-  }
+  shiny::withProgress(message = "Creating rsd_stats_*today's_date*.xlsx...", value = 0, {
+    # Create excel sheet for RSD values
+    s1 <- .add_sheet("Raw RSD")
+    openxlsx::writeData(wb,
+                        s1,
+                        x = rsdBefore,
+                        startRow = 3,
+                        headerStyle = bold)
+    openxlsx::writeData(wb,
+                        s1,
+                        x = txt,
+                        startCol = 1,
+                        startRow = 1)
+    openxlsx::mergeCells(wb, s1, cols = 1:12, rows = 1)
+    openxlsx::addStyle(
+      wb,
+      s1,
+      style = note,
+      rows = 1,
+      cols = 1,
+      gridExpand = TRUE
+    )
+    openxlsx::setRowHeights(wb, s1, rows = 1, heights = 40)
+    
+    shiny::incProgress(1 / 3, detail = "Saved: Raw RSD")
+    
+    s2 <- .add_sheet(s2_name)
+    openxlsx::writeData(wb,
+                        s2,
+                        x = rsdAfter,
+                        startRow = 3,
+                        headerStyle = bold)
+    openxlsx::writeData(wb,
+                        s2,
+                        x = txt,
+                        startCol = 1,
+                        startRow = 1)
+    openxlsx::mergeCells(wb, s2, cols = 1:12, rows = 1)
+    openxlsx::addStyle(
+      wb,
+      s2,
+      style = note,
+      rows = 1,
+      cols = 1,
+      gridExpand = TRUE
+    )
+    openxlsx::setRowHeights(wb, s2, rows = 1, heights = 40)
+    shiny::incProgress(1 / 3, detail = "Saved: (Transformed) Corrected RSD")
+    # Compare before and after RSD
+    s3 <- .add_sheet("RSD Comparison")
+    openxlsx::writeData(wb,
+                        s3,
+                        x = df_compare,
+                        startRow = 3,
+                        headerStyle = bold)
+    openxlsx::writeData(
+      wb,
+      s3,
+      x = paste(
+        txt,
+        "The change in RSD (delta = after - before) values will be negative for a decrease in RSD, positive for an increase in RSD, and zero for no change in RSD."
+      ),
+      startCol = 1,
+      startRow = 1
+    )
+    openxlsx::mergeCells(wb, s3, cols = 1:12, rows = 1)
+    openxlsx::addStyle(
+      wb,
+      s3,
+      style = note,
+      rows = 1,
+      cols = 1,
+      gridExpand = TRUE
+    )
+    openxlsx::setRowHeights(wb, s3, rows = 1, heights = 40)
+    shiny::incProgress(1 / 3, detail = "Saved: RSD Comparison")
+    
+    if (!is.null(file)) {
+      openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+      return(normalizePath(file, winslash = "/"))
+    }
+    
+  })
   return(wb)
 }
