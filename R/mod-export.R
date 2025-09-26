@@ -29,7 +29,6 @@ mod_export_ui <- function(id) {
                )),
       column(2, tags$span(icon("file-excel"), "candidate_outliers_*today's_date*.xlsx"),
              tags$ul(
-               tags$li("QC RSD"),
                tags$li("Sample MD"),
                tags$li("Candidates"),
                tags$li("Confirmations")
@@ -40,7 +39,7 @@ mod_export_ui <- function(id) {
                tags$li(icon("folder"), " RSD figures"),
                tags$li(icon("folder"), "PCA plots")
              )),
-      column(3, tags$span(icon("file-pdf"), " correction_report.pdf"),
+      column(3, tags$span(icon("file-pdf"), " correction_report(.pdf/.html)"),
              tags$ul(
                tags$li("Report describing the correction steps and figures for evaluating the correction process.")
              ))
