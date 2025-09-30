@@ -41,7 +41,8 @@ Suggests:
     chromote,
     pkgload,
     rmarkdown,
-    knitr
+    knitr,
+    EnvStats
 VignetteBuilder: knitr
 biocViews: Software, ShinyApps, MassSpectrometry, Metabolomics, QualityControl
 Config/testthat/edition: 3

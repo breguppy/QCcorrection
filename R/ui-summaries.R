@@ -227,6 +227,7 @@ ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
       tags$th("QC RSD"),
       tags$th("Method"),
       tags$th("p"),
+      tags$th("test strength"),
       tags$th("Mahalanobis"),
       tags$th("Cutoff")
     )
@@ -244,6 +245,7 @@ ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
       tags$td(ifelse(is.na(r$qc_rsd), "NA", sprintf("%.*f%%", digits, r$qc_rsd))),
       tags$td(r$method),
       tags$td(ifelse(is.na(r$p_value), "NA", sprintf("%.*f", digits, r$p_value))),
+      tags$td(ifelse(is.na(r$test_strength), "NA", sprintf("%.*f", digits, r$test_strength))),
       tags$td(ifelse(is.na(r$md), "NA", sprintf("%.*f", digits, r$md))),
       tags$td(ifelse(is.na(r$cutoff), "NA", sprintf("%.*f", digits, r$cutoff)))
     )
