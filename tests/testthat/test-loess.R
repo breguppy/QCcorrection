@@ -38,7 +38,7 @@ test_that("loess_correction errors if first/last are not QC", {
 test_that("loess_correction sorts by order and returns same shape", {
   testthat::skip_if_not_installed("impute")
   df <- mk_df_single()
-  out <- loess_correction(df, metab_cols = c("M1","M2"))
+  out <- loess_correction(df, metab_cols = c("M1","M2"), min_qc = 2)
   expect_equal(out$order, sort(df$order))
   expect_setequal(names(out), names(df))
   expect_true(all(vapply(out[c("M1","M2")], is.numeric, TRUE)))
@@ -47,7 +47,7 @@ test_that("loess_correction sorts by order and returns same shape", {
 test_that("loess_correction centers QC near 1 and never negative", {
   testthat::skip_if_not_installed("impute")
   df <- mk_df_single()
-  expect_silent({ out <- loess_correction(df, metab_cols = c("M1","M2")) })
+  expect_silent({ out <- loess_correction(df, metab_cols = c("M1","M2"), min_qc = 2) })
   qc <- out[out$class == "QC", c("M1","M2")]
   expect_true(all(qc$M1 >= 0 & qc$M2 >= 0))
   expect_lt(abs(median(qc$M1) - 1), 0.35)
@@ -112,7 +112,7 @@ test_that("bw_loess_correction outputs numeric metabolites with no NaN/Inf", {
 test_that("loess_correction returns finite, non-negative, no-NA values", {
   testthat::skip_if_not_installed("impute")
   df <- mk_df_single()
-  expect_silent({ out <- loess_correction(df, metab_cols = c("M1","M2")) })
+  expect_silent({ out <- loess_correction(df, metab_cols = c("M1","M2"), min_qc = 2) })
   mets <- as.matrix(out[c("M1","M2")])
   expect_false(any(is.na(mets)))
   expect_false(any(is.nan(mets)))
@@ -143,7 +143,7 @@ test_that("cleanup imputes with smallest positive or 0 fallback (loess_correctio
     M3     = c(0, 0, 0, 0, 0, 0),
     check.names = FALSE
   )
-  out <- loess_correction(df, metab_cols = "M3")
+  out <- loess_correction(df, metab_cols = "M3", min_qc = 2)
   expect_true(all(out$M3 == 0))
 })
 
