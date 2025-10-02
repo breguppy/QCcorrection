@@ -48,7 +48,7 @@ mod_correct_ui <- function(id) {
   card(
     layout_sidebar(
       sidebar = ui_sidebar_block(
-        title = "2.4 Canidate Outliers",
+        title = "2.4 Candidate Outliers",
         ui_detect_outliers_options(ns),
         help = c("The samples listed in the table are consisdered outliers by robust Mahalanobis distance in PCA and the metabolites listed for each sample are considered outliers by robust z-score with a cutoff weighted by QC variability.")
       ),
@@ -60,7 +60,7 @@ mod_correct_ui <- function(id) {
     fluidRow(
       column(6, tags$h4("2.5 Identify Control Group"),
       tooltip(
-        checkboxInput(ns("no_control"), "No control group.", FALSE),
+        checkboxInput(ns("no_control"), "No control group", FALSE),
         "Check the box if The data does not have a control group.", 
         placement = "right"
       ),
@@ -71,12 +71,12 @@ mod_correct_ui <- function(id) {
     ),
     column(6, tags$h4("2.6 Download Corrected Data Only"),
            tooltip(
-             checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file.", FALSE),
+             checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file", FALSE),
              "Check the box if you want corrected QC values in the downloaded corrected data file.", 
              placement = "right"
            ),
            uiOutput(ns("download_corr_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
-           tags$h6("Corrected data can also be downloaded with figure and correction report on tab 4. Export Corrected Data, Plots, and Report")
+           tags$h6("Corrected data will also be downloaded on tab 4. Export All")
     ))
   ),
   card(actionButton(ns("next_visualization"), "Next: Evaluate and Visualize Correction",

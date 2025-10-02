@@ -74,7 +74,7 @@ ui_nonmet_cols <- function(cols, ns = identity) {
 ui_withhold_toggle <- function(ns) {
   tooltip(
     checkboxInput(ns("withhold_cols"),
-                  "Withhold additional columns from correction?", FALSE),
+                  "Withhold additional columns from correction", FALSE),
     "Select if there are extra non-metabolite or specific metabolite columns to withhold.",
     placement = "right"
   )
@@ -266,7 +266,7 @@ ui_correction_method <- function(df, ns = identity) {
 ui_post_cor_filter <- function(ns) {
   tagList(
     tooltip(
-      checkboxInput(ns("remove_imputed"), "Remove imputed values after correction?", FALSE),
+      checkboxInput(ns("remove_imputed"), "Remove imputed values after correction", FALSE),
       "Check this box if you want to the corrected data to have the same missing values as the raw data.", 
       placement = "right"
     ),
@@ -307,7 +307,7 @@ ui_post_cor_transform <- function(ns) {
     conditionalPanel(
       condition = sprintf("input['%s'] === 'TRN'", ns("transform")),
       tooltip(
-        checkboxInput(ns("trn_withhold_checkbox"), "Withold column(s) from TRN?", FALSE),
+        checkboxInput(ns("trn_withhold_checkbox"), "Withold column(s) from TRN", FALSE),
         "Check this box if there are any columns that should not count in TRN (i.e. TIC column). Sample, batch, class and order are already excluded.", 
         placement = "right"
       )
@@ -327,8 +327,8 @@ ui_detect_outliers_options <- function(ns) {
                  "filtered_cor_data"),
     tooltip(
       checkboxInput(ns("sample_grouping"), 
-                 "Group experimental samples by class", FALSE),
-      "Check this box if you want to campare samples within the same class.",
+                 "Group samples by class", FALSE),
+      "Check this box if you want to compare samples within the same class when detecting outliers.",
       placement = "right"
     )
   )

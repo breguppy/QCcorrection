@@ -32,17 +32,18 @@ mod_visualize_ui <- function(id) {
       plotOutput(ns("pca_plot"), height = "530px", width = "1000px") %>% withSpinner(color = "#404040"),
       plotOutput(ns("pca_loading_plot"), height = "530px", width = "1050px") %>% withSpinner(color = "#404040")
     )),
-    card(layout_sidebar(
-      sidebar = ui_sidebar_block(
-        title = "3.4 Download Figures Only",
+    card(
+      style = "background-color: #eeeeee;",
+      fluidRow(
+        column(6, tags$h4("3.4 Download Figures Only"),
         ui_fig_format(ns),
-        width = 400
-      ),
-      uiOutput(ns("download_fig_zip_btn")),
+        ),
+        column(6, uiOutput(ns("download_fig_zip_btn")),
+                           tags$h6("All figures will also be downloaded on tab 4. Export All")),
       uiOutput(ns("progress_ui")),
     )),
     card(
-      actionButton(ns("next_export"), "Next: Export Corrected Data and Plots", class = "btn-primary btn-lg"),
+      actionButton(ns("next_export"), "Next: Export All", class = "btn-primary btn-lg"),
     )
   )
 }

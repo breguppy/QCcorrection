@@ -21,7 +21,7 @@ mod_import_ui <- function(id) {
     ),
     card(layout_sidebar(
       sidebar = ui_sidebar_block(
-        title = "1.2 Select non-metabolite columns",
+        title = "1.2 Select Non-metabolite Columns",
         uiOutput(ns("column_selectors")),
         uiOutput(ns("column_warning")),
         ui_withhold_toggle(ns),

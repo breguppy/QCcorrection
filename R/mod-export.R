@@ -5,7 +5,7 @@
 mod_export_ui <- function(id) {
   ns <- NS(id)
   nav_panel(
-    title = "4. Export Corrected Data, Plots, Stats, and Report", 
+    title = "4. Export All", 
     value = "tab_export",
     card(
     card_title("Download Data, Plots, and Report"),
