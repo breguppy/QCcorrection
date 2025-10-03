@@ -55,12 +55,12 @@ transform_data <- function(df, transform, withheld_cols, ex_ISTD = TRUE) {
       "present in the sample for easier visualization. This normalization",
       "quantifies individual metabolite values across samples based on their",
       "proportion to total metabolite load, in arbitrary units, within each",
-      "individual sample. Because arbitary units for a given metabolite",
+      "individual sample. Because arbitrary units for a given metabolite",
       "quantitatively scale across samples, levels of a given metabolite may be",
       "quantitatively compared across samples. Because unit scaling is different",
       "for each metabolite, different metabolites within in a sample cannot be",
       "quantitatively compared. However, because differences in arbitrary unit",
-      "scaling between samples cancel out by divsion, within-sample metabolite",
+      "scaling between samples cancel out by division, within-sample metabolite",
       "ratios can be quantitatively compared across samples."
     )
     transformed_df <- .total_ratio_norm(transformed_df, metab_cols)

@@ -151,7 +151,7 @@ ui_postcor_filter_info <- function(filtered_corrected_result,
         style = "color: darkorange; font-weight: bold;",
         paste0(
           n_removed,
-          " metabolites removed based on QC RSD above ",
+          " metabolite(s) removed based on QC RSD above ",
           rsd_filter,
           "%"
         )

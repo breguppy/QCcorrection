@@ -5,7 +5,7 @@
 correct_data <- function(df, metab_cols, corMethod) {
   if (corMethod == "RF") {
     correction_str <- "Random Forest"
-    parameters <- "builds 3 models with seeds 42, 31416, 272. Final corrected data is the median value of the 3 models."
+    parameters <- "builds 3 models using seeds 42, 31416, 272. Final corrected data is the median value of the 3 models."
     seeds <- c(42, 31416, 272)
     df_list <- lapply(seeds, function(seed) {
       return (rf_correction(df, metab_cols, ntree = 500, seed = seed))
@@ -19,7 +19,7 @@ correct_data <- function(df, metab_cols, corMethod) {
     df_corrected <- loess_correction(df, metab_cols)
   } else if (corMethod == "BW_RF") {
     correction_str <- "Batchwise Random Forest"
-    parameters <- "3 models with seeds 42, 31416, 272 are built for each metabolite in each batch. Final corrected data is the median value of the 3 models."
+    parameters <- "3 models using seeds 42, 31416, 272 are built for each metabolite for each batch. Final corrected data is the median value of the 3 models."
     seeds <- c(42, 31416, 272)
     df_list <- lapply(seeds, function(seed) {
       return (bw_rf_correction(df, metab_cols, ntree = 500, seed = seed))

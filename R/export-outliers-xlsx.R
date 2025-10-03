@@ -62,7 +62,7 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
     txt2 <- paste(
       "Tab 2. This tab shows sample name, batch, class, order, group ID, metabolite, and robust z-score for all candidate metabolite outliers.",
       "The robust z-score for each metabolite is computed for each sample using robust centering (median) and scaling (MAD, IQR/1.349, SD, or 1) within each group.",
-      "Samples and metabolites are only displayed if the absolute value of the z-score is above 4 (a conservative z-score cutoff to prevent false positives).",
+      "Samples and metabolites are only displayed if the absolute value of the z-score is above 4 (a conservative z-score cutoff to prevent false positives) if QC RSD is stable (<= 20%) or above 5 if QC RSD is borderline (20% < QC RSD <= 30%).",
       "The next tab will show test results confirming potenial outliers."
     )
     openxlsx::writeData(wb,
@@ -92,11 +92,13 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
     
     s3 <- .add_sheet("Confirmations")
     txt3 <- paste(
-      "Tab 3. This tab shows sample name, batch, class, order, groupID, metabolite, robust z-score, QC RSD, outlier test method, p value, and decision on all candidate outliers from the previous tab.",
+      "Tab 3. This tab shows sample name, batch, class, order, groupID, metabolite, robust z-score, QC RSD, outlier test method, p value, test strength, and decision on all candidate outliers from the previous tab.",
       "For each candidate, if the QC RSD is stable (QC RSD <= 20%) the candidate is tested.",
       "If the candidate's QC RSD is borderline (20% < QC RSD <= 30%) and absolute value of the z-score is greater than or equal to 5, the value is tested.",
       "If the QC RSD is unstable (greater than 30%) the candidate is not tested.",
-      "Dixon method is used if the candidate is the group's min/max, otherwise Grubbs test is used to confirm outliers.",
+      "Rosner/ESD test is used for sample size n > 25.",
+      "Dixon test is used if the candidate is the group's unique min/max and sample size 3 <= n <= 30, otherwise Grubbs test is used to confirm outliers.",
+      "Tied or ineligible cases can still be confirmed when the sample’s Mahalanobis distance is flagged (“md_only”).",
       "The confirmed candidates are POSSIBLE outliers. Futher investigation should be done before removing the metabolite values."
     )
     openxlsx::writeData(wb,

@@ -50,7 +50,7 @@ mod_correct_ui <- function(id) {
       sidebar = ui_sidebar_block(
         title = "2.4 Candidate Outliers",
         ui_detect_outliers_options(ns),
-        help = c("The samples listed in the table are consisdered outliers by robust Mahalanobis distance in PCA and the metabolites listed for each sample are considered outliers by robust z-score with a cutoff weighted by QC variability.")
+        help = c("The samples listed in the table are consisdered outliers by robust z\u002Dscore with a cutoff weighted by QC variability confired with a test chosen by group size or by Mahalanobis distance in PCA.")
       ),
       uiOutput(ns("outliers_table")),
     )
