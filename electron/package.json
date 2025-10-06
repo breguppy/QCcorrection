@@ -1,0 +1,25 @@
+{
+  "name": "qc-correction-desktop",
+  "version": "1.0.0",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "electron .",
+    "dist:win": "electron-builder -w",
+    "dist:mac": "electron-builder -m"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.example.qccorrection",
+    "files": [
+      "electron/main.js",
+      "scripts/start.R",
+      { "from": "r-env", "to": "r-env", "filter": ["**/*"] }
+    ],
+    "asar": true,
+    "win": { "target": ["nsis"], "icon": "electron/icon.png" },
+    "mac": { "target": ["dmg"], "icon": "electron/icon.png" }
+  }
+}

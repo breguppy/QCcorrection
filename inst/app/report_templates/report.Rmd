@@ -2,6 +2,8 @@
 title: "`r params$title %||% 'QC Correction Report'`"
 output:
   html_document:
+    includes:
+      in_header: www/header.html
     self_contained: true
     toc: true
     toc_depth: 2

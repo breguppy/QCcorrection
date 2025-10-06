@@ -7,6 +7,7 @@
 app_ui <- function() {
   fluidPage(
     theme = bslib::bs_theme(preset = "cosmo"),
+    tags$head(tags$link(rel = "icon", type = "image/x-icon", href = "favicon.ico")),
     shinyjs::useShinyjs(),
     titlePanel("QC Correction for Metabolomics Data"),
     bslib::navset_tab(

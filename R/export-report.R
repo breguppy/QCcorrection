@@ -183,14 +183,31 @@ render_report <- function(p,
     )
     shiny::incProgress(1 / 4, detail = "Saved: report information")
     
-    html_out <- rmarkdown::render(
-      input = template,
-      output_format = "html_document",
-      output_file   = file.path(out_dir, "correction_report.html"),
-      params = params,
-      envir  = env,
-      quiet  = TRUE
+    out_dir <- normalizePath(out_dir, winslash = "/", mustWork = TRUE)
+    fav_src <- system.file("app/www/favicon.ico", package = "QCcorrection")
+    if (!nzchar(fav_src) || !file.exists(fav_src)) {
+      fav_src <- "app/www/favicon.ico"  # adjust if needed
+    }
+    file.copy(fav_src, file.path(out_dir, "favicon.ico"), overwrite = TRUE)
+    
+    hdr <- tempfile(fileext = ".html")
+    writeLines('<link rel="icon" type="image/x-icon" href="data:,">', hdr)
+    
+    fmt <- rmarkdown::html_document(
+      self_contained = TRUE,
+      includes = rmarkdown::includes(in_header = hdr),
+      highlight = NULL
     )
+    
+    html_out <- rmarkdown::render(
+      input         = template,
+      output_format = fmt,
+      output_file   = file.path(out_dir, "correction_report.html"),
+      params        = params,
+      envir         = env,
+      quiet         = TRUE
+    )
+    
     shiny::incProgress(1 / 4, detail = "Saved: HTML")
     
     chrome <- pagedown::find_chrome()
@@ -198,8 +215,9 @@ render_report <- function(p,
       warning("Chrome/Chromium not found. Returning HTML only.")
       return(normalizePath(html_out, winslash = "/"))
     }
+    uri <- xfun::path_as_uri(normalizePath(html_out, winslash = "/"))
     pdf_out <- file.path(out_dir, "correction_report.pdf")
-    pagedown::chrome_print(input = html_out, output = pdf_out)
+    pagedown::chrome_print(input = uri, output = pdf_out)
     normalizePath(pdf_out, winslash = "/")
     shiny::incProgress(1 / 4, detail = "Saved: PDF")
   })
