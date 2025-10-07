@@ -19,18 +19,29 @@ function findRscript() {
   throw new Error('Rscript.exe not found. Checked:\n' + cands.join('\n'));
 }
 
-function envForR(rscript) {
+function envForR() {
+  const base = BASE;
+  const libDir = path.join(base, 'r-env', 'win', 'library');
+
+  // find pandoc.exe
+  const p1 = path.join(base, 'r-env', 'win', 'pandoc');                  // unversioned
+  const p2 = path.join(base, 'r-env', 'win', 'pandoc', 'pandoc-3.8.2');   // versioned
+  const pandocDir = fs.existsSync(path.join(p1, 'pandoc.exe')) ? p1 :
+                    fs.existsSync(path.join(p2, 'pandoc.exe')) ? p2 : '';
+
+  const rscript = findRscript();
   const rBin = path.dirname(rscript);
-  const libDir = path.join(BASE, 'r-env', 'win', 'library');
-  const pandocDir = path.join(BASE, 'r-env', 'win', 'pandoc');
+
   return {
     ...process.env,
     SHINY_PORT: String(PORT),
     R_PACK_LIB: libDir,
     RSTUDIO_PANDOC: pandocDir,
+    ELECTRON: "1",
     PATH: `${rBin};${process.env.PATH || ''}`
   };
 }
+
 
 function waitForServer(url, timeoutMs = 60000, intervalMs = 200) {
   const t0 = Date.now();

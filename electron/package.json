@@ -1,37 +1,30 @@
 {
+  "name": "qccorrection",
+  "version": "1.0.0",
+  "description": "QC Correction for Metabolomics Data (desktop)",
+  "author": "Breanna Guppy <breanna-guppy@uiowa.edu>",
   "main": "main.js",
-  "scripts": {
+    "scripts": {
     "dev": "electron .",
     "dist:win": "electron-builder -w"
-  },
-  "build": {
-    "appId": "com.example.qccorrection",
-    "files": [
-      "main.js",
-      {
-        "from": "../scripts",
-        "to": "scripts",
-        "filter": [
-          "start.R"
-        ]
-      },
-      {
-        "from": "../r-env",
-        "to": "r-env",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
-    "asar": true,
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    }
   },
   "devDependencies": {
     "electron": "^30.5.1",
     "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.example.qccorrection",
+    "asar": true,
+    "files": [
+      "main.js"
+    ],
+    "extraResources": [
+      { "from": "../scripts", "to": "scripts" },
+      { "from": "../r-env",  "to": "r-env" }
+    ],
+    "win": {
+      "target": [ "dir" ],
+      "signAndEditExecutable": false
+    }
   }
 }

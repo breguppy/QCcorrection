@@ -195,17 +195,18 @@ render_report <- function(p,
     
     fmt <- rmarkdown::html_document(
       self_contained = TRUE,
-      includes = rmarkdown::includes(in_header = hdr),
-      highlight = NULL
+      highlight = "tango",
+      includes = rmarkdown::includes(in_header = hdr)
     )
-    
+    fmt$pandoc$args <- c(fmt$pandoc$args, "--syntax-highlighting=none")
     html_out <- rmarkdown::render(
       input         = template,
       output_format = fmt,
       output_file   = file.path(out_dir, "correction_report.html"),
       params        = params,
       envir         = env,
-      quiet         = TRUE
+      quiet         = TRUE,
+      #output_options = list(pandoc_args = c("--syntax-highlighting=none"))
     )
     
     shiny::incProgress(1 / 4, detail = "Saved: HTML")
