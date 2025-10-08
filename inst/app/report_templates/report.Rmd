@@ -54,7 +54,7 @@ statement("Correction Description")
 
 ### Post-correction Filter
 ```{r}
-QCcorrection:::ui_postcor_filter_info(params$choices$filtered_corrected, params$choices$rsd_filter, params$choices$post_cor_filter)
+QCcorrection:::ui_postcor_filter_info(params$choices$filtered_corrected, params$choices$rsd_cutoff, params$choices$post_cor_filter)
 ```
 
 ### Transformation Description
