@@ -4,7 +4,7 @@
   "description": "QC Correction for Metabolomics Data (desktop)",
   "author": "Breanna Guppy <breanna-guppy@uiowa.edu>",
   "main": "main.js",
-    "scripts": {
+  "scripts": {
     "dev": "electron .",
     "dist:win": "electron-builder -w"
   },
@@ -19,11 +19,19 @@
       "main.js"
     ],
     "extraResources": [
-      { "from": "../scripts", "to": "scripts" },
-      { "from": "../r-env",  "to": "r-env" }
+      {
+        "from": "../scripts",
+        "to": "scripts"
+      },
+      {
+        "from": "../r-env",
+        "to": "r-env"
+      }
     ],
     "win": {
-      "target": [ "dir" ],
+      "target": [
+        "dir"
+      ],
       "signAndEditExecutable": false
     }
   }

@@ -9,6 +9,17 @@ let rProc, win;
 const isDev = !app.isPackaged;
 const BASE = isDev ? path.join(__dirname, '..') : process.resourcesPath;
 
+
+const logDir = path.join(app.getPath('userData'));   // e.g., %AppData%\QCcorrection\
+if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+const logPath = path.join(logDir, 'qccorrection.log');
+const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+function logLine(prefix, msg) {
+  const line = `[${prefix}] ${msg}`;
+  console.log(line);
+  logStream.write(line + '\n');
+}
+
 function findRscript() {
   const cands = [
     path.join(BASE, 'r-env', 'win', 'R', 'bin', 'x64', 'Rscript.exe'),
@@ -23,9 +34,8 @@ function envForR() {
   const base = BASE;
   const libDir = path.join(base, 'r-env', 'win', 'library');
 
-  // find pandoc.exe
-  const p1 = path.join(base, 'r-env', 'win', 'pandoc');                  // unversioned
-  const p2 = path.join(base, 'r-env', 'win', 'pandoc', 'pandoc-3.8.2');   // versioned
+  const p1 = path.join(base, 'r-env', 'win', 'pandoc');
+  const p2 = path.join(base, 'r-env', 'win', 'pandoc', 'pandoc-3.8.2');
   const pandocDir = fs.existsSync(path.join(p1, 'pandoc.exe')) ? p1 :
                     fs.existsSync(path.join(p2, 'pandoc.exe')) ? p2 : '';
 
@@ -41,7 +51,6 @@ function envForR() {
     PATH: `${rBin};${process.env.PATH || ''}`
   };
 }
-
 
 function waitForServer(url, timeoutMs = 60000, intervalMs = 200) {
   const t0 = Date.now();
@@ -62,13 +71,24 @@ async function createWindow() {
   const env = envForR(rscript);
   const startR = path.join(BASE, 'scripts', 'start.R');
 
+  logLine('Electron', `Launching Rscript: ${rscript}`);
+  logLine('Electron', `Using library path: ${env.R_PACK_LIB}`);
+  logLine('Electron', `Pandoc path: ${env.RSTUDIO_PANDOC}`);
+
   rProc = spawn(rscript, [startR], { env, windowsHide: true });
-  rProc.stdout?.on('data', d => console.log('[R]', d.toString()));
-  rProc.stderr?.on('data', d => console.error('[R]', d.toString()));
-  rProc.on('exit', c => console.log('R exited with', c));
+
+  rProc.stdout?.on('data', d => logLine('R', d.toString().trim()));
+  rProc.stderr?.on('data', d => logLine('R-ERR', d.toString().trim()));
+  rProc.on('exit', c => logLine('R', `Exited with code ${c}`));
 
   await waitForServer(`http://127.0.0.1:${PORT}/`);
-  win = new BrowserWindow({ width: 1280, height: 800, webPreferences: { contextIsolation: true, nodeIntegration: false } });
+  logLine('Electron', 'Shiny server detected, opening window.');
+
+  win = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    webPreferences: { contextIsolation: true, nodeIntegration: false }
+  });
   win.removeMenu();
   await win.loadURL(`http://127.0.0.1:${PORT}/`);
 }
