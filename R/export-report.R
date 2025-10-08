@@ -88,16 +88,16 @@ render_report <- function(p,
         ""
       }),
       "Candidate Outliers" = paste(
-        "Possible outlier samples are detected by first grouping samples (QC vs non-QC or by class) and computing RSD.",
-        "Metabolites with unstable QC RSD (greater than 30%) are not tested for outliers.",
+        "Possible extreme samples are detected by first grouping samples (QC vs non-QC or by class) and computing RSD.",
+        "Metabolites with unstable QC RSD (greater than 30%) are not tested for extreme values.",
         "Robust z\u002Dscores are computed for each value within metabolite by median centering and scaling (MAD, IQR/1.349, SD, or 1) within each group.",
-        "Candidate outliers are non-QC sample \u002D metabolite pairs with a z\u002Dscore beyond the threshold of 4 for metabolites with stable QC RSD (<= 20%) or 5 for metabolites with borderline QC RSD (20% < QC RSD <= 30%).",
+        "Candidate extreme values are non-QC sample\u002Dmetabolite pairs with a z\u002Dscore beyond the threshold of 4 for metabolites with stable QC RSD (<= 20%) or 5 for metabolites with borderline QC RSD (20% < QC RSD <= 30%).",
         "Each candidate is then confirmed with a test chosen by group size: Rosner/ESD for n > 25  (records a strength ratio), otherwise Dixon (if uniquely extreme and 3 <= n <= 30) or Grubbs (if extreme).",
         "Tied or ineligible cases can still be confirmed when the sample’s squared Mahalanobis distance is flagged (“md_only”).",
         "Squared Mahalanois distance is computed in the robust PC score space within each group.",
         "We retain PCs to reach at least 80% variance.",
         "Then a robust covariance is computed using the minimum covariance determinant (MCD), Orthogonalized Gnanadesikan\u002DKettenring (OGK), shrinkage, or classical formula depending on sample size and number of PCs retained.",
-        "Note: The confirmed candidates are POSSIBLE outliers. Futher investigation should be done before removing the metabolite values."
+        "Note: The confirmed candidates are POSSIBLE extreme values. Futher investigation should be done before removing the metabolite values."
       ),
       "Metabolite Scatter Plots" = sprintf(
         "These plots show metabolites before and after signal drift correction before any transformation is applied. The two metabolites shown above have the largest decrease in sample variation. The change in variation was determined by calculating relative standard deviation (RSD) for each metabolite %s %s%s A full explanation of RSD is in the next section.",

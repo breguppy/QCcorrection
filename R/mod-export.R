@@ -27,7 +27,7 @@ mod_export_ui <- function(id) {
                tags$li("Corrected RSD or Transformed Corrected RSD"),
                tags$li("RSD Comparison")
                )),
-      column(2, tags$span(icon("file-excel"), "candidate_outliers_*today's_date*.xlsx"),
+      column(2, tags$span(icon("file-excel"), "extreme_values_*today's_date*.xlsx"),
              tags$ul(
                tags$li("Sample MD"),
                tags$li("Candidates"),
@@ -85,7 +85,7 @@ mod_export_server <- function(id, data, params) {
         openxlsx::saveWorkbook(stats_wb, stats_xlsx_path, overwrite = TRUE)
         
         # Create and save outlier data file
-        outlier_xlsx_path <- file.path(base_dir, sprintf("candidate_outliers_%s.xlsx", Sys.Date()))
+        outlier_xlsx_path <- file.path(base_dir, sprintf("extreme_values_%s.xlsx", Sys.Date()))
         outlier_wb <- export_outliers_xlsx(p(), d())
         openxlsx::saveWorkbook(outlier_wb, outlier_xlsx_path, overwrite = TRUE)
         
