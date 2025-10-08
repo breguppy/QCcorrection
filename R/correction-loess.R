@@ -1,26 +1,19 @@
 #' @keywords internal
 #' @noRd
 .safe_loess_predict <- function(qcid, qc_y, newx, span, degree) {
-  ok <- is.finite(qc_y); qx <- qcid[ok]; qy <- qc_y[ok]
+  ok <- is.finite(qc_y) & qc_y > 0              # changed
+  qx <- qcid[ok]; qy <- qc_y[ok]
   n <- length(qx)
   if (n < 2L) return(rep(1, length(newx)))
-  
-  # thresholds
-  if (n < 8L) {
-    return(stats::approx(qx, qy, xout = newx, rule = 2)$y)
-  }
-  
-  deg  <- if (n < 12L) 1L else min(2L, degree)
-  spn  <- max(span, min(1, 8 / n))  # ensure enough neighbors
-  
-  # fit on log scale for multiplicative drift, robust to outliers
+  if (n < 8L) return(stats::approx(qx, qy, xout = newx, rule = 2)$y)
+  deg <- if (n < 12L) 1L else min(2L, degree)
+  spn <- max(span, min(1, 8 / n))
   pred <- tryCatch({
     fit <- stats::loess(log(qy) ~ qx, span = spn, degree = deg,
                         family = "symmetric",
                         control = stats::loess.control(surface = "direct"))
     exp(stats::predict(fit, newx))
   }, error = function(e) NA_real_)
-  
   if (!is.numeric(pred) || all(!is.finite(pred)))
     stats::approx(qx, qy, xout = newx, rule = 2)$y
   else pred
@@ -38,6 +31,7 @@ loess_correction <- function(df, metab_cols, degree = 2, span = 0.75, min_qc = 5
   out <- df
   
   for (metab in metab_cols) {
+    zero_mask <- is.finite(df[[metab]]) & df[[metab]] == 0
     qc_y <- df[[metab]][qcid]
     if (all(qc_y <= 0, na.rm = TRUE)) {
       out[[metab]] <- 0
@@ -51,8 +45,9 @@ loess_correction <- function(df, metab_cols, degree = 2, span = 0.75, min_qc = 5
     sf <- stats::median(corr[qcid], na.rm = TRUE)
     if (is.finite(sf) && sf > 0) corr <- corr / sf
     
-    corr[!is.finite(corr) | corr <= 0] <- NA_real_
+    corr[!is.finite(corr) | corr < 0] <- NA_real_
     out[[metab]] <- corr
+    out[[metab]][zero_mask] <- 0
   }
   
   if (anyNA(out[metab_cols])) {
@@ -85,6 +80,7 @@ loess_correction <- function(df, metab_cols, degree = 2, span = 0.75, min_qc = 5
 bw_loess_correction <- function(df, metab_cols, span = 0.75, degree = 2, min_qc = 5) {
   out <- df
   for (metab in metab_cols) {
+    zero_mask <- is.finite(df[[metab]]) & df[[metab]] == 0
     for (b in unique(df$batch)) {
       b_idx <- which(df$batch == b)
       sub   <- df[b_idx, , drop = FALSE]
@@ -113,9 +109,10 @@ bw_loess_correction <- function(df, metab_cols, span = 0.75, degree = 2, min_qc 
       sf <- stats::median(corr[qcid], na.rm = TRUE)
       if (is.finite(sf) && sf > 0) corr <- corr / sf
       
-      corr[!is.finite(corr) | corr <= 0] <- NA_real_
+      corr[!is.finite(corr) | corr < 0] <- NA_real_
       out[[metab]][b_idx] <- corr
     }
+    out[[metab]][zero_mask] <- 0
   }
   
   if (anyNA(out[metab_cols])) {

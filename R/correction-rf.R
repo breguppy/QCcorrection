@@ -66,15 +66,21 @@ rf_correction <- function(df, metab_cols, ntree = 500, seed = NULL, min_qc = 5) 
   newx <- df$order
   
   for (metab in metab_cols) {
+    zero_mask <- is.finite(df[[metab]]) & df[[metab]] == 0
     qc_y <- df[[metab]][qcid]
+    if (all(qc_y <= 0, na.rm = TRUE)) {
+      out[[metab]] <- 0
+      next
+    }
     if (length(qcid) < min_qc) {
       warning(paste("Skipping", metab, "- too few QC samples for RF; using baseline interpolation."))
     }
     pred <- .safe_rf_predict(df$order[qcid], qc_y, newx, ntree = ntree)
     pred[!is.finite(pred) | pred <= 0] <- NA_real_
     corr <- as.numeric(df[[metab]]) / pred
-    corr[!is.finite(corr) | corr <= 0] <- NA_real_
+    corr[!is.finite(corr) | corr < 0] <- NA_real_
     out[[metab]] <- corr
+    out[[metab]][zero_mask] <- 0
   }
   
   # final cleanup: smallest positive per metabolite, else 0
@@ -97,6 +103,7 @@ bw_rf_correction <- function(df, metab_cols, ntree = 500, seed = NULL, min_qc = 
   batches <- unique(df$batch)
   
   for (metab in metab_cols) {
+    zero_mask <- is.finite(df[[metab]]) & df[[metab]] == 0
     for (b in batches) {
       idx_all <- which(df$batch == b)
       # operate on rows in this batch, sorted by order
@@ -110,6 +117,11 @@ bw_rf_correction <- function(df, metab_cols, ntree = 500, seed = NULL, min_qc = 
       }
       
       qcid <- which(sub$class == "QC")
+      qcy <- sub[[metab]][qcid]
+      if (all(qcy <= 0, na.rm = TRUE)) {
+        out[[metab]][b_idx] <- 0
+        next
+      }
       if (length(qcid) < min_qc) {
         warning(sprintf("Skipping %s in batch %s - too few QC samples; using baseline interpolation.", metab, b))
       }
@@ -118,8 +130,9 @@ bw_rf_correction <- function(df, metab_cols, ntree = 500, seed = NULL, min_qc = 
                                new_order = sub$order, ntree = ntree)
       pred[!is.finite(pred) | pred <= 0] <- NA_real_
       corr <- as.numeric(sub[[metab]]) / pred
-      corr[!is.finite(corr) | corr <= 0] <- NA_real_
+      corr[!is.finite(corr) | corr < 0] <- NA_real_
       out[[metab]][b_idx] <- corr
+      out[[metab]][zero_mask] <- 0
     }
   }
   
