@@ -27,7 +27,9 @@ Imports:
     outliers, 
     randomForest, 
     htmltools,
-    stringr
+    stringr,
+    cowplot,
+    pagedown
 Suggests:
     httpuv,
     jsonlite,
@@ -35,7 +37,6 @@ Suggests:
     zip,
     testthat (>= 3.0.0),
     corpcor,
-    cowplot,
     impute,
     shinytest2,
     chromote,
@@ -47,4 +48,4 @@ VignetteBuilder: knitr
 biocViews: Software, ShinyApps, MassSpectrometry, Metabolomics, QualityControl
 Config/testthat/edition: 3
 Config/testthat/parallel: false
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
