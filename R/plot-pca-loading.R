@@ -94,7 +94,7 @@ plot_pca_loading <- function(p, before, after, compared_to,
                                name = "Sign", drop = FALSE) +
     ggplot2::guides(y = "none", x = "none", fill = ggplot2::guide_legend(override.aes = list(alpha = 1))) +
     big_font_theme + ggplot2::theme(legend.position = "right")
-  leg <- cowplot::get_plot_component(p_leg, "guide-box", return_all = TRUE)[[1]]
+  leg <- cowplot::get_legend(p_leg)
   
   comb <- cowplot::plot_grid(p_before, p_after, leg,
                              nrow = 1, rel_widths = c(1, 1, 0.22),
