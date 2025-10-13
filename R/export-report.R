@@ -193,14 +193,27 @@ render_report <- function(p,
     )
     shiny::incProgress(1 / 4, detail = "Saved: HTML")
     
-    chrome <- pagedown::find_chrome()
-    if (is.null(chrome)) {
-      warning("Chrome/Chromium not found. Returning HTML only.")
-      return(normalizePath(html_out, winslash = "/"))
+    pdf_out  <- file.path(out_dir, "correction_report.pdf")
+    has_pdf  <- FALSE
+    
+    if (requireNamespace("pagedown", quietly = TRUE)) {
+      chrome <- pagedown::find_chrome()
+      if (!is.null(chrome)) {
+        has_pdf <- isTRUE(tryCatch({
+          pagedown::chrome_print(input = html_out, output = pdf_out); TRUE
+        }, error = function(e) FALSE))
+      }
     }
-    pdf_out <- file.path(out_dir, "correction_report.pdf")
-    pagedown::chrome_print(input = html_out, output = pdf_out)
-    normalizePath(pdf_out, winslash = "/")
-    shiny::incProgress(1 / 4, detail = "Saved: PDF")
+    if (has_pdf) {
+      shiny::incProgress(1/4, detail = "Saved: PDF")
+    } else {
+      if (file.exists(pdf_out)) unlink(pdf_out)
+      warning("Chrome/Chromium not found or PDF render failed. HTML only.")
+    }
+    
+    # return both paths and a flag
+    list(html = normalizePath(html_out, winslash = "/"),
+         pdf  = if (has_pdf) normalizePath(pdf_out, winslash = "/") else NULL,
+         has_pdf = has_pdf)
   })
 }

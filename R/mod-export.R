@@ -93,15 +93,16 @@ mod_export_server <- function(id, data, params) {
         figs <- export_figures(p(), d(), out_dir = base_dir)
         
         # make pdf report
-        render_report(p(), d(), out_dir = base_dir)
+        rr <- render_report(p(), d(), out_dir = base_dir)
         
         # make zip file
         rel <- c(
-          "figures",                                  
+          "figures",
           basename(xlsx_path),
           basename(stats_xlsx_path),
           basename(outlier_xlsx_path),
-          "correction_report.html", "correction_report.pdf" 
+          "correction_report.html",
+          if (isTRUE(rr$has_pdf)) "correction_report.pdf"
         )
         rel <- rel[file.exists(file.path(base_dir, rel))]
         
