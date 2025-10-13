@@ -7,43 +7,47 @@ Description: Shiny app to clean, correct, visualize, and export LC-MS metabolomi
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: false
-Depends: R (>= 4.3)
+Depends: R (>= 4.4)
 Imports:
     shiny,
-    bslib (>= 0.5.0),
-    shinyjs,
-    shinycssloaders,
+    ggplot2,
     dplyr,
     tidyr,
     purrr,
     tibble,
-    ggplot2,
+    stringr,
+    randomForest,
+    robustbase,
+    outliers,
+    EnvStats,
+    impute,
+    stats,
+    grDevices,
+    utils,
+    bslib (>= 0.5.0),
+    shinyjs,
+    shinycssloaders,
     ggtext,
-    readxl,
-    openxlsx,
     rlang,
     magrittr,
-    robustbase,
-    outliers, 
-    randomForest, 
     htmltools,
-    stringr,
-    cowplot,
-    pagedown
+    readxl,
+    openxlsx,
 Suggests:
     httpuv,
+    cowplot,
     jsonlite,
     pagedown,
+    rmarkdown,
     zip,
     testthat (>= 3.0.0),
-    corpcor,
-    impute,
     shinytest2,
+    corpcor,
     chromote,
     pkgload,
-    rmarkdown,
     knitr,
-    EnvStats
+Remotes:
+    bioc::impute
 VignetteBuilder: knitr
 biocViews: Software, ShinyApps, MassSpectrometry, Metabolomics, QualityControl
 Config/testthat/edition: 3

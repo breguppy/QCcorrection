@@ -98,7 +98,7 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
       "If the QC RSD is unstable (greater than 30%) the candidate is not tested.",
       "Rosner/ESD test is used for sample size n > 25.",
       "Dixon test is used if the candidate is the group's unique min/max and sample size 3 <= n <= 30, otherwise Grubbs test is used to confirm extreme values.",
-      "Tied or ineligible cases can still be confirmed when the sample’s Mahalanobis distance is flagged (“md_only”).",
+      "Tied or ineligible cases can still be confirmed when the sample's Mahalanobis distance is flagged (md_only).",
       "The confirmed candidates are POSSIBLE extreme values. Futher investigation should be done before removing the metabolite values."
     )
     openxlsx::writeData(wb,

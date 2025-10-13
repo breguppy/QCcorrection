@@ -10,12 +10,12 @@ library(QCcorrection)
 
 # tiny in-memory dataset (no file IO)
 df <- data.frame(
-  sample = c("S1","S2","S3","S4"),
-  batch  = c("B1","B1","B1","B1"),
-  class  = c("QC","Sample","Sample","QC"),
-  order  = c(1,2,3,4),
-  A = c(10, NA, 13, 11),
-  B = c(20, 25, NA, 21),
+  sample = c("S1","S2","S3","S4","S5","S6","S7","S8","S9","S10","S11","S12"),
+  batch  = c("B1","B1","B1","B1","B1","B1","B1","B1","B1","B1","B1","B1"),
+  class  = c("QC","Sample","QC","Sample","QC","Sample","QC","Sample","QC","Sample","QC", "QC"),
+  order  = c(1,2,3,4,5,6,7,8,9,10,11,12),
+  A = c(10, NA, 12, 13, 11, 14, 16, 10, 9, 15, 12, 11),
+  B = c(20, 25, NA, 20, 21, 24, 26, 24, 25, 21, 23, 22),
   check.names = FALSE
 )
 

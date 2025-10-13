@@ -35,6 +35,6 @@ test_that("export module creates a zip bundle", {
   expect_true(any(grepl("^figures/?", lst$Name)))
   expect_true(any(grepl("^corrected_data_.*\\.xlsx$", lst$Name)))
   expect_true(any(grepl("^rsd_stats_.*\\.xlsx$", lst$Name)))
-  expect_true(any(grepl("^candidate_outliers_.*\\.xlsx$", lst$Name)))
+  expect_true(any(grepl("^extreme_values_.*\\.xlsx$", lst$Name)))
   expect_true(any(grepl("^correction_report\\.(html|pdf)$", lst$Name)))
 })

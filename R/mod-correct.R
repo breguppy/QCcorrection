@@ -6,82 +6,82 @@
 mod_correct_ui <- function(id) { 
   ns <- NS(id); 
   nav_panel(
-  title = "2. Correction Settings",
-  value = "tab_correct",
-  card(
-    style = "background-color:#eee;",
-    tags$h4("2.1 Choose Correction Settings"),
-    uiOutput(ns("qc_missing_value_warning")),
-    fluidRow(
-      column(3, tags$h5("Impute Missing QC Values"), uiOutput(ns("qcImpute"))),
-      column(3, tags$h5("Impute Missing Sample Values"), uiOutput(ns("sampleImpute"))),
-      column(3, tags$h5("Choose Correction Method"), uiOutput(ns("correctionMethod"))),
-      column(3, tags$h5("Unavailable Options"), uiOutput(ns("unavailable_options"))),
-      actionButton(ns("correct"), "Correct Data with Selected Settings",
-                   class="btn-primary btn-lg", width="100%"),
-      div(style="margin:12px 0 0 0;", withSpinner(uiOutput(ns("cor_spinner")),
-                                                  color="#404040", size=0.6, proxy.height="22px"))
-    )
-  ),
-  card(
-    layout_sidebar(
-      sidebar = ui_sidebar_block(
-        title = "2.2 Post-Correction Filtering",
-        ui_post_cor_filter(ns),
-        width = 400
-      ),
-      uiOutput(ns("post_cor_filter_info")) %>% withSpinner(color = "#404040")
-    )
-  ),
-  card(
-    layout_sidebar(
-      sidebar = ui_sidebar_block(
-        title = "2.3 Post-Correction Transformation",
-        ui_post_cor_transform(ns),
-        uiOutput(ns("trn_withhold_ui")),
-        uiOutput(ns("trn_withhold_selectors_ui")),
-        width = 400
-      ),
-      ui_table_scroll("cor_data", ns) %>% withSpinner(color = "#404040")
-    )
-  ),
-  card(
-    layout_sidebar(
-      sidebar = ui_sidebar_block(
-        title = "2.4 Candidate Extreme Values",
-        ui_detect_outliers_options(ns),
-        help = c("The samples listed in the table are considered extreme values by robust z\u002Dscore with a cutoff weighted by QC variability confired with a test chosen by group size or by Mahalanobis distance in PCA.")
-      ),
-      uiOutput(ns("outliers_table")),
-    )
-  ),
-  card(
-    style = "background-color: #eeeeee;",
-    fluidRow(
-      column(6, tags$h4("2.5 Identify Control Group"),
-      tooltip(
-        checkboxInput(ns("no_control"), "No control group", FALSE),
-        "Check the box if The data does not have a control group.", 
-        placement = "right"
-      ),
-      conditionalPanel(
-        condition = sprintf("!input['%s']", ns("no_control")),
-        uiOutput(ns("control_class_selector"))
+    title = "2. Correction Settings",
+    value = "tab_correct",
+    card(
+      style = "background-color:#eee;",
+      tags$h4("2.1 Choose Correction Settings"),
+      uiOutput(ns("qc_missing_value_warning")),
+      fluidRow(
+        column(3, tags$h5("Impute Missing QC Values"), uiOutput(ns("qcImpute"))),
+        column(3, tags$h5("Impute Missing Sample Values"), uiOutput(ns("sampleImpute"))),
+        column(3, tags$h5("Choose Correction Method"), uiOutput(ns("correctionMethod"))),
+        column(3, tags$h5("Unavailable Options"), uiOutput(ns("unavailable_options"))),
+        actionButton(ns("correct"), "Correct Data with Selected Settings",
+                     class="btn-primary btn-lg", width="100%"),
+        div(style="margin:12px 0 0 0;", withSpinner(uiOutput(ns("cor_spinner")),
+                                                    color="#404040", size=0.6, proxy.height="22px"))
       )
     ),
-    column(6, tags$h4("2.6 Download Corrected Data Only"),
-           tooltip(
-             checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file", FALSE),
-             "Check the box if you want corrected QC values in the downloaded corrected data file.", 
-             placement = "right"
-           ),
-           uiOutput(ns("download_corr_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
-           tags$h6("Corrected data will also be downloaded on tab 4. Export All")
-    ))
-  ),
-  card(actionButton(ns("next_visualization"), "Next: Evaluate and Visualize Correction",
-                    class="btn-primary btn-lg"))
-)}
+    card(
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "2.2 Post-Correction Filtering",
+          ui_post_cor_filter(ns),
+          width = 400
+        ),
+        uiOutput(ns("post_cor_filter_info")) %>% withSpinner(color = "#404040")
+      )
+    ),
+    card(
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "2.3 Post-Correction Transformation",
+          ui_post_cor_transform(ns),
+          uiOutput(ns("trn_withhold_ui")),
+          uiOutput(ns("trn_withhold_selectors_ui")),
+          width = 400
+        ),
+        ui_table_scroll("cor_data", ns) %>% withSpinner(color = "#404040")
+      )
+    ),
+    card(
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "2.4 Candidate Extreme Values",
+          ui_detect_outliers_options(ns),
+          help = c("The samples listed in the table are considered extreme values by robust z\u002Dscore with a cutoff weighted by QC variability confired with a test chosen by group size or by Mahalanobis distance in PCA.")
+        ),
+        uiOutput(ns("outliers_table")),
+      )
+    ),
+    card(
+      style = "background-color: #eeeeee;",
+      fluidRow(
+        column(6, tags$h4("2.5 Identify Control Group"),
+               tooltip(
+                 checkboxInput(ns("no_control"), "No control group", FALSE),
+                 "Check the box if The data does not have a control group.", 
+                 placement = "right"
+               ),
+               conditionalPanel(
+                 condition = sprintf("!input['%s']", ns("no_control")),
+                 uiOutput(ns("control_class_selector"))
+               )
+        ),
+        column(6, tags$h4("2.6 Download Corrected Data Only"),
+               tooltip(
+                 checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file", FALSE),
+                 "Check the box if you want corrected QC values in the downloaded corrected data file.", 
+                 placement = "right"
+               ),
+               uiOutput(ns("download_corr_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+               tags$h6("Corrected data will also be downloaded on tab 4. Export All")
+        ))
+    ),
+    card(actionButton(ns("next_visualization"), "Next: Evaluate and Visualize Correction",
+                      class="btn-primary btn-lg"))
+  )}
 
 mod_correct_server <- function(id, data, params) {
   moduleServer(id, function(input, output, session) {
@@ -170,7 +170,7 @@ mod_correct_server <- function(id, data, params) {
       } else {
         fil_cor_df <- filter_by_qc_rsd(fil_cor_df, input$rsd_filter, c("sample","batch","class","order"))
       }
-       
+      
       fil_cor_df 
     })
     

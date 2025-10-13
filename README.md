@@ -1,6 +1,10 @@
 # QCcorrection
 Shiny app for QC correction of metabolomics data
 
+### Requirements
+
+ - R >= 4.4.1
+ 
 ### Installation
 
 #### Install Via GitHub

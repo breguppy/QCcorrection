@@ -2,3 +2,12 @@ sample,batch,class,order,metabolite_A,metabolite_B
 S1,B1,QC,1,10,20
 S2,B1,Sample,2,,25
 S3,B1,QC,3,12,22
+S4,B1,Sample,4,13,20
+S5,B2,QC,5,11,21
+S6,B3,Sample,6,14,23
+S7,B4,QC,7,16,26
+S8,B5,Sample,8,10,24
+S9,B6,QC,9,9,25
+S10,B7,Sample,10,15,21
+S11,B8,QC,11,12,23
+S12,B9,QC,12,11,22
