@@ -23,6 +23,11 @@ install.packages(c(
 ))
 ```
 
+### To run App
+```r
+QCcorrection::run_app()
+```
+
 # Bug Reports/New Features
 
 #### If you run into any issues or bugs please submit a [GitHub issue](https://github.com/breguppy/QCcorrection/issues) with details of the issue.
