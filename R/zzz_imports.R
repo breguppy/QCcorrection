@@ -11,7 +11,6 @@
 #'
 #' @importFrom stats ecdf median prcomp predict sd setNames
 #' @importFrom stats loess predict sd median
-#' @importFrom randomForest randomForest
 #' @importFrom utils modifyList read.csv setTxtProgressBar txtProgressBar zip
 #'
 #' @importFrom shiny NS moduleServer fluidPage titlePanel
@@ -43,6 +42,8 @@
 #' @importFrom ggplot2 ggplot aes geom_point geom_line labs guides
 #' @importFrom ggplot2 theme theme_minimal element_text scale_color_manual scale_color_brewer
 #' @importFrom ggplot2 scale_x_continuous scale_y_continuous xlim ylim ggsave
+#' 
+#' @importFrom impute impute.knn
 #' 
 #' @importFrom grDevices cairo_pdf
 #' @importFrom htmltools HTML

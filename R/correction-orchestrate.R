@@ -4,6 +4,8 @@
 #' @noRd
 correct_data <- function(df, metab_cols, corMethod) {
   if (corMethod == "RF") {
+    if (!requireNamespace("randomForest", quietly = TRUE))
+      stop("Install 'randomForest' to use RF correction.", call. = FALSE)
     correction_str <- "Random Forest"
     parameters <- "builds 3 models using seeds 42, 31416, 272. Final corrected data is the median value of the 3 models."
     seeds <- c(42, 31416, 272)
@@ -18,6 +20,8 @@ correct_data <- function(df, metab_cols, corMethod) {
     parameters <- "builds local polynomials of degree 2 that span 0.75 of the total QC values."
     df_corrected <- loess_correction(df, metab_cols)
   } else if (corMethod == "BW_RF") {
+    if (!requireNamespace("randomForest", quietly = TRUE))
+      stop("Install 'randomForest' to use RF correction.", call. = FALSE)
     correction_str <- "Batchwise Random Forest"
     parameters <- "3 models using seeds 42, 31416, 272 are built for each metabolite for each batch. Final corrected data is the median value of the 3 models."
     seeds <- c(42, 31416, 272)

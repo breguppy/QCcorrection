@@ -50,6 +50,8 @@ facet_label_map <- function(df) {
 #' @keywords internal
 #' @noRd
 mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
+  if (!requireNamespace("ggtext", quietly = TRUE))
+    stop("Install 'ggtext' to use render plots correctly.", call. = FALSE)
   if (!nrow(d_all))
     return(ggplot2::ggplot() + ggplot2::labs(title = "No points"))
   ggplot2::ggplot(d_all, ggplot2::aes(x = .data[[x]], y = .data[[y]], color = change)) +
