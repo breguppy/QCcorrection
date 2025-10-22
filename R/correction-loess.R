@@ -94,7 +94,6 @@ bw_loess_correction <- function(df, metab_cols, span = 0.75, degree = 2, min_qc 
                         b, metab, length(qcid), min_qc))
         next
       }
-      # new guard
       if (all(sub[[metab]][qcid] <= 0, na.rm = TRUE)) {
         out[[metab]][b_idx] <- 0
         next
@@ -105,13 +104,14 @@ bw_loess_correction <- function(df, metab_cols, span = 0.75, degree = 2, min_qc 
       pred[!is.finite(pred) | pred <= 0] <- NA_real_
       corr <- as.numeric(sub[[metab]]) / pred
       
-      # re-anchor scale so QC median in this batch equals 1
-      sf <- stats::median(corr[qcid], na.rm = TRUE)
-      if (is.finite(sf) && sf > 0) corr <- corr / sf
-      
       corr[!is.finite(corr) | corr < 0] <- NA_real_
       out[[metab]][b_idx] <- corr
     }
+    qc_all <- out$class == "QC" & is.finite(out[[metab]]) & out[[metab]] > 0
+    gsf <- suppressWarnings(stats::median(out[[metab]][qc_all], na.rm = TRUE))
+    if (is.finite(gsf) && gsf > 0) out[[metab]] <- out[[metab]] / gsf
+    
+    # preserve 0s
     out[[metab]][zero_mask] <- 0
   }
   
