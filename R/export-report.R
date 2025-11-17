@@ -196,8 +196,18 @@ render_report <- function(p,
     pdf_out  <- file.path(out_dir, "correction_report.pdf")
     has_pdf  <- FALSE
     
+    chrome <- tryCatch(
+      {
+        if (requireNamespace("pagedown", quietly = TRUE)) {
+          pagedown::find_chrome()
+        }
+      },
+      error = function(e) {
+        message("An error occurred: ", e$message)
+        return(NA)
+      }
+    )
     if (requireNamespace("pagedown", quietly = TRUE)) {
-      chrome <- pagedown::find_chrome()
       if (!is.null(chrome)) {
         has_pdf <- isTRUE(tryCatch({
           pagedown::chrome_print(input = html_out, output = pdf_out); TRUE

@@ -19,7 +19,7 @@ install.packages(c(
   "randomForest", "robustbase", "outliers", "EnvStats", "ggtext",
   "cowplot", "pagedown", "rmarkdown", "zip", "corpcor",
   "httpuv", "jsonlite", "shinytest2", "testthat", "chromote",
-  "pkgload", "knitr"
+  "pkgload", "knitr", "pagedown"
 ))
 ```
 
