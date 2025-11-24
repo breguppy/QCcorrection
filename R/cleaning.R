@@ -8,6 +8,9 @@ clean_data <- function(df,
                        class,
                        order,
                        withheld_cols) {
+  if (!(batch %in% colnames(df))) {
+    df$batch <- "batch1"
+  }
   # remove columns that will not be corrected and are not metadata
   df <- df[, setdiff(names(df), withheld_cols), drop = FALSE]
   

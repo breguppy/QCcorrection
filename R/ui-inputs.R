@@ -46,9 +46,17 @@ ui_nonmet_cols <- function(cols, ns = identity) {
       placement ="right"
     ),
     tooltip(
-      selectInput(ns("batch_col"), "batch column", dropdown_choices, ""),
-      "Column that contains batch information.",
-      placement ="right"
+      checkboxInput(ns("single_batch"), "no batch column", FALSE), 
+      "check this box if your raw data does not have a column indicating batch. All samples will be assigned the same batch for correction.",
+      placement = "right"
+    ),
+    conditionalPanel(
+      condition = sprintf("!input['%s']", ns("single_batch")),
+      tooltip(
+        selectInput(ns("batch_col"), "batch column", dropdown_choices, ""),
+        "Column that contains batch information.",
+        placement ="right"
+      )
     ),
     tooltip(
       selectInput(ns("class_col"), "class column", dropdown_choices, ""),

@@ -58,7 +58,7 @@ mod_import_server <- function(id) {
     selections_r <- reactive({
       list(
         sample = input$sample_col %||% "",
-        batch  = input$batch_col  %||% "",
+        batch  = if (isTRUE(input$single_batch)) "batch" else input$batch_col %||% "",
         class  = input$class_col  %||% "",
         order  = input$order_col  %||% ""
       )
