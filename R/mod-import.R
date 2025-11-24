@@ -33,7 +33,8 @@ mod_import_ui <- function(id) {
     )),
     card(layout_sidebar(
       sidebar = ui_sidebar_block(title = "1.3 Filter Raw Data", ui_filter_slider(ns), width = 400),
-      uiOutput(ns("filter_info"))
+      uiOutput(ns("filter_info")),
+      uiOutput(ns("download_mv_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;")
     )),
     card(
       actionButton(
@@ -164,6 +165,36 @@ mod_import_server <- function(id) {
                      input$mv_cutoff,
                      fd$qc_missing_mets)
     })
+    
+    # add button for downloading missing value report.
+    output$download_mv_btn <- renderUI({
+      req(cleaned_r())
+      
+      div(
+        style = "max-width: 300px; display: inline-block;",
+        downloadButton(
+          outputId = ns("download_mv_data"),
+          label    = "Download Excel File (Optional)",
+          class    = "btn btn-primary"
+        )
+      )
+    })
+    output$download_mv_data <- downloadHandler(
+      filename = function() {
+        paste0("missing_value_counts_", Sys.Date(), ".xlsx")
+      },
+      content = function(file) {
+        p <- list()
+        
+        d <- list(
+          cleaned            = cleaned_r()
+        )
+        
+        wb <- export_mv_xlsx(p, d)
+        openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+      }
+    )
+    
     
     params_r <- reactive({
       sel <- selections_r()

@@ -1,0 +1,152 @@
+#' exports missing value report as excel file
+#'
+#' @keywords internal
+#' @noRd
+export_mv_xlsx <- function(p, d, file = NULL) {
+  cleaned_df <- d$cleaned$df
+  .require_pkg("openxlsx", "write Excel workbooks")
+  wb <- openxlsx::createWorkbook()
+  
+  # make column names bold and descriptions with orange backgroud
+  bold  <- openxlsx::createStyle(textDecoration = "Bold")
+  note  <- openxlsx::createStyle(wrapText = TRUE,
+                                 valign = "top",
+                                 fgFill = "#f8cbad")
+  
+  .add_sheet <- function(name) {
+    nm <- gsub("[\\[\\]\\*\\?:/\\\\]", "_", name)
+    nm <- substr(nm, 1L, 31L)
+    openxlsx::addWorksheet(wb, nm)
+    nm
+  }
+  
+  meta_cols <- c("sample", "batch", "class", "order")
+  metab_cols <- setdiff(names(cleaned_df), meta_cols)
+  n_metabs <- length(metab_cols)
+  
+  # count missing values by sample (num missing and percentage)
+  sample_mv <- cleaned_df |>
+    dplyr::mutate(
+      missing_count = dplyr::across(dplyr::all_of(metab_cols), is.na) |>
+        rowSums(),
+      missing_pct   = (missing_count / n_metabs) * 100
+    ) |>
+    dplyr::select(sample, missing_count, missing_pct) |>
+    dplyr::filter(missing_pct > 0) |>
+    dplyr::arrange(dplyr::desc(missing_pct))
+  
+  # count missing values by class (num missing and as percentage)
+  class_mv <- cleaned_df |>
+    dplyr::group_by(class) |>
+    dplyr::summarise(
+      n_samples      = dplyr::n(),
+      missing_count  = dplyr::across(
+        dplyr::all_of(metab_cols),
+        ~ sum(is.na(.x)),
+        .unpack = FALSE
+      ) |>
+        unlist() |>
+        sum(),
+      total_values   = n_samples * n_metabs,
+      missing_pct    = (missing_count / total_values) * 100,
+      .groups = "drop"
+    ) |>
+    dplyr::select(class, missing_count, missing_pct) |>
+    dplyr::filter(missing_pct > 0) |>
+    dplyr::arrange(dplyr::desc(missing_pct))
+  
+  # count missing by batch (num missing and as a percentage)
+  batch_mv <- cleaned_df |>
+    dplyr::group_by(batch) |>
+    dplyr::summarise(
+      n_samples      = dplyr::n(),
+      missing_count  = dplyr::across(
+        dplyr::all_of(metab_cols),
+        ~ sum(is.na(.x)),
+        .unpack = FALSE
+      ) |>
+        unlist() |>
+        sum(),
+      total_values   = n_samples * n_metabs,
+      missing_pct    = (missing_count / total_values) * 100,
+      .groups = "drop"
+    ) |>
+    dplyr::select(batch, missing_count, missing_pct) |>
+    dplyr::filter(missing_pct > 0) |>
+    dplyr::arrange(dplyr::desc(missing_pct))
+  
+  # count missing values by metabolite (num missing in samples and missing in group and as percentages of data)
+  count_missing_by_metabolite <- function(df, metab_cols) {
+    n_samples <- nrow(df)
+    
+    tibble::tibble(
+      metabolite    = metab_cols,
+      missing_count = vapply(df[metab_cols], function(col) sum(is.na(col)), integer(1)),
+      missing_pct   = (missing_count / n_samples) * 100
+    ) |>
+      dplyr::arrange(dplyr::desc(missing_pct))
+  }
+  
+  sample_df <- cleaned_df[cleaned_df$class != "QC", ]
+  qc_df <- cleaned_df[cleaned_df$class == "QC", ]
+  
+  sample_met_mv <- count_missing_by_metabolite(sample_df, metab_cols)
+  qc_met_mv <- count_missing_by_metabolite(qc_df, metab_cols)
+  
+  sample_renamed <- sample_met_mv |>
+    dplyr::rename(
+      sample_missing_count = missing_count,
+      sample_missing_pct   = missing_pct
+    )
+  
+  qc_renamed <- qc_met_mv |>
+    dplyr::rename(
+      qc_missing_count = missing_count,
+      qc_missing_pct   = missing_pct
+    )
+  
+  metab_mv <- sample_renamed |>
+    dplyr::inner_join(qc_renamed, by = "metabolite") |>
+    dplyr::filter(!(sample_missing_pct == 0 & qc_missing_pct == 0)) |>
+    dplyr::arrange(dplyr::desc(sample_missing_pct))
+  
+  # save them to workbook:
+  s1 <- .add_sheet("Metabolite")
+  openxlsx::writeData(
+    wb,
+    s1,
+    x = metab_mv,
+    startRow = 3,
+    startCol = 1,
+    headerStyle = bold
+  )
+  s2 <- .add_sheet("Sample")
+  openxlsx::writeData(
+    wb,
+    s2,
+    x = sample_mv,
+    startRow = 3,
+    startCol = 1,
+    headerStyle = bold
+  )
+  s3 <- .add_sheet("Class")
+  openxlsx::writeData(
+    wb,
+    s3,
+    x = class_mv,
+    startRow = 3,
+    startCol = 1,
+    headerStyle = bold
+  )
+  s4 <- .add_sheet("Batch")
+  openxlsx::writeData(
+    wb,
+    s4,
+    x = batch_mv,
+    startRow = 3,
+    startCol = 1,
+    headerStyle = bold
+  )
+  
+  return(wb)
+}
