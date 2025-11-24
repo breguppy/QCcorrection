@@ -14,12 +14,13 @@ ui_file_upload <- function(ns) {
 #' Reusable titled sidebar
 #' @keywords internal
 #' @noRd
-ui_sidebar_block <- function(title, ..., help = NULL, width = 400) {
+ui_sidebar_block <- function(title, ..., help = NULL, width = 400, position = "left") {
   bslib::sidebar(
     tags$h4(title),
     ...,
     if (!is.null(help)) lapply(help, tags$h6),
-    width = width
+    width = width,
+    position = position
   )
 }
 

@@ -111,7 +111,27 @@ export_mv_xlsx <- function(p, d, file = NULL) {
     dplyr::arrange(dplyr::desc(sample_missing_pct))
   
   # save them to workbook:
+  # sheet 1 Metabolite
   s1 <- .add_sheet("Metabolite")
+  txt1 <- paste(
+    "Tab Metabolite.Missing value counts (missing_count) and percentages (missing_pct) per metabolite are listed here for samples and QC samples.",
+    "If a metabolite is not listed here, it did not have any missing values."
+  )
+  openxlsx::writeData(wb,
+                      s1,
+                      x = txt1,
+                      startCol = 1,
+                      startRow = 1)
+  openxlsx::mergeCells(wb, s1, cols = 1:6, rows = 1)
+  openxlsx::addStyle(
+    wb,
+    s1,
+    style = note,
+    rows = 1,
+    cols = 1,
+    gridExpand = TRUE
+  )
+  openxlsx::setRowHeights(wb, s1, rows = 1, heights = 60)
   openxlsx::writeData(
     wb,
     s1,
@@ -120,7 +140,28 @@ export_mv_xlsx <- function(p, d, file = NULL) {
     startCol = 1,
     headerStyle = bold
   )
+  
+  # sheet 2 sample
   s2 <- .add_sheet("Sample")
+  txt2 <- paste(
+    "Tab Sample. Missing value counts (missing_count) and percentages (missing_pct) per sample are listed here.",
+    "If a sample is not listed here, it did not have any missing values."
+  )
+  openxlsx::writeData(wb,
+                      s2,
+                      x = txt2,
+                      startCol = 1,
+                      startRow = 1)
+  openxlsx::mergeCells(wb, s2, cols = 1:6, rows = 1)
+  openxlsx::addStyle(
+    wb,
+    s2,
+    style = note,
+    rows = 1,
+    cols = 1,
+    gridExpand = TRUE
+  )
+  openxlsx::setRowHeights(wb, s2, rows = 1, heights = 60)
   openxlsx::writeData(
     wb,
     s2,
@@ -129,7 +170,28 @@ export_mv_xlsx <- function(p, d, file = NULL) {
     startCol = 1,
     headerStyle = bold
   )
+  
+  # sheet 3 class
   s3 <- .add_sheet("Class")
+  txt3 <- paste(
+    "Tab Class. Missing value counts (missing_count) and percentages (missing_pct) per sample class are listed here.",
+    "If a sample class is not listed here, it did not have any missing values."
+  )
+  openxlsx::writeData(wb,
+                      s3,
+                      x = txt3,
+                      startCol = 1,
+                      startRow = 1)
+  openxlsx::mergeCells(wb, s3, cols = 1:6, rows = 1)
+  openxlsx::addStyle(
+    wb,
+    s3,
+    style = note,
+    rows = 1,
+    cols = 1,
+    gridExpand = TRUE
+  )
+  openxlsx::setRowHeights(wb, s3, rows = 1, heights = 60)
   openxlsx::writeData(
     wb,
     s3,
@@ -138,7 +200,28 @@ export_mv_xlsx <- function(p, d, file = NULL) {
     startCol = 1,
     headerStyle = bold
   )
+  
+  # sheet 4 batch
   s4 <- .add_sheet("Batch")
+  txt4 <- paste(
+    "Tab Batch. Missing value counts (missing_count) and percentages (missing_pct) per batch are listed here.",
+    "If a batch is not listed here, it did not have any missing values."
+  )
+  openxlsx::writeData(wb,
+                      s4,
+                      x = txt4,
+                      startCol = 1,
+                      startRow = 1)
+  openxlsx::mergeCells(wb, s4, cols = 1:6, rows = 1)
+  openxlsx::addStyle(
+    wb,
+    s4,
+    style = note,
+    rows = 1,
+    cols = 1,
+    gridExpand = TRUE
+  )
+  openxlsx::setRowHeights(wb, s4, rows = 1, heights = 60)
   openxlsx::writeData(
     wb,
     s4,

@@ -32,9 +32,20 @@ mod_import_ui <- function(id) {
       uiOutput(ns("basic_info"))
     )),
     card(layout_sidebar(
-      sidebar = ui_sidebar_block(title = "1.3 Filter Raw Data", ui_filter_slider(ns), width = 400),
-      uiOutput(ns("filter_info")),
-      uiOutput(ns("download_mv_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;")
+      sidebar = ui_sidebar_block(
+        title = "1.3 Filter Raw Data", 
+        ui_filter_slider(ns), 
+        width = 400
+        ),
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "1.4 Download Missing Value Excel", 
+          uiOutput(ns("download_mv_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+          help = c("Missing values summary by metabolite, sample, class, and batch."),
+          width = 400,
+          position = "right"),
+        uiOutput(ns("filter_info"))
+      )
     )),
     card(
       actionButton(
@@ -171,11 +182,14 @@ mod_import_server <- function(id) {
       req(cleaned_r())
       
       div(
-        style = "max-width: 300px; display: inline-block;",
-        downloadButton(
-          outputId = ns("download_mv_data"),
-          label    = "Download Excel File (Optional)",
-          class    = "btn btn-primary"
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 250px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_mv_data"),
+            label    = "Download Missing Value Count Excel File",
+            class    = "btn btn-primary"
+          )
         )
       )
     })
@@ -187,7 +201,7 @@ mod_import_server <- function(id) {
         p <- list()
         
         d <- list(
-          cleaned            = cleaned_r()
+          cleaned = cleaned_r()
         )
         
         wb <- export_mv_xlsx(p, d)
