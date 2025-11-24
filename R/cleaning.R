@@ -23,6 +23,10 @@ clean_data <- function(df,
   df <- df[order(df$order), ]
   metab <- setdiff(names(df), c("sample", "batch", "class", "order"))
   
+  # get names of non-numeric columns that are not metadata columns
+  non_numeric_cols <- names(df)[!sapply(df, is.numeric)]
+  non_numeric_cols <- setdiff(non_numeric_cols, c("sample", "batch", "class", "order"))
+  
   # replace any non-numeric values or exactly 0 values with NA
   # count them as missing values
   repl <- tibble(
@@ -56,6 +60,7 @@ clean_data <- function(df,
   return(list(
     df = df,
     replacement_counts = repl,
-    withheld_cols = withheld_cols
+    withheld_cols = withheld_cols,
+    non_numeric_cols = non_numeric_cols
   ))
 }

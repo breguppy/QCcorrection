@@ -11,7 +11,7 @@ metric_card <- function(label, value) {
 }
 
 # Basic info for section 1.2 Select non-metabolite columns
-ui_basic_info <- function(df, replacement_counts) {
+ui_basic_info <- function(df, replacement_counts, non_numeric_cols) {
   metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
   n_metab = length(metab_cols)
   n_missv = sum(is.na(df[, metab_cols]))
@@ -29,9 +29,15 @@ ui_basic_info <- function(df, replacement_counts) {
   total_replaced <- sum(replacement_counts$non_numeric_replaced +
                           replacement_counts$zero_replaced)
   
-  class_badges <- tags$div(style = "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;", lapply(class_list, function(cls) {
-    tags$span(style = "background-color: #e9ecef; padding: 5px 10px; border-radius: 12px;", as.character(cls))
-  }))
+  class_badges <- tags$div(
+    style = "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;", 
+    lapply(class_list, function(cls) {
+      tags$span(
+        style = "background-color: #e9ecef; padding: 5px 10px; border-radius: 12px;",
+        as.character(cls)
+      )
+    })
+  )
   
   na_table_html <- tags$div(
     style = "margin-top: 15px;",
@@ -51,6 +57,15 @@ ui_basic_info <- function(df, replacement_counts) {
         paste(
           total_replaced,
           "non-numeric or zero metabolite values are counted as missing."
+        )
+      )
+    },
+    if (length(non_numeric_cols) > 0) {
+      tags$div(
+        style = "margin-top: 10px; color: darkred;",
+        tags$strong("Non-numerical columns remaining:"),
+        tags$p(
+          paste(sort(unique(non_numeric_cols)), collapse = ", ")
         )
       )
     },
