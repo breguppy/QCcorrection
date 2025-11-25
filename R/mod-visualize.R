@@ -75,7 +75,7 @@ mod_visualize_server <- function(id, data, params) {
     output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
       req(input$rsd_compare, input$rsd_cal)
       
-      make_rsd_plot(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal), d())
+      make_rsd_plot(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal, rsd_plot_type = input$rsd_plot_type), d())
     })
     
     output$rsd_comparison_stats <- renderUI({

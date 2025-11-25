@@ -349,6 +349,11 @@ ui_detect_outliers_options <- function(ns) {
 ui_rsd_eval <- function(ns) {
   tagList(
     tags$h6("Evaluate correction method by the change in relative standard deviation (RSD)."),
+    radioButtons(ns("rsd_plot_type"),
+                 "Visualize Changes in RSD by",
+                 list("Distribution" = "dist",
+                      "Scatter Plot" = "scatter")
+    ),
     radioButtons(ns("rsd_compare"), 
                  "Compare raw data to", 
                  list("Corrected data" = "filtered_cor_data", 
