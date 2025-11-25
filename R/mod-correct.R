@@ -56,27 +56,33 @@ mod_correct_ui <- function(id) {
       )
     ),
     card(
-      style = "background-color: #eeeeee;",
-      fluidRow(
-        column(6, tags$h4("2.5 Identify Control Group"),
-               tooltip(
-                 checkboxInput(ns("no_control"), "No control group", FALSE),
-                 "Check the box if The data does not have a control group.", 
-                 placement = "right"
-               ),
-               conditionalPanel(
-                 condition = sprintf("!input['%s']", ns("no_control")),
-                 uiOutput(ns("control_class_selector"))
-               )
+      #style = "background-color: #eeeeee;",
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "2.5 Identify Control Group",
+          tooltip(
+            checkboxInput(ns("no_control"), "No control group", FALSE),
+            "Check the box if The data does not have a control group.", 
+            placement = "right"
+          ),
+          conditionalPanel(
+          condition = sprintf("!input['%s']", ns("no_control")),
+          uiOutput(ns("control_class_selector"))
+          ),
+          width = 400
         ),
-        column(6, tags$h4("2.6 Download Corrected Data Only"),
-               tooltip(
-                 checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file", FALSE),
-                 "Check the box if you want corrected QC values in the downloaded corrected data file.", 
-                 placement = "right"
-               ),
-               uiOutput(ns("download_corr_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
-               tags$h6("Corrected data will also be downloaded on tab 4. Export All")
+        layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "2.6 Download Corrected Data Only",
+          tooltip(
+            checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file", FALSE),
+            "Check the box if you want corrected QC values in the downloaded corrected data file.", 
+            placement = "right"
+          ),
+          uiOutput(ns("download_corr_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+          tags$h6("Corrected data can also be downloaded on tab 4. Export All"),
+          width = 400,
+          position = "right")
         ))
     ),
     card(actionButton(ns("next_visualization"), "Next: Evaluate and Visualize Correction",
@@ -259,18 +265,24 @@ mod_correct_server <- function(id, data, params) {
       )
     })
     
+    
+    # button for downloading corrected data.
     output$download_corr_btn <- renderUI({
       req(transformed_r())
       
       div(
-        style = "max-width: 300px; display: inline-block;",
-        downloadButton(
-          outputId = ns("download_corr_data"),
-          label    = "Download Excel File (Optional)",
-          class    = "btn btn-primary"
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 250px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_corr_data"),
+            label    = "Download Corrected Data",
+            class    = "btn btn-secondary"
+          )
         )
       )
     })
+    
     output$download_corr_data <- downloadHandler(
       filename = function() {
         paste0("corrected_data_", Sys.Date(), ".xlsx")

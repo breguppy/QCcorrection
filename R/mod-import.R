@@ -39,9 +39,10 @@ mod_import_ui <- function(id) {
         ),
       layout_sidebar(
         sidebar = ui_sidebar_block(
-          title = "1.4 Download Missing Value Excel", 
+          title = "1.4 Download Missing Value Summary", 
           uiOutput(ns("download_mv_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
-          help = c("Missing values summary by metabolite, sample, class, and batch."),
+          help = c("Missing value summary by metabolite, sample, class, and batch.",
+                   "Missing value summary can also be downloaded on tab 4. Export All"),
           width = 400,
           position = "right"),
         uiOutput(ns("filter_info"))
@@ -177,7 +178,7 @@ mod_import_server <- function(id) {
                      fd$qc_missing_mets)
     })
     
-    # add button for downloading missing value report.
+    # button for downloading missing value report.
     output$download_mv_btn <- renderUI({
       req(cleaned_r())
       
@@ -187,8 +188,8 @@ mod_import_server <- function(id) {
           style = "max-width: 250px; display: inline-block;",
           downloadButton(
             outputId = ns("download_mv_data"),
-            label    = "Download Missing Value Count Excel File",
-            class    = "btn btn-primary"
+            label    = "Download Missing Value Info",
+            class    = "btn btn-secondary"
           )
         )
       )
