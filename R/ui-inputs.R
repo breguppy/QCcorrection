@@ -374,7 +374,7 @@ ui_pca_eval <- function(ns){
                  "filtered_cor_data"),
     radioButtons(ns("color_col"), 
                  "Color PCA by", 
-                 list("batch" = "batch", "class" = "class"), 
+                 list("batch" = "batch", "class" = "class", "order" = "order"), 
                  "batch")
   )
 }
