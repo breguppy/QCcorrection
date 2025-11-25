@@ -30,7 +30,17 @@ mod_correct_ui <- function(id) {
           ui_post_cor_filter(ns),
           width = 400
         ),
-        uiOutput(ns("post_cor_filter_info")) %>% withSpinner(color = "#404040")
+        layout_sidebar(
+          sidebar = ui_sidebar_block(
+            title = "2.3 Download Corrected RSD Summary",
+            uiOutput(ns("download_cor_rsd_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+            help = c("RSD summary before and after correction for samples and QCs. ",
+                     "RSD summary can also be downloaded on tab 4. Export All"),
+            width = 400,
+            position = "right"
+          ),
+        uiOutput(ns("post_cor_filter_info")) %>% withSpinner(color = "#404040") 
+        )
       )
     ),
     card(
@@ -179,6 +189,40 @@ mod_correct_server <- function(id, data, params) {
       
       fil_cor_df 
     })
+    
+    output$download_cor_rsd_btn <- renderUI({
+      req(filtered_corrected_r())
+      
+      div(
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 250px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_cor_rsd_data"),
+            label    = "Download Corrected RSD Summary",
+            class    = "btn btn-secondary"
+          )
+        )
+      )
+    })
+    output$download_cor_rsd_data <- downloadHandler(
+      filename = function() {
+        sprintf("corrected_rsd_stats_%s.xlsx", Sys.Date())
+      },
+      content = function(file) {
+        p <- list(
+          rsd_compare = "filtered_cor_data"
+        )
+        
+        d <- list(
+          filtered_corrected = filtered_corrected_r(),
+          filtered           = filtered_r()
+        )
+        
+        stats_wb <- export_stats_xlsx(p, d)
+        openxlsx::saveWorkbook(stats_wb, file, overwrite = TRUE)
+      }
+    )
     
     
     transformed_r <- reactive({
