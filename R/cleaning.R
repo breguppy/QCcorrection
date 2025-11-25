@@ -22,13 +22,13 @@ clean_data <- function(df,
   names(df)[names(df) == class]  <- "class"
   names(df)[names(df) == order]  <- "order"
   
-  # make sure data is in injection order
-  df <- df[order(df$order), ]
-  metab <- setdiff(names(df), c("sample", "batch", "class", "order"))
-  
   # get names of non-numeric columns that are not metadata columns
   non_numeric_cols <- names(df)[!sapply(df, is.numeric)]
   non_numeric_cols <- setdiff(non_numeric_cols, c("sample", "batch", "class", "order"))
+  
+  # make sure data is in injection order
+  df <- df[order(df$order), ]
+  metab <- setdiff(names(df), c("sample", "batch", "class", "order"))
   
   # replace any non-numeric values or exactly 0 values with NA
   # count them as missing values
