@@ -32,7 +32,7 @@ mod_correct_ui <- function(id) {
         ),
         layout_sidebar(
           sidebar = ui_sidebar_block(
-            title = "2.3 Download Corrected RSD Summary",
+            title = "Download Corrected RSD Summary",
             uiOutput(ns("download_cor_rsd_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
             help = c("RSD summary before and after correction for samples and QCs. ",
                      "RSD summary can also be downloaded on tab 4. Export All"),
@@ -52,7 +52,17 @@ mod_correct_ui <- function(id) {
           uiOutput(ns("trn_withhold_selectors_ui")),
           width = 400
         ),
-        ui_table_scroll("cor_data", ns) %>% withSpinner(color = "#404040")
+        layout_sidebar(
+          sidebar = ui_sidebar_block(
+             title = "Download Transformed RSD Summary",
+          uiOutput(ns("download_tc_rsd_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+          help = c("RSD summary before and after correction and transformation for samples and QCs. ",
+                   "RSD summary can also be downloaded on tab 4. Export All"),
+          width = 400,
+          position = "right"
+          ),
+         ui_table_scroll("cor_data", ns) %>% withSpinner(color = "#404040")
+        )
       )
     ),
     card(
@@ -62,7 +72,16 @@ mod_correct_ui <- function(id) {
           ui_detect_outliers_options(ns),
           help = c("The samples listed in the table are considered extreme values by robust z\u002Dscore with a cutoff weighted by QC variability confired with a test chosen by group size or by Mahalanobis distance in PCA.")
         ),
-        uiOutput(ns("outliers_table")),
+        layout_sidebar(
+          sidebar = ui_sidebar_block(
+            title = "Download Extreme Value Summary",
+            uiOutput(ns("download_ev_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+            help = c("Extreme value summary can also be downloaded on tab 4. Export All"),
+            width = 400,
+            position = "right"
+          ),
+          uiOutput(ns("outliers_table"))
+        )
       )
     ),
     card(
@@ -83,7 +102,7 @@ mod_correct_ui <- function(id) {
         ),
         layout_sidebar(
         sidebar = ui_sidebar_block(
-          title = "2.6 Download Corrected Data Only",
+          title = "Download Corrected and Transformed Data",
           tooltip(
             checkboxInput(ns("keep_corrected_qcs"), "Include QCs in corrected data file", FALSE),
             "Check the box if you want corrected QC values in the downloaded corrected data file.", 
@@ -285,12 +304,76 @@ mod_correct_server <- function(id, data, params) {
       transformed_r()$df
     })
     
+    output$download_tc_rsd_btn <- renderUI({
+      req(transformed_r())
+      
+      div(
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 250px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_tc_rsd_data"),
+            label    = "Download Transformed RSD Summary",
+            class    = "btn btn-secondary"
+          )
+        )
+      )
+    })
+    output$download_tc_rsd_data <- downloadHandler(
+      filename = function() {
+        sprintf("transformed_rsd_stats_%s.xlsx", Sys.Date())
+      },
+      content = function(file) {
+        p <- list(
+          rsd_compare = "transformed_cor_data"
+        )
+        
+        d <- list(
+          filtered_corrected = filtered_corrected_r(),
+          filtered           = filtered_r(),
+          transformed        = transformed_r()
+        )
+        
+        stats_wb <- export_stats_xlsx(p, d)
+        openxlsx::saveWorkbook(stats_wb, file, overwrite = TRUE)
+      }
+    )
+    
     output$outliers_table <- renderUI({
       req(filtered_corrected_r(), transformed_r())
       d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
       p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
       ui_outliers(p, d)
     })
+    
+    # add download button for extreme values.
+    output$download_ev_btn <- renderUI({
+      req(transformed_r())
+      
+      div(
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 250px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_ev_data"),
+            label    = "Download Extreme Value Summary",
+            class    = "btn btn-secondary"
+          )
+        )
+      )
+    })
+    output$download_ev_data <- downloadHandler(
+      filename = function() {
+        sprintf("extreme_values_%s.xlsx", Sys.Date())
+      },
+      content = function(file) {
+        d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
+        p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
+        
+        outlier_wb <- export_outliers_xlsx(p, d)
+        openxlsx::saveWorkbook(outlier_wb, file, overwrite = TRUE)
+      }
+    )
     
     output$control_class_selector <- renderUI({
       req(cleaned_r())
@@ -320,7 +403,7 @@ mod_correct_server <- function(id, data, params) {
           style = "max-width: 250px; display: inline-block;",
           downloadButton(
             outputId = ns("download_corr_data"),
-            label    = "Download Corrected Data",
+            label    = "Download Corrected and Transformed Data",
             class    = "btn btn-secondary"
           )
         )

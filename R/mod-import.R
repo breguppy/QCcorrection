@@ -39,7 +39,7 @@ mod_import_ui <- function(id) {
         ),
       layout_sidebar(
         sidebar = ui_sidebar_block(
-          title = "1.4 Download Missing Value Summary", 
+          title = "Download Missing Value Summary", 
           uiOutput(ns("download_mv_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
           help = c("Missing value summary by metabolite, sample, class, and batch.",
                    "Missing value summary can also be downloaded on tab 4. Export All"),

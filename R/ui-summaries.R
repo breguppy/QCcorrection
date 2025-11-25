@@ -272,7 +272,7 @@ ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
       metric_card("Samples with at least 1 potential extreme values", n_samples_with_outlier),
       metric_card("Candidate extreme values", n_candidate_values)
     ),
-    tags$span("Top 10 potential extreme values are listed below. The full list of potential extreme values (extreme_values_*today's_date*.xlsx) is availble for download on tab 4. Export Corrected Data, Plots, Stats, and Report."),
+    tags$span("Top 10 potential extreme values are listed below. The full list of potential extreme values 'extreme_values_*today's_date*.xlsx' is availble for download."),
     tags$div(
       style = "border:1px solid #ddd; border-radius:6px; background:white;",
       tags$table(
