@@ -30,7 +30,7 @@ mod_visualize_ui <- function(id) {
         width = 400
       ),
       plotOutput(ns("pca_plot"), height = "530px", width = "1000px") %>% withSpinner(color = "#404040"),
-      plotOutput(ns("pca_loading_plot"), height = "530px", width = "1050px") %>% withSpinner(color = "#404040")
+      plotOutput(ns("pca_loading_plot"), height = "530px", width = "1000px") %>% withSpinner(color = "#404040")
     )),
     card(
       style = "background-color: #eeeeee;",

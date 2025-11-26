@@ -110,10 +110,11 @@ plot_rsd_comparison_class_met <- function(df_before, df_after, compared_to) {
 
 #' Plot RSD distributions before and after correction
 #'
-#' @param rsd_before Data frame with columns `Metabolite`, `RSD_QC`, `RSD_NonQC`
-#'   for the uncorrected data.
-#' @param rsd_after Data frame with columns `Metabolite`, `RSD_QC`, `RSD_NonQC`
-#'   for the corrected data.
+#' @param df_before Data frame for computing Raw RSD
+#' @param df_after Data frame for computing met RSD after correction or 
+#'  correction and transformation.
+#' @param compared_to the type of data in df_after either "Correction" or 
+#'  "Correction and Transformation"
 #' @param before_label Character, label for the "before" group in the legend.
 #' @param after_label Character, label for the "after" group in the legend.
 #'
@@ -127,8 +128,8 @@ plot_rsd_comparison_class_met <- function(df_before, df_after, compared_to) {
 plot_met_rsd_distributions <- function(df_before,
                                    df_after,
                                    compared_to,
-                                   before_label = "Before correction",
-                                   after_label  = "After correction") {
+                                   before_label = "Before",
+                                   after_label  = "After") {
   
   rsd_before <- metabolite_rsd(df_before)
   rsd_after <- metabolite_rsd(df_after)
@@ -158,8 +159,8 @@ plot_met_rsd_distributions <- function(df_before,
   # QC on left, NonQC on right
   rsd_long$type <- factor(
     rsd_long$type,
-    levels = c("RSD_QC", "RSD_NonQC"),
-    labels = c("QC", "Non-QC")
+    levels = c("RSD_NonQC", "RSD_QC"),
+    labels = c("Samples", "QC")
   )
   
   # Drop any NA RSD values
@@ -174,20 +175,31 @@ plot_met_rsd_distributions <- function(df_before,
     ggplot2::geom_density(alpha = 0.3, adjust = 1) +
     ggplot2::facet_wrap(~ type, nrow = 1, scales = "fixed") +
     ggplot2::labs(
+      title = paste("Comparison of RSD Before and After", compared_to),
       x = "RSD (%)",
       y = "Density",
       fill = NULL,
       color = NULL
     ) +
-    ggplot2::theme_bw() +
+    ggplot2::theme_minimal(base_size = 10) +
     ggplot2::theme(
+      strip.placement = "outside",
+      strip.background = ggplot2::element_rect(fill = "white", colour = "grey30"),
       strip.text = ggplot2::element_text(size = 12, face = "bold"),
-      axis.title = ggplot2::element_text(size = 12),
-      axis.text  = ggplot2::element_text(size = 10),
+      plot.title   = ggplot2::element_text(
+        size = 14,
+        hjust = 0.5,
+        face = "bold"
+      ),
+      axis.title   = ggplot2::element_text(size = 14, face = "bold"),
+      axis.text    = ggplot2::element_text(size = 10),
       legend.position = "top",
       legend.text = ggplot2::element_text(size = 10),
-      panel.grid = ggplot2::element_line(linewidth = 0.2),
-      panel.border = ggplot2::element_rect(linewidth = 0.5)
+      panel.border = ggplot2::element_rect(
+        color = "black",
+        fill = NA,
+        linewidth = 1
+      )
     ) +
     ggplot2::scale_fill_manual(values = col_vals) +
     ggplot2::scale_color_manual(values = col_vals)

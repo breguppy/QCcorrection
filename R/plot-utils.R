@@ -101,8 +101,8 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
     ) +
     ggplot2::labs(
       title = paste("Comparison of RSD Before and After", compared_to),
-      x = "RSD Before",
-      y = "RSD After"
+      x = "RSD (%) Before",
+      y = "RSD (%) After"
     )
 }
 
