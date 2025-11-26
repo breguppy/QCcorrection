@@ -56,10 +56,16 @@ mod_export_server <- function(id, data, params) {
     
     output$download_all_ui <- renderUI({
       req(d()$transformed)
-      downloadButton(
-        outputId = ns("download_all_zip"),
-        label = "Download All",
-        class = "btn-primary btn-lg"
+      div(
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 600px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_all_zip"),
+            label = "Download All",
+            class    = "btn btn-secondary btn-lg"
+          )
+        ) 
       )
     })
     
