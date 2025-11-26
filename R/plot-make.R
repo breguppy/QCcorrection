@@ -52,7 +52,7 @@ make_rsd_plot <- function(p, d) {
       if (identical(p$rsd_cal, "met")) {
         plot_met_rsd_distributions(df_before, df_after, compared_to)
       } else {
-        #distribution plot for class-met rsd comparison
+        plot_class_rsd_distributions(df_before, df_after, compared_to)
       }
     }
   }, error = function(e) {
