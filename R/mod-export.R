@@ -8,39 +8,51 @@ mod_export_ui <- function(id) {
     title = "4. Export All", 
     value = "tab_export",
     card(
-    card_title("Download Data, Plots, and Report"),
-    tags$span("Download all to get a ", icon("folder"), " zipped folder containing:"),
+    card_title("Download Data, Summaries, Plots, and Report"),
+    tags$h4("Download all to get a ", icon("folder"), " zipped folder containing:"),
     fluidRow(
-      column(3, tags$span(icon("file-excel"), "corrected_data_*today's_date*.xlsx"),
-             tags$ul(
-               tags$li("0. Raw Data"),
-               tags$li("1. Correction Settings"),
-               tags$li("2. Drift Normalized"),
-               tags$li("3. Scaled or Normalized"),
-               tags$li("4. Grouped Data Organized"),
-               tags$li("5. Grouped Data Fold Change (only when provided a control class)"),
-               tags$li("Appendix1. Metaboanalyst Ready")
+      column(4, tags$h5(icon("file-excel"), "corrected_data_*today's_date*.xlsx"),
+             tags$ul(style = "list-style-type: none;",
+               tags$li(icon("table"), "0. Raw Data"),
+               tags$li(icon("table"), "1. Correction Settings"),
+               tags$li(icon("table"), "2. Drift Normalized"),
+               tags$li(icon("table"), "3. Scaled or Normalized"),
+               tags$li(icon("table"), "4. Grouped Data Organized"),
+               tags$li(icon("table"), "5. Grouped Data Fold Change (only when provided a control class)"),
+               tags$li(icon("table"), "Appendix1. Metaboanalyst Ready")
              )),
-      column(2, tags$span(icon("file-excel"), "rsd_stats_*today's_date*.xlsx"),
-             tags$ul(
-               tags$li("Raw RSD"),
-               tags$li("Corrected RSD or Transformed Corrected RSD"),
-               tags$li("RSD Comparison")
+      column(4, tags$h5(icon("file-excel"), "rsd_stats_*today's_date*.xlsx"),
+             tags$ul(style = "list-style-type: none;",
+               tags$li(icon("table"), "Raw Metabolite RSD"),
+               tags$li(icon("table"), "Corrected Metabolite RSD or Transformed Corrected Metabolite RSD"),
+               tags$li(icon("table"), "Metabolite RSD Comparison"),
+               tags$li(icon("table"), "Raw Class RSD"),
+               tags$li(icon("table"), "Corrected Class RSD or Transformed Corrected Class RSD"),
+               tags$li(icon("table"), "Class RSD Comparison"),
                )),
-      column(2, tags$span(icon("file-excel"), "extreme_values_*today's_date*.xlsx"),
-             tags$ul(
-               tags$li("Sample MD"),
-               tags$li("Candidates"),
-               tags$li("Confirmations")
+      column(4, tags$h5(icon("file-excel"), "missing_value_counts_*today's_date*.xlsx"),
+             tags$ul(style = "list-style-type: none;",
+               tags$li(icon("table"), "Metabolite"),
+               tags$li(icon("table"), "Sample"),
+               tags$li(icon("table"), "Class"),
+               tags$li(icon("table"), "Batch")
+             ))
+      ),
+      fluidRow(
+        column(4, tags$h5(icon("file-excel"), "extreme_values_*today's_date*.xlsx"),
+             tags$ul(style = "list-style-type: none;",
+               tags$li(icon("table"), "Sample MD"),
+               tags$li(icon("table"), "Candidates"),
+               tags$li(icon("table"), "Confirmations")
                )),
-      column(2, tags$span(icon("folder"), " figures"),
-             tags$ul(
+      column(4, tags$h5(icon("folder"), " figures"),
+             tags$ul(style = "list-style-type: none;",
                tags$li(icon("folder"), " metabolite figures"),
                tags$li(icon("folder"), " RSD figures"),
                tags$li(icon("folder"), "PCA plots")
              )),
-      column(3, tags$span(icon("file-pdf"), " correction_report(.pdf/.html)"),
-             tags$ul(
+      column(4, tags$h5(icon("file-pdf"), " correction_report(.pdf/.html)"),
+             tags$ul(style = "list-style-type: none;",
                tags$li("Report describing the correction steps and figures for evaluating the correction process.")
              ))
     ),
@@ -59,7 +71,7 @@ mod_export_server <- function(id, data, params) {
       div(
         style = "width: 100%; text-align: center;",
         div(
-          style = "max-width: 600px; display: inline-block;",
+          style = "max-width: 800px; display: inline-block;",
           downloadButton(
             outputId = ns("download_all_zip"),
             label = "Download All",
