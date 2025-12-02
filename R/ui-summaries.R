@@ -11,86 +11,168 @@ metric_card <- function(label, value) {
 }
 
 # Basic info for section 1.2 Select non-metabolite columns
-ui_basic_info <- function(df, replacement_counts) {
+ui_basic_info <- function(df,
+                          replacement_counts,
+                          non_numeric_cols,
+                          duplicate_mets = NULL) {
+  
   metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
-  n_metab = length(metab_cols)
-  n_missv = sum(is.na(df[, metab_cols]))
-  n_qcs   = sum(df$class == "QC")
-  n_samp  = sum(df$class != "QC")
-  n_bat   = n_distinct(df$batch)
-  n_class = n_distinct(df$class[df$class != "QC"])
+  n_metab    <- length(metab_cols)
+  n_missv    <- sum(is.na(df[, metab_cols]))
+  n_qcs      <- sum(df$class == "QC")
+  n_samp     <- sum(df$class != "QC")
+  n_bat      <- dplyr::n_distinct(df$batch)
+  n_class    <- dplyr::n_distinct(df$class[df$class != "QC"])
   class_list <- sort(unique(df$class[df$class != "QC"]))
   perc_missv <- round(100 * (n_missv / ((n_samp + n_qcs) * n_metab)), digits = 2)
   
   qc_per_batch <- df %>%
-    group_by(batch) %>%
-    summarise(qc_in_class = sum(class == "QC"), .groups = "drop")
+    dplyr::group_by(batch) %>%
+    dplyr::summarise(qc_in_class = sum(class == "QC"), .groups = "drop")
   
-  total_replaced <- sum(replacement_counts$non_numeric_replaced +
-                          replacement_counts$zero_replaced)
-  
-  class_badges <- tags$div(style = "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;", lapply(class_list, function(cls) {
-    tags$span(style = "background-color: #e9ecef; padding: 5px 10px; border-radius: 12px;", as.character(cls))
-  }))
-  
-  na_table_html <- tags$div(
-    style = "margin-top: 15px;",
-    tags$h5("Number of QC Samples per Batch"),
-    tags$table(class = "table table-bordered table-sm", tags$thead(tags$tr(
-      tags$th("Batch"), tags$th("QCs in Batch")
-    )), tags$tbody(lapply(1:nrow(qc_per_batch), function(i) {
-      tags$tr(tags$td(as.character(qc_per_batch$batch[i])),
-              tags$td(qc_per_batch$qc_in_class[i]))
-    })))
+  total_replaced <- sum(
+    replacement_counts$non_numeric_replaced +
+      replacement_counts$zero_replaced
   )
   
-  tagList(
-    if (total_replaced > 0) {
+  class_badges <- tags$div(
+    style = "display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;",
+    lapply(class_list, function(cls) {
       tags$span(
-        style = "color: darkred; font-weight: bold;",
-        paste(
-          total_replaced,
-          "non-numeric or zero metabolite values are counted as missing."
-        )
+        style = "background-color: #e9ecef; padding: 5px 10px; border-radius: 12px;",
+        as.character(cls)
       )
-    },
+    })
+  )
+  
+  # Reusable warning card generator
+  warn_card <- function(title, body, body_tags = NULL) {
+    tags$div(
+      class = "card border-warning mb-3",
+      style = "margin-top: 10px;",
+      tags$div(class = "card-header", title),
+      tags$div(
+        class = "card-body",
+        tags$p(class = "card-text", body),
+        body_tags
+      )
+    )
+  }
+  
+  # ---------- Warning box 1: replaced values ----------
+  replaced_card <- NULL
+  if (total_replaced > 0) {
+    replaced_card <- warn_card(
+      title = "Replaced non-numeric or zero metabolite values",
+      body  = paste0(
+        total_replaced,
+        " values were converted to missing (NA) prior to processing."
+      )
+    )
+  }
+  
+  # ---------- Warning box 2: non-numeric columns ----------
+  nonnum_card <- NULL
+  if (length(non_numeric_cols) > 0) {
+    nonnum_card <- warn_card(
+      title = "Non-numerical columns detected",
+      body  = "These columns contain all non-numeric values and will be removed prior to processing. If you do not want these columns removed, check the box 'withhold additional columns from correction' on the left and add them to list below the box.",
+      body_tags = tags$p(
+        style = "font-weight: 600; margin-top: 8px;",
+        paste(sort(unique(non_numeric_cols)), collapse = ", ")
+      )
+    )
+  }
+  
+  # ---------- Warning box 3: duplicate metabolites ----------
+  duplicate_card <- NULL
+  if (!is.null(duplicate_mets) && nrow(duplicate_mets) > 0) {
+    
+    dup_badges <- tags$div(
+      style = "display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;",
+      lapply(seq_len(nrow(duplicate_mets)), function(i) {
+        pair <- duplicate_mets[i, , drop = FALSE]
+        tags$span(
+          style = paste(
+            "background-color: #fff3cd;",
+            "border: 1px solid #ffeeba;",
+            "padding: 4px 8px;",
+            "border-radius: 12px;",
+            "font-size: 0.85rem;"
+          ),
+          sprintf("%s \u2248 %s", pair$col1, pair$col2)
+        )
+      })
+    )
+    
+    duplicate_card <- warn_card(
+      title = "Potential duplicate metabolites",
+      body  = sprintf(
+        "%d column pairs appear equal or nearly equal based on non-missing values.",
+        nrow(duplicate_mets)
+      ),
+      body_tags = dup_badges
+    )
+  }
+  
+  # ---------------------------------------------------
+  # MAIN UI SECTION
+  # ---------------------------------------------------
+  tagList(
+    replaced_card,
+    nonnum_card,
+    duplicate_card,
+    
     tags$div(
       style = "display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px;",
-      # left side
+      
+      # left section
       tags$div(
         style = "display: grid; grid-template-columns: repeat(1, 1fr); gap: 20px;",
         
-        # top left
+        # metrics grid
         tags$div(
-          style = "display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top 15px;",
+          style = "display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px;",
           metric_card("Metabolite Columns", n_metab),
           metric_card("Missing Values", paste0(n_missv, " (", perc_missv, "%)")),
           metric_card("QC Samples", n_qcs),
           metric_card("Samples", n_samp),
           metric_card("Batches", n_bat),
-          metric_card("Classes", n_class),
+          metric_card("Classes", n_class)
         ),
         
-        #bottom left
-        tags$div(style = "flex: 1; min-width: 250px;", tags$h5("Unique Classes"), class_badges)
-        
+        # class list badges
+        tags$div(
+          style = "flex: 1; min-width: 250px;",
+          tags$h5("Unique Classes"),
+          class_badges
+        )
       ),
       
-      # right half
-      # QC per batch table column
+      # right section
       tags$div(
         style = "flex: 1; min-width: 250px;",
         tags$h5("Number of QC Samples per Batch"),
-        tags$table(class = "table table-bordered table-sm", tags$thead(tags$tr(
-          tags$th("Batch"), tags$th("QCs in Batch")
-        )), tags$tbody(lapply(1:nrow(qc_per_batch), function(i) {
-          tags$tr(tags$td(as.character(qc_per_batch$batch[i])),
-                  tags$td(qc_per_batch$qc_in_class[i]))
-        })))
+        tags$table(
+          class = "table table-bordered table-sm",
+          tags$thead(
+            tags$tr(tags$th("Batch"), tags$th("QCs in Batch"))
+          ),
+          tags$tbody(
+            lapply(seq_len(nrow(qc_per_batch)), function(i) {
+              tags$tr(
+                tags$td(as.character(qc_per_batch$batch[i])),
+                tags$td(qc_per_batch$qc_in_class[i])
+              )
+            })
+          )
+        )
       )
     )
   )
 }
+
+
 
 # Filter info for section 1.4 Filter Raw Data
 ui_filter_info <- function(mv_removed, mv_cutoff, qc_missing_mets) {
@@ -257,7 +339,7 @@ ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
       metric_card("Samples with at least 1 potential extreme values", n_samples_with_outlier),
       metric_card("Candidate extreme values", n_candidate_values)
     ),
-    tags$span("Top 10 potential extreme values are listed below. The full list of potential extreme values (extreme_values_*today's_date*.xlsx) is availble for download on tab 4. Export Corrected Data, Plots, Stats, and Report."),
+    tags$span("Top 10 potential extreme values are listed below. The full list of potential extreme values 'extreme_values_*today's_date*.xlsx' is availble for download."),
     tags$div(
       style = "border:1px solid #ddd; border-radius:6px; background:white;",
       tags$table(

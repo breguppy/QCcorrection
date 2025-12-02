@@ -42,10 +42,18 @@ make_rsd_plot <- function(p, d) {
   )
   
   tryCatch({
-    if (identical(p$rsd_cal, "met")) {
-      plot_rsd_comparison(df_before, df_after, compared_to)
+    if (identical(p$rsd_plot_type, "scatter")) {
+      if (identical(p$rsd_cal, "met")) {
+        plot_rsd_comparison(df_before, df_after, compared_to)
+      } else {
+        plot_rsd_comparison_class_met(df_before, df_after, compared_to)
+      }
     } else {
-      plot_rsd_comparison_class_met(df_before, df_after, compared_to)
+      if (identical(p$rsd_cal, "met")) {
+        plot_met_rsd_distributions(df_before, df_after, compared_to)
+      } else {
+        plot_class_rsd_distributions(df_before, df_after, compared_to)
+      }
     }
   }, error = function(e) {
     shiny::showNotification(

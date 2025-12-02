@@ -14,12 +14,13 @@ ui_file_upload <- function(ns) {
 #' Reusable titled sidebar
 #' @keywords internal
 #' @noRd
-ui_sidebar_block <- function(title, ..., help = NULL, width = 400) {
+ui_sidebar_block <- function(title, ..., help = NULL, width = 400, position = "left") {
   bslib::sidebar(
     tags$h4(title),
     ...,
     if (!is.null(help)) lapply(help, tags$h6),
-    width = width
+    width = width,
+    position = position
   )
 }
 
@@ -46,9 +47,17 @@ ui_nonmet_cols <- function(cols, ns = identity) {
       placement ="right"
     ),
     tooltip(
-      selectInput(ns("batch_col"), "batch column", dropdown_choices, ""),
-      "Column that contains batch information.",
-      placement ="right"
+      checkboxInput(ns("single_batch"), "no batch column", FALSE), 
+      "check this box if your raw data does not have a column indicating batch. All samples will be assigned the same batch for correction.",
+      placement = "right"
+    ),
+    conditionalPanel(
+      condition = sprintf("!input['%s']", ns("single_batch")),
+      tooltip(
+        selectInput(ns("batch_col"), "batch column", dropdown_choices, ""),
+        "Column that contains batch information.",
+        placement ="right"
+      )
     ),
     tooltip(
       selectInput(ns("class_col"), "class column", dropdown_choices, ""),
@@ -340,6 +349,11 @@ ui_detect_outliers_options <- function(ns) {
 ui_rsd_eval <- function(ns) {
   tagList(
     tags$h6("Evaluate correction method by the change in relative standard deviation (RSD)."),
+    radioButtons(ns("rsd_plot_type"),
+                 "Visualize Changes in RSD by",
+                 list("Distribution" = "dist",
+                      "Scatter Plot" = "scatter")
+    ),
     radioButtons(ns("rsd_compare"), 
                  "Compare raw data to", 
                  list("Corrected data" = "filtered_cor_data", 
@@ -365,7 +379,7 @@ ui_pca_eval <- function(ns){
                  "filtered_cor_data"),
     radioButtons(ns("color_col"), 
                  "Color PCA by", 
-                 list("batch" = "batch", "class" = "class"), 
+                 list("batch" = "batch", "class" = "class", "order" = "order"), 
                  "batch")
   )
 }

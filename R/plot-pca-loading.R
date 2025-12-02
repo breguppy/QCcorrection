@@ -97,7 +97,7 @@ plot_pca_loading <- function(p, before, after, compared_to,
   leg <- cowplot::get_legend(p_leg)
   
   comb <- cowplot::plot_grid(p_before, p_after, leg,
-                             nrow = 1, rel_widths = c(1, 1, 0.22),
+                             nrow = 1, rel_widths = c(0.7, 0.7, 0.22),
                              labels = NULL, align = "hv", axis = "tblr")
   
   cowplot::ggdraw() +

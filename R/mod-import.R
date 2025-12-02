@@ -32,8 +32,21 @@ mod_import_ui <- function(id) {
       uiOutput(ns("basic_info"))
     )),
     card(layout_sidebar(
-      sidebar = ui_sidebar_block(title = "1.3 Filter Raw Data", ui_filter_slider(ns), width = 400),
-      uiOutput(ns("filter_info"))
+      sidebar = ui_sidebar_block(
+        title = "1.3 Filter Raw Data", 
+        ui_filter_slider(ns), 
+        width = 400
+        ),
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "Download Missing Value Summary", 
+          uiOutput(ns("download_mv_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+          help = c("Missing value summary by metabolite, sample, class, and batch.",
+                   "Missing value summary can also be downloaded on tab 4. Export All"),
+          width = 400,
+          position = "right"),
+        uiOutput(ns("filter_info"))
+      )
     )),
     card(
       actionButton(
@@ -58,7 +71,7 @@ mod_import_server <- function(id) {
     selections_r <- reactive({
       list(
         sample = input$sample_col %||% "",
-        batch  = input$batch_col  %||% "",
+        batch  = if (isTRUE(input$single_batch)) "batch" else input$batch_col %||% "",
         class  = input$class_col  %||% "",
         order  = input$order_col  %||% ""
       )
@@ -150,7 +163,7 @@ mod_import_server <- function(id) {
     output$basic_info <- renderUI({
       cd <- cleaned_r()
       req(cd)
-      ui_basic_info(cd$df, cd$replacement_counts)
+      ui_basic_info(cd$df, cd$replacement_counts, cd$non_numeric_cols, cd$duplicate_mets)
     })
     
     filtered_r <- reactive({
@@ -164,6 +177,39 @@ mod_import_server <- function(id) {
                      input$mv_cutoff,
                      fd$qc_missing_mets)
     })
+    
+    # button for downloading missing value report.
+    output$download_mv_btn <- renderUI({
+      req(cleaned_r())
+      
+      div(
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 250px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_mv_data"),
+            label    = "Download Missing Value Info",
+            class    = "btn btn-secondary"
+          )
+        )
+      )
+    })
+    output$download_mv_data <- downloadHandler(
+      filename = function() {
+        paste0("missing_value_counts_", Sys.Date(), ".xlsx")
+      },
+      content = function(file) {
+        p <- list()
+        
+        d <- list(
+          cleaned = cleaned_r()
+        )
+        
+        wb <- export_mv_xlsx(p, d)
+        openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+      }
+    )
+    
     
     params_r <- reactive({
       sel <- selections_r()

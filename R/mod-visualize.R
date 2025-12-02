@@ -30,18 +30,24 @@ mod_visualize_ui <- function(id) {
         width = 400
       ),
       plotOutput(ns("pca_plot"), height = "530px", width = "1000px") %>% withSpinner(color = "#404040"),
-      plotOutput(ns("pca_loading_plot"), height = "530px", width = "1050px") %>% withSpinner(color = "#404040")
+      plotOutput(ns("pca_loading_plot"), height = "530px", width = "1000px") %>% withSpinner(color = "#404040")
     )),
     card(
-      style = "background-color: #eeeeee;",
-      fluidRow(
-        column(6, tags$h4("3.4 Download Figures Only"),
-        ui_fig_format(ns),
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "3.4 Select Figure Format",
+          ui_fig_format(ns)
         ),
-        column(6, uiOutput(ns("download_fig_zip_btn")),
-                           tags$h6("All figures will also be downloaded on tab 4. Export All")),
-      uiOutput(ns("progress_ui")),
-    )),
+        layout_sidebar(
+          sidebar = ui_sidebar_block(
+            title = "Download Figures",
+            uiOutput(ns("download_fig_zip_btn")),
+            help = c("All figures can also be downloaded on tab 4. Export All"),
+            position = "right"
+          ),
+          uiOutput(ns("progress_ui"))
+        ))
+    ),
     card(
       actionButton(ns("next_export"), "Next: Export All", class = "btn-primary btn-lg"),
     )
@@ -75,7 +81,7 @@ mod_visualize_server <- function(id, data, params) {
     output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
       req(input$rsd_compare, input$rsd_cal)
       
-      make_rsd_plot(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal), d())
+      make_rsd_plot(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal, rsd_plot_type = input$rsd_plot_type), d())
     })
     
     output$rsd_comparison_stats <- renderUI({
@@ -103,9 +109,17 @@ mod_visualize_server <- function(id, data, params) {
     #-- Download all figures as zip folder.
     output$download_fig_zip_btn <- renderUI({
       req(d()$transformed)
+      
       div(
-        style = "max-width: 300px; display: inline-block;",
-        downloadButton(ns("download_fig_zip"), "Download All Figures (Optional)", class = "btn-primary")
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 250px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_fig_zip"),
+            label    = "Download All Figures",
+            class    = "btn btn-secondary"
+          )
+        )
       )
     })
     # -- progress bar

@@ -7,6 +7,32 @@
 app_ui <- function() {
   fluidPage(
     theme = bslib::bs_theme(preset = "cosmo"),
+    tags$head(
+      tags$style(HTML("
+      /* default state of tabs */
+      .nav-tabs > li > a {
+        background-color: #2780E3;   /* unselected tab bg */
+        color: #FFFFFF;              /* unselected tab text */
+        border-radius: 1;
+      }
+
+      .nav-tabs > li > a:hover {
+        background-color: #e0e0e0;
+        color: #2c3e50;
+      }
+
+      /* active tab */
+      .nav-tabs > li.active > a,
+      .nav-tabs > li.active > a:focus,
+      .nav-tabs > li.active > a:hover {
+        background-color: #1E88E5;   /* selected tab bg */
+        color: #ffffff;              /* selected tab text */
+        border-color: #1E88E5;
+      }
+    "))
+    ),
+    
+    
     shinyjs::useShinyjs(),
     titlePanel("QC Correction for Metabolomics Data"),
     bslib::navset_tab(
