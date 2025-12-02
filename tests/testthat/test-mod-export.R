@@ -11,21 +11,23 @@ test_that("export module creates a zip bundle", {
   
   app <- AppDriver$new(
     test_path("_apps/mod_export"),
-    name = "mod_export_basic",
-    seed = 123,
-    variant = platform_variant(),
-    shiny_args = list(host="127.0.0.1", port=httpuv::randomPort()),
-    view = "none",
+    name       = "mod_export_basic",
+    seed       = 123,
+    variant    = platform_variant(),
+    shiny_args = list(host = "127.0.0.1", port = httpuv::randomPort()),
+    view       = "none",
     load_timeout = 20000
   )
   
+  # Wait for the export UI to exist / be rendered
   app$wait_for_value(output = "export-download_all_ui")
+  app$wait_for_idle()
   
-  # Use whichever helper your shinytest2 provides
-  zip_path <- if (is.function(app$download)) {
-    app$download("export-download_all_zip")
+  # Trigger and download the zip bundle
+  if ("download" %in% ls(app)) {
+    zip_path <- app$download("export-download_all_zip")
   } else {
-    app$get_download("export-download_all_zip")
+    zip_path <- app$get_download("export-download_all_zip")
   }
   
   expect_true(file.exists(zip_path))
@@ -33,8 +35,10 @@ test_that("export module creates a zip bundle", {
   
   lst <- utils::unzip(zip_path, list = TRUE)
   expect_true(any(grepl("^figures/?", lst$Name)))
+  #expect_true(any(grepl("^missing_value_counts_.*\\.xlsx$", lst$Name)))
   expect_true(any(grepl("^corrected_data_.*\\.xlsx$", lst$Name)))
   expect_true(any(grepl("^rsd_stats_.*\\.xlsx$", lst$Name)))
   expect_true(any(grepl("^extreme_values_.*\\.xlsx$", lst$Name)))
   expect_true(any(grepl("^correction_report\\.(html|pdf)$", lst$Name)))
 })
+
