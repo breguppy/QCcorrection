@@ -168,6 +168,7 @@ render_report <- function(p,
       choices = list(
         raw_df             = d$cleaned$df,
         replacement_counts = d$cleaned$replacement_counts,
+        non_numeric_cols   = d$cleaned$non_numeric_cols,
         filtered           = d$filtered,
         filtered_corrected = d$filtered_corrected,
         transformed        = d$transformed,

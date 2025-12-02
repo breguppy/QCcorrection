@@ -92,6 +92,11 @@ mod_export_server <- function(id, data, params) {
         dir.create(base_dir)
         on.exit(unlink(base_dir, recursive = TRUE, force = TRUE), add = TRUE)
         
+        # create and save missing value count excel
+        mv_xlsx_path <- file.path(base_dir, sprintf("missing_value_counts_%s.xlsx", Sys.Date()))
+        mv_wb <- export_mv_xlsx(p(), d())
+        openxlsx::saveWorkbook(mv_wb, mv_xlsx_path, overwrite = TRUE)
+        
         # create and save corrected data file
         xlsx_path <- file.path(base_dir, sprintf("corrected_data_%s.xlsx", Sys.Date()))
         wb <- export_xlsx(p(), d())
@@ -116,6 +121,7 @@ mod_export_server <- function(id, data, params) {
         # make zip file
         rel <- c(
           "figures",
+          basename(mv_xlsx_path),
           basename(xlsx_path),
           basename(stats_xlsx_path),
           basename(outlier_xlsx_path),
