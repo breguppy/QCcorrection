@@ -64,8 +64,10 @@ clean_data <- function(df,
   } else if (df$class[nrow(df)] != "QC") {
     stop("Data sorted by injection order must end with a QC sample.")
   }
-  
-  duplicate_mets <- find_equal_metabolite_cols(df, metab, tolerance = 1e-8)
+  qc_df <- df[df$class == "QC", ]
+  duplicate_mets <- find_highly_correlated_metabolite_cols(df, metab)
+  #duplicate_mets <- find_equal_metabolite_cols(df, metab, tolerance = 1e-3)
+  print(duplicate_mets)
   
   return(list(
     df = df,
@@ -128,6 +130,102 @@ find_equal_metabolite_cols <- function(df, cols = NULL, ...) {
   
   if (!any(keep)) {
     return(data.frame(col1 = character(0), col2 = character(0)))
+  }
+  
+  do.call(rbind, results[keep])
+}
+
+#' Find highly correlated metabolite columns ignoring NAs
+#'
+#' @param df            A data frame containing metabolite columns.
+#' @param cols          Optional character vector of column names to check.
+#'                      If NULL, all columns in `df` are considered.
+#' @param method        Correlation method passed to [stats::cor()]
+#'                      (e.g. "pearson", "spearman").
+#' @param cor_threshold Minimum absolute correlation to consider a pair
+#'                      "highly correlated". Default is 0.99.
+#' @param min_complete  Minimum number of non-NA paired observations required
+#'                      to compute correlation. Default is 3.
+#'
+#' @return A data.frame with columns:
+#'         - `col1`, `col2`: ordered column name pairs
+#'         - `cor`:          correlation between the columns
+#'         - `n_complete`:   number of rows used in the correlation
+#'         Returns an empty data.frame if no pairs pass the threshold.
+#' @keywords internal
+#' @noRd
+find_highly_correlated_metabolite_cols <- function(df,
+                                                   cols = NULL,
+                                                   method = "pearson",
+                                                   cor_threshold = 0.995,
+                                                   min_complete = 3L) {
+  # Determine candidate columns
+  if (is.null(cols)) {
+    cols <- names(df)
+  }
+  cols <- intersect(cols, names(df))
+  
+  # Restrict to numeric columns
+  is_num <- vapply(df[cols], is.numeric, logical(1L))
+  cols   <- cols[is_num]
+  
+  if (length(cols) < 2L) {
+    return(data.frame(
+      col1        = character(0),
+      col2        = character(0),
+      cor         = numeric(0),
+      n_complete  = integer(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+  
+  # All unique unordered column pairs
+  pairs <- utils::combn(cols, 2L, simplify = FALSE)
+  
+  results <- vector("list", length(pairs))
+  keep    <- logical(length(pairs))
+  
+  for (i in seq_along(pairs)) {
+    c1 <- pairs[[i]][1L]
+    c2 <- pairs[[i]][2L]
+    
+    x <- df[[c1]]
+    y <- df[[c2]]
+    
+    # Use only rows where both are finite (excludes NA, NaN, Inf)
+    idx <- is.finite(x) & is.finite(y)
+    n_complete <- sum(idx)
+    
+    if (n_complete < min_complete) {
+      next
+    }
+    
+    # Compute correlation on complete pairs
+    cor_val <- suppressWarnings(stats::cor(x[idx], y[idx], method = method, use = "pairwise.complete.obs"))
+    
+    # Skip if correlation is NA (e.g., one variable constant) or below threshold
+    if (is.na(cor_val) || cor_val < cor_threshold) {
+      next
+    }
+    
+    results[[i]] <- data.frame(
+      col1        = c1,
+      col2        = c2,
+      cor         = unname(cor_val),
+      n_complete  = n_complete,
+      stringsAsFactors = FALSE
+    )
+    keep[i] <- TRUE
+  }
+  
+  if (!any(keep)) {
+    return(data.frame(
+      col1        = character(0),
+      col2        = character(0),
+      cor         = numeric(0),
+      n_complete  = integer(0),
+      stringsAsFactors = FALSE
+    ))
   }
   
   do.call(rbind, results[keep])
