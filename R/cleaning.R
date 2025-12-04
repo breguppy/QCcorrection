@@ -64,17 +64,34 @@ clean_data <- function(df,
   } else if (df$class[nrow(df)] != "QC") {
     stop("Data sorted by injection order must end with a QC sample.")
   }
-  qc_df <- df[df$class == "QC", ]
-  duplicate_mets <- find_highly_correlated_metabolite_cols(df, metab)
-  #duplicate_mets <- find_equal_metabolite_cols(df, metab, tolerance = 1e-3)
-  print(duplicate_mets)
+  
+  # equal columns:
+  duplicate_mets <- find_equal_metabolite_cols(df, metab, tolerance = 1e-3)
+  correlated_mets <- find_highly_correlated_metabolite_cols(df, metab) 
+  
+  # Helper to build an unordered pair key
+  pair_key <- function(col1, col2) {
+    paste(pmin(col1, col2), pmax(col1, col2), sep = "__")
+  }
+  
+  # Only run if both data frames have rows
+  if (nrow(duplicate_mets) > 0L && nrow(correlated_mets) > 0L) {
+    dup_keys <- pair_key(duplicate_mets$col1, duplicate_mets$col2)
+    cor_keys <- pair_key(correlated_mets$col1, correlated_mets$col2)
+    
+    # Keep only correlated pairs that are not in duplicates
+    correlated_mets <- correlated_mets[!(cor_keys %in% dup_keys), , drop = FALSE]
+  } else {
+    correlated_mets <- correlated_mets
+  }
   
   return(list(
     df = df,
     replacement_counts = repl,
     withheld_cols = withheld_cols,
     non_numeric_cols = non_numeric_cols,
-    duplicate_mets = duplicate_mets
+    duplicate_mets = duplicate_mets,
+    correlated_mets = correlated_mets
   ))
 }
 
