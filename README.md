@@ -8,12 +8,18 @@ Shiny app for QC correction of metabolomics data
 ### Installation
 
 #### Install Via GitHub
+To install via GitHub, use the the devtools package. To install and use devtools:
+```r
+install.packages("devtools")
+library(devtools)
+```
+To install the QCcorrection package:
 
 ```r
 devtools::install_github("breguppy/QCcorrection")
 ```
 
-To be able to use all features of the app, please install the following packages as well.
+To be able to use all features of the app, please install the following packages:
 ```r
 install.packages(c(
   "randomForest", "robustbase", "outliers", "EnvStats", "ggtext",
@@ -27,6 +33,9 @@ install.packages(c(
 ```r
 QCcorrection::run_app()
 ```
+
+### Example Raw Data Stucture
+<img align="center" src="https://github.com/breguppy/QCcorrection/blob/main/www/example_data_structure.png">
 
 # Bug Reports/New Features
 
