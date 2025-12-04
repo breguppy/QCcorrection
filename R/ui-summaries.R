@@ -76,7 +76,7 @@ ui_basic_info <- function(df,
   if (length(non_numeric_cols) > 0) {
     nonnum_card <- warn_card(
       title = "Non-numerical columns detected",
-      body  = "These columns contain all non-numeric values and will be removed prior to processing. If you do not want these columns removed, check the box 'withhold additional columns from correction' on the left and add them to list below the box.",
+      body  = "These columns contain all non-numeric values and will be removed prior to processing.", #If you do not want these columns removed, check the box 'withhold additional columns from correction' on the left and add them to list below the box.",
       body_tags = tags$p(
         style = "font-weight: 600; margin-top: 8px;",
         paste(sort(unique(non_numeric_cols)), collapse = ", ")
