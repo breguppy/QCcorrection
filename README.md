@@ -35,7 +35,7 @@ QCcorrection::run_app()
 ```
 
 ### Example Raw Data Stucture
-<img align="center" src="https://github.com/breguppy/QCcorrection/blob/main/www/example_data_structure.png" width="305" height="352">
+<img align="center" src="https://github.com/breguppy/QCcorrection/blob/main/www/example_data_structure.png">
 
 # Bug Reports/New Features
 
