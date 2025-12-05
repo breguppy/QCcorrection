@@ -69,7 +69,6 @@ clean_data <- function(df,
   duplicate_mets <- find_equal_metabolite_cols(df, metab, tolerance = 1e-3)
   correlated_mets <- find_highly_correlated_metabolite_cols(df, metab)
   high_corr_mets <- correlated_mets$high_corr
-  print(high_corr_mets)
   
   # Helper to build an unordered pair key
   pair_key <- function(col1, col2) {
