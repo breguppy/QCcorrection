@@ -33,7 +33,7 @@ library(QCcorrection)
 
 ### Raw Data Basic Information
 ```{r}
-QCcorrection:::ui_basic_info(params$choices$raw_df, params$choices$replacement_counts, params$choices$non_numerics_cols, params$choices$duplicate_mets)
+QCcorrection:::ui_basic_info(params$choices$raw_df, params$choices$replacement_counts, params$choices$non_numerics_cols, params$choices$duplicate_mets, params$choices$high_corr_mets)
 statement("Withheld Columns")
 ```
 
