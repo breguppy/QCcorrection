@@ -15,7 +15,7 @@ ui_basic_info <- function(df,
                           replacement_counts,
                           non_numeric_cols,
                           duplicate_mets = NULL,
-                          correlated_mets = NULL) {
+                          high_corr_mets = NULL) {
   
   metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
   n_metab    <- length(metab_cols)
@@ -118,12 +118,12 @@ ui_basic_info <- function(df,
   
   # ---------- Warning box 4: highly correlated metabolites ----------
   correlated_card <- NULL
-  if (!is.null(correlated_mets) && nrow(correlated_mets) > 0) {
+  if (!is.null(high_corr_mets) && nrow(high_corr_mets) > 0) {
     
     cor_badges <- tags$div(
       style = "display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;",
-      lapply(seq_len(nrow(correlated_mets)), function(i) {
-        pair <- correlated_mets[i, , drop = FALSE]
+      lapply(seq_len(nrow(high_corr_mets)), function(i) {
+        pair <- high_corr_mets[i, , drop = FALSE]
         tags$span(
           style = paste(
             "background-color: #fff3cd;",
@@ -141,7 +141,7 @@ ui_basic_info <- function(df,
       title = "Highly correlated metabolites",
       body  = sprintf(
         "%d column pairs have strong positive correlation (Pearson's r > 0.995).",
-        nrow(correlated_mets)
+        nrow(high_corr_mets)
       ),
       body_tags = cor_badges
     )
