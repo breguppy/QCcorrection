@@ -259,9 +259,30 @@ ui_filter_info <- function(mv_removed, mv_cutoff, qc_missing_mets) {
 ui_postcor_filter_info <- function(filtered_corrected_result,
                                    rsd_filter,
                                    post_cor_filter) {
-  n_removed <- length(filtered_corrected_result$removed_metabolites)
+  removed <- filtered_corrected_result$removed_metabolites
+  n_removed <- length(removed)
+  
+  # get ISTD/ITSD metabolites
+  is_istd <- grepl("^(ISTD|ITSD)", removed, ignore.case = TRUE)
+  istd_names <- removed[is_istd]
+  n_istd <- length(istd_names)
+  
+  # optional warning banner
+  warning_ui <- NULL
+  if (n_istd > 0) {
+    warning_ui <- tags$div(
+      class = "alert alert-danger",
+      style = "margin-bottom: 10px;",
+      tags$strong(paste0(n_istd, " internal standard(s) with QC RSD above ", rsd_filter, "%: ")),
+      tags$ul(
+        lapply(istd_names, tags$li)
+      )
+    )
+  }
+  
   if (post_cor_filter == FALSE) {
     ui <- list(
+      warning_ui,
       tags$span(
         style = "color: darkorange; font-weight: bold;",
         paste0(
@@ -273,16 +294,19 @@ ui_postcor_filter_info <- function(filtered_corrected_result,
       ),
       tags$br(),
       tags$ul(
-        lapply(filtered_corrected_result$removed_metabolites, function(name) {
-          tags$li(name)
-        })
+        lapply(removed, tags$li)
       )
     )
   } else {
     ui <- list(
-      tags$span(style = "color: darkgreen; font-weight: bold;", "Metabolites are not filtered by QC RSD.")
+      warning_ui,
+      tags$span(
+        style = "color: darkgreen; font-weight: bold;",
+        "Metabolites are not filtered by QC RSD."
+      )
     )
   }
+  
   do.call(tagList, ui)
 }
 
