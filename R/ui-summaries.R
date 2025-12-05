@@ -95,8 +95,8 @@ ui_basic_info <- function(df,
         pair <- duplicate_mets[i, , drop = FALSE]
         tags$span(
           style = paste(
-            "background-color: #fff3cd;",
-            "border: 1px solid #ffeeba;",
+            "background-color: #ff8989;",
+            "border: 1px solid #ff8989;",
             "padding: 4px 8px;",
             "border-radius: 12px;",
             "font-size: 0.85rem;"
@@ -132,7 +132,7 @@ ui_basic_info <- function(df,
             "border-radius: 12px;",
             "font-size: 0.85rem;"
           ),
-          sprintf("%s \u2248 %s", pair$col1, pair$col2)
+          sprintf("%s \u221D %s", pair$col1, pair$col2)
         )
       })
     )
