@@ -8,12 +8,18 @@ Shiny app for QC correction of metabolomics data
 ### Installation
 
 #### Install Via GitHub
-To install via GitHub, use the remotes package. To install and use remotes:
+To install via GitHub, use the remotes package:
 ```r
 install.packages("remotes")
-```
-To install the QCcorrection package:
 
+```
+You will also need to install impute via BiocManager
+```r
+install.packages("BiocManager")
+BiocManager::install("impute")
+```
+
+To install the QCcorrection package:
 ```r
 # Install QCcorrection (core functionality)
 remotes::install_github("breguppy/QCcorrection", dependencies = TRUE)
