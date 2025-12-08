@@ -26,8 +26,7 @@ Imports:
     magrittr,
     htmltools,
     readxl,
-    openxlsx,
-    impute
+    openxlsx
 Suggests:
     randomForest,
     robustbase,

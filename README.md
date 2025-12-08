@@ -8,15 +8,14 @@ Shiny app for QC correction of metabolomics data
 ### Installation
 
 #### Install Via GitHub
-To install via GitHub, use the the devtools package. To install and use devtools:
+To install via GitHub, use the remotes package. To install and use remotes:
 ```r
-install.packages("devtools")
-library(devtools)
+install.packages("remotes")
 ```
 To install the QCcorrection package:
 
 ```r
-devtools::install_github("breguppy/QCcorrection")
+remotes::install_github("breguppy/QCcorrection", dependencies = TRUE)
 ```
 
 To be able to use all features of the app, please install the following packages:
@@ -25,8 +24,9 @@ install.packages(c(
   "randomForest", "robustbase", "outliers", "EnvStats", "ggtext",
   "cowplot", "pagedown", "rmarkdown", "zip", "corpcor",
   "httpuv", "jsonlite", "shinytest2", "testthat", "chromote",
-  "pkgload", "knitr", "pagedown", "ggtext"
+  "pkgload", "knitr", "pagedown", "ggtext", "BiocManager"
 ))
+BiocManager::intall("impute")
 ```
 
 ### To run App
