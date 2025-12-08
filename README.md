@@ -15,18 +15,11 @@ install.packages("remotes")
 To install the QCcorrection package:
 
 ```r
+# Install QCcorrection (core functionality)
 remotes::install_github("breguppy/QCcorrection", dependencies = TRUE)
-```
 
-To be able to use all features of the app, please install the following packages:
-```r
-install.packages(c(
-  "randomForest", "robustbase", "outliers", "EnvStats", "ggtext",
-  "cowplot", "pagedown", "rmarkdown", "zip", "corpcor",
-  "httpuv", "jsonlite", "shinytest2", "testthat", "chromote",
-  "pkgload", "knitr", "pagedown", "ggtext", "BiocManager"
-))
-BiocManager::intall("impute")
+# Install optional features
+QCcorrection::install_all_dependencies()
 ```
 
 ### To run App
