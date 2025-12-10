@@ -1,549 +1,283 @@
+#' Hotelling T^2 outlier detection with optional class-wise grouping
+#' and handling of singular covariance matrices.
+#'
+#' This function:
+#' 1) extracts metabolite columns,
+#' 2) log-transforms and globally scales them,
+#' 3) computes (robust) covariance and Hotelling-like T^2 via Mahalanobis
+#'    distance, either globally or within groups defined by `group_col`,
+#'    with a small ridge added to avoid singular covariance matrices,
+#' 4) flags samples outside the (1 - alpha) ellipse,
+#' 5) within flagged samples, identifies metabolite values with large |z|.
+#'
+#' @param df data.frame
+#'   Input data with metadata columns and metabolite columns.
+#' @param meta_cols character
+#'   Names of metadata columns to exclude from multivariate analysis.
+#'   Default assumes "sample", "batch", "class", "order".
+#' @param alpha numeric
+#'   Significance level for the Hotelling ellipse (default 0.05 => 95% ellipse).
+#' @param log_transform logical
+#'   Whether to apply log2(x + offset) to metabolite columns.
+#' @param log_offset numeric
+#'   Constant added before log-transform to avoid log(0).
+#' @param robust logical
+#'   If TRUE, use rrcov::CovMcd for robust covariance; otherwise classical cov().
+#' @param z_threshold numeric
+#'   Absolute z-score threshold for per-metabolite flags within outlier samples.
+#' @param group_col character or NULL
+#'   Optional column name in `df` used to group samples for T^2 computation,
+#'   e.g. "class". If NULL, T^2 is computed globally across all samples.
+#' @param min_complete_per_group integer
+#'   Minimum number of complete rows (no NA in metabolite columns) required
+#'   per group to estimate covariance.
+#' @param drop_constant logical
+#'   If TRUE, drop metabolite columns with (near) zero variance (based on
+#'   globally complete rows) before covariance estimation.
+#' @param const_tol numeric
+#'   Variance threshold below which a metabolite is considered constant.
+#' @param ridge_factor numeric
+#'   Factor controlling the ridge size. Ridge is computed as
+#'   `ridge_factor * mean(diag(cov_mat))` and added to the diagonal to ensure
+#'   invertibility.
+#'
+#' @return list
+#'   A list with components:
+#'   - data: original df with added columns:
+#'       * T2: squared Mahalanobis distance
+#'       * is_outlier_sample: TRUE if outside (1 - alpha) ellipse
+#'       * used_in_fit: TRUE if row was used to estimate covariance
+#'   - extreme_values: long-format data.frame of flagged metabolite values
+#'       * includes metadata, metabolite name, raw/log/scaled values, |z|, T2
+#'   - params: list of settings used.
+#'
+#' @examples
+#' # Global:
+#' # res <- detect_hotelling_with_metabolite_flags_grouped(df)
+#' # By class:
+#' # res <- detect_hotelling_with_metabolite_flags_grouped(df, group_col = "class")
 #' @keywords internal
 #' @noRd
-detect_qc_aware_outliers <- function(df,
-                                     group_nonqc_by_class,
-                                     z_threshold = 4,
-                                     qc_rsd_stable = 0.20,
-                                     qc_rsd_unstable = 0.30,
-                                     alpha = 0.05,
-                                     confirm_method = c("dixon", "grubbs"),
-                                     min_group_n = 3,
-                                     md_cutoff_quantile = 0.95) {
-  confirm_method <- match.arg(confirm_method)
-  stopifnot(all(c("sample", "batch", "class", "order") %in% names(df)))
+detect_hotelling_with_metabolite_flags_grouped <- function(
+    df,
+    meta_cols              = c("sample", "batch", "class", "order"),
+    alpha                  = 0.05,
+    log_transform          = TRUE,
+    log_offset             = 1,
+    robust                 = TRUE,
+    z_threshold            = 3,
+    group_col              = NULL,
+    min_complete_per_group = 3L,
+    drop_constant          = TRUE,
+    const_tol              = 1e-12,
+    ridge_factor           = 1e-6
+) {
+  ## 1. Check metadata columns
+  missing_meta <- setdiff(meta_cols, names(df))
+  if (length(missing_meta) > 0L) {
+    stop("Missing metadata columns in df: ", paste(missing_meta, collapse = ", "))
+  }
   
-  has_rb  <- requireNamespace("robustbase", quietly = TRUE)
-  has_out <- requireNamespace("outliers", quietly = TRUE)
-  has_env <- requireNamespace("EnvStats", quietly = TRUE)
+  ## 2. Identify metabolite columns: non-metadata numeric columns
+  candidate_cols <- setdiff(names(df), meta_cols)
+  met_cols <- candidate_cols[vapply(df[candidate_cols], is.numeric, logical(1))]
+  if (length(met_cols) == 0L) {
+    stop("No numeric metabolite columns found.")
+  }
   
-  meta_cols <- c("sample", "batch", "class", "order")
-  met_cols  <- setdiff(names(df), meta_cols)
-  met_cols  <- met_cols[sapply(df[met_cols], is.numeric)]
+  X_raw <- as.matrix(df[, met_cols, drop = FALSE])
   
-  # if only one non-QC class exists, group all samples into all group
-  nonqc_idx <- which(df$class != "QC")
-  n_levels  <- length(unique(df$class[nonqc_idx]))
-  effective_grouping <- if (isTRUE(group_nonqc_by_class) &&
-                            n_levels > 1)
-    "by_class"
-  else
-    "all"
-  
-  df2 <- df
-  df2$group_id <- if (effective_grouping == "by_class") {
-    ifelse(df2$class == "QC", "QC", as.character(df2$class))
+  ## 3. Log-transform if requested
+  if (log_transform) {
+    X_log <- log2(X_raw + log_offset)
   } else {
-    ifelse(df2$class == "QC", "QC", "all")
+    X_log <- X_raw
   }
   
-  # helpers
-  med  <- function(x)
-    stats::median(x, na.rm = TRUE)
-  # robust scaling: MAD or IQR/1.349 or SD or 1
-  rob_scale <- function(v) {
-    d <- stats::mad(v, constant = 1.4826, na.rm = TRUE)
-    if (!is.finite(d) ||
-        d == 0)
-      d <- stats::IQR(v, na.rm = TRUE) / 1.349
-    if (!is.finite(d) || d == 0)
-      d <- stats::sd(v, na.rm = TRUE)
-    if (!is.finite(d) || d == 0)
-      d <- 1
-    d
+  ## 4. Global complete cases for scaling / variance checks
+  complete_global <- stats::complete.cases(X_log)
+  X_complete_global <- X_log[complete_global, , drop = FALSE]
+  
+  if (nrow(X_complete_global) < 3L) {
+    stop("Too few complete rows to estimate global scaling.")
   }
   
-  # QC RSD per metabolite
-  qc_idx <- which(df2$class == "QC")
-  qc_rsd <- setNames(rep(NA_real_, length(met_cols)), met_cols)
-  if (length(qc_idx) >= 2) {
-    for (m in met_cols) {
-      v <- df2[[m]][qc_idx]
-      mu <- mean(v, na.rm = TRUE)
-      sdv <- stats::sd(v, na.rm = TRUE)
-      qc_rsd[m] <- if (isTRUE(mu != 0) &&
-                       is.finite(mu))
-        100 * sdv / abs(mu)
-      else
-        NA_real_
+  ## 5. Optionally drop constant (near-zero variance) metabolite columns
+  if (drop_constant) {
+    v <- apply(X_complete_global, 2L, stats::var, na.rm = TRUE)
+    const_mask <- v <= const_tol | is.na(v)
+    
+    if (any(const_mask)) {
+      dropped_mets <- met_cols[const_mask]
+      message(
+        "Dropping ", length(dropped_mets), " metabolite(s) with near-zero variance: ",
+        paste(dropped_mets, collapse = ", ")
+      )
+      
+      # Keep only non-constant metabolites
+      keep_mask <- !const_mask
+      met_cols  <- met_cols[keep_mask]
+      X_raw     <- X_raw[, keep_mask, drop = FALSE]
+      X_log     <- X_log[, keep_mask, drop = FALSE]
+      X_complete_global <- X_complete_global[, keep_mask, drop = FALSE]
     }
   }
-  qc_rsd_tbl <- data.frame(metabolite = met_cols,
-                           qc_rsd = qc_rsd,
-                           row.names = NULL)
   
-  # Robust MD per group (PCA scores + robust cov)
-  md_results <- lapply(split(df2, df2$group_id), function(dg) {
-    X <- as.matrix(dg[, met_cols, drop = FALSE])
-    keep <- which(colSums(!is.na(X)) >= 2)
-    if (length(keep) == 0) {
-      return(
-        data.frame(
-          sample = dg$sample,
-          group_id = dg$group_id,
-          md = NA_real_,
-          cutoff = NA_real_,
-          flagged = FALSE
-        )
-      )
+  if (length(met_cols) == 0L) {
+    stop("All metabolite columns were dropped as constant; cannot proceed.")
+  }
+  
+  ## 6. Global scaling (center + sd from complete rows)
+  X_scaled_complete <- scale(X_complete_global)
+  center_scaled     <- attr(X_scaled_complete, "scaled:center")
+  scale_scaled      <- attr(X_scaled_complete, "scaled:scale")
+  
+  scale_all_rows <- function(X_raw, center_raw, scale_raw) {
+    sweep(sweep(X_raw, 2L, center_raw, FUN = "-"), 2L, scale_raw, FUN = "/")
+  }
+  
+  X_scaled_all <- scale_all_rows(X_log, center_scaled, scale_scaled)
+  p <- ncol(X_scaled_all)
+  
+  ## 7. Prepare output vectors
+  n <- nrow(df)
+  T2          <- rep(NA_real_, n)
+  used_in_fit <- rep(FALSE, n)
+  
+  ## 8. Grouping logic
+  if (is.null(group_col)) {
+    group_factor <- factor(rep("all", n))
+  } else {
+    if (!group_col %in% names(df)) {
+      stop("group_col '", group_col, "' not found in df.")
     }
-    X <- X[, keep, drop = FALSE]
-    m0 <- apply(X, 2, med)
-    s0 <- apply(X, 2, rob_scale)
-    Z  <- sweep(sweep(X, 2, m0, "-"), 2, s0, "/")
-    Z[!is.finite(Z)] <- NA
+    group_factor <- as.factor(df[[group_col]])
+  }
+  
+  group_levels <- levels(group_factor)
+  
+  if (robust && !requireNamespace("rrcov", quietly = TRUE)) {
+    stop("Package 'rrcov' is required for robust = TRUE. Please install it.")
+  }
+  
+  ## 9. Function to add ridge to covariance and ensure invertibility
+  regularize_cov <- function(cov_mat, ridge_factor) {
+    d <- diag(cov_mat)
+    mean_diag <- mean(d)
+    if (!is.finite(mean_diag) || mean_diag <= 0) {
+      # fallback: use 1 as scale if covariance is degenerate
+      mean_diag <- 1
+    }
+    ridge <- ridge_factor * mean_diag
+    cov_mat + diag(ridge, nrow(cov_mat))
+  }
+  
+  ## 10. Loop over groups and compute T^2
+  for (g in group_levels) {
+    group_idx <- which(group_factor == g)
+    if (length(group_idx) == 0L) next
     
-    n <- nrow(Z)
-    S <- stats::cov(Z, use = "pairwise.complete.obs")
-    eig <- tryCatch(
-      eigen(S, symmetric = TRUE),
-      error = function(e)
-        NULL
-    )
-    if (is.null(eig))
-      return(
-        data.frame(
-          sample = dg$sample,
-          group_id = dg$group_id,
-          md = NA_real_,
-          cutoff = NA_real_,
-          flagged = FALSE
-        )
-      )
-    vals <- pmax(eig$values, 0)
-    vecs <- eig$vectors
-    pos <- which(vals > 1e-8)
-    if (!length(pos))
-      return(
-        data.frame(
-          sample = dg$sample,
-          group_id = dg$group_id,
-          md = NA_real_,
-          cutoff = NA_real_,
-          flagged = FALSE
-        )
-      )
-    cumprop <- cumsum(vals[pos]) / sum(vals[pos])
-    k_keep  <- max(1, min(length(pos), which(cumprop >= 0.80)[1]))
-    k_keep <- min(k_keep, n - 1)
-    if (is.na(k_keep) || k_keep < 1)
-      k_keep <- min(length(pos), n - 1)
-    V <- vecs[, pos[seq_len(k_keep)], drop = FALSE]
-    Ts <- Z %*% V
-    p <- ncol(Ts)
+    # complete cases within this group (no NA in metabolite columns)
+    group_complete_mask <- stats::complete.cases(X_log[group_idx, , drop = FALSE])
+    group_complete_idx  <- group_idx[group_complete_mask]
     
-    # further cap PCs if sample size is too small for robust MCD
-    if (p > 0 && n < 2 * p) {
-      keep_p <- max(1, min(p, floor((n - 1) / 2)))
-      if (keep_p < p) {
-        Ts <- Ts[, seq_len(keep_p), drop = FALSE]
-        p  <- keep_p
-      }
+    if (length(group_complete_idx) < min_complete_per_group) {
+      next
     }
     
-    # choose covariance estimator
-    if (p == 1) {
-      mu <- colMeans(Ts, na.rm = TRUE)
-      Cv <- matrix(stats::var(as.numeric(Ts), na.rm = TRUE), 1, 1)
-    } else if (has_rb && n >= 2 * p) {
-      # safe to use MCD only when n >= 2p
-      mcd <- tryCatch(
-        robustbase::covMcd(Ts),
-        error = function(e)
-          NULL
-      )
-      if (!is.null(mcd) &&
-          is.matrix(mcd$cov) && all(is.finite(mcd$cov))) {
-        mu <- mcd$center
-        Cv <- mcd$cov
-      } else {
-        mu <- colMeans(Ts, na.rm = TRUE)
-        Cv <- stats::cov(Ts, use = "pairwise.complete.obs")
-      }
-    } else if (requireNamespace("robustbase", quietly = TRUE)) {
-      # OGK is robust and works better when n << p
-      ogk <- tryCatch(
-        robustbase::covOGK(Ts),
-        error = function(e)
-          NULL
-      )
-      if (!is.null(ogk) &&
-          is.matrix(ogk$cov) && all(is.finite(ogk$cov))) {
-        mu <- ogk$center
-        Cv <- ogk$cov
-      } else {
-        mu <- colMeans(Ts, na.rm = TRUE)
-        Cv <- stats::cov(Ts, use = "pairwise.complete.obs")
-      }
-    } else if (requireNamespace("corpcor", quietly = TRUE)) {
-      # shrinkage covariance is well-conditioned for small n
-      mu <- colMeans(Ts, na.rm = TRUE)
-      Cv <- corpcor::cov.shrink(Ts)
+    X_group_scaled_complete <- X_scaled_all[group_complete_idx, , drop = FALSE]
+    
+    # Covariance and center (robust or classical) in scaled space
+    if (robust) {
+      cov_fit <- rrcov::CovMcd(X_group_scaled_complete)
+      center_g <- cov_fit@center
+      cov_g    <- cov_fit@cov
     } else {
-      # classical covariance as last resort
-      mu <- colMeans(Ts, na.rm = TRUE)
-      Cv <- stats::cov(Ts, use = "pairwise.complete.obs")
+      center_g <- colMeans(X_group_scaled_complete)
+      cov_g    <- stats::cov(X_group_scaled_complete)
     }
     
-    # ensure positive-definite covariance
-    ok <- tryCatch({
-      ev <- eigen(Cv, symmetric = TRUE, only.values = TRUE)$values
-      all(is.finite(ev)) && min(ev, na.rm = TRUE) > 1e-8
-    }, error = function(e)
-      FALSE)
-    if (!ok) {
-      eps <- 1e-6
-      Cv  <- Cv + diag(eps, ncol(Ts))
-    }
+    # Regularize covariance to avoid singular matrix
+    cov_g_reg <- regularize_cov(cov_g, ridge_factor = ridge_factor)
     
-    md <- tryCatch(
-      stats::mahalanobis(Ts, center = mu, cov = Cv),
-      error = function(e)
-        rep(NA_real_, nrow(Ts))
+    # Mahalanobis T^2 for complete rows in this group
+    T2[group_complete_idx] <- stats::mahalanobis(
+      x      = X_scaled_all[group_complete_idx, , drop = FALSE],
+      center = center_g,
+      cov    = cov_g_reg
     )
     
-    cut <- stats::qchisq(md_cutoff_quantile, df = ncol(Ts))
-    data.frame(
-      sample = dg$sample,
-      group_id = dg$group_id,
-      md = as.numeric(md),
-      cutoff = cut,
-      flagged = is.finite(md) & md > cut
-    )
-  })
-  md_tbl <- do.call(rbind, md_results)
-  
-  # Robust z by group using MAD, IQR / 1.349, SD, or 1 as denominator.
-  z_tbl <- do.call(rbind, lapply(split(df2, df2$group_id), function(dg) {
-    Zg <- as.data.frame(dg[, c(meta_cols, "group_id")], stringsAsFactors = FALSE)
-    for (m in met_cols) {
-      v <- dg[[m]]
-      mu  <- stats::median(v, na.rm = TRUE)
-      den <- stats::mad(v, constant = 1.4826, na.rm = TRUE)
-      if (!is.finite(den) ||
-          den == 0)
-        den <- stats::IQR(v, na.rm = TRUE) / 1.349
-      if (!is.finite(den) ||
-          den == 0)
-        den <- stats::sd(v, na.rm = TRUE)
-      if (!is.finite(den) || den == 0)
-        den <- 1
-      Zg[[m]] <- (v - mu) / den
-    }
-    Zg
-  }))
-  
-  # Candidates: flagged non-QC samples only
-  z_long <- tidyr::pivot_longer(
-    z_tbl,
-    cols = all_of(met_cols),
-    names_to = "metabolite",
-    values_to = "z"
-  )
-  cand_long <- subset(z_long,
-                      group_id != "QC" & is.finite(z) &
-                        (z >= z_threshold | z <= -z_threshold))
-  
-  push_row <- function(rows, r, method, pval, ratio, decision) {
-    df <- rows[r, , drop = FALSE]
-    df$method <- method
-    df$p_value <- pval
-    df$test_strength <- ratio
-    df$decision <- decision
-    df
+    used_in_fit[group_complete_idx] <- TRUE
   }
   
-  confirm_rows <- list()
-  if (nrow(cand_long) > 0) {
-    cand_long <- merge(cand_long, qc_rsd_tbl, by = "metabolite", all.x = TRUE)
-    by_key <- interaction(cand_long$group_id, cand_long$metabolite, drop = TRUE)
-    split_idx <- split(seq_len(nrow(cand_long)), by_key)
+  ## 11. Chi-square cutoff for (1 - alpha) ellipse (df = p after any drops)
+  cutoff <- stats::qchisq(1 - alpha, df = p)
+  is_outlier_sample <- !is.na(T2) & (T2 > cutoff)
+  
+  ## 12. Augmented data frame
+  out_df <- df
+  out_df$T2               <- T2
+  out_df$is_outlier_sample <- is_outlier_sample
+  out_df$used_in_fit      <- used_in_fit
+  
+  ## 13. Per-metabolite extreme values based on global z-scores in outliers
+  Z <- X_scaled_all  # globally scaled z-scores (for retained metabolites only)
+  
+  is_outlier_mat <- matrix(is_outlier_sample,
+                           nrow = nrow(Z),
+                           ncol = ncol(Z),
+                           byrow = FALSE)
+  
+  mask <- is_outlier_mat & !is.na(Z) & (abs(Z) >= z_threshold)
+  idx  <- which(mask, arr.ind = TRUE)
+  
+  if (nrow(idx) > 0L) {
+    row_ids <- idx[, "row"]
+    col_ids <- idx[, "col"]
     
-    for (idx in split_idx) {
-      rows <- cand_long[idx, , drop = FALSE]
-      gid  <- rows$group_id[1]
-      met  <- rows$metabolite[1]
-      
-      grp  <- df2[df2$group_id == gid &
-                    df2$class != "QC", c("sample", met), drop = FALSE]
-      vals <- grp[[met]]
-      names(vals) <- grp$sample
-      valid <- which(is.finite(vals))
-      if (length(valid) < min_group_n) {
-        for (r in seq_len(nrow(rows))) {
-          confirm_rows[[length(confirm_rows) + 1]] <-  push_row(
-            rows,
-            r,
-            method = NA_character_,
-            pval = NA_real_,
-            ratio = NA_real_,
-            decision = "insufficient_n"
-          )
-        }
-        next
-      }
-      
-      rsd <- rows$qc_rsd[1]
-      gate <- ifelse(
-        !is.na(rsd) & rsd <= 100 * qc_rsd_stable,
-        "stable",
-        ifelse(
-          !is.na(rsd) &
-            rsd > 100 * qc_rsd_unstable,
-          "unstable",
-          "borderline"
-        )
-      )
-      
-      for (r in seq_len(nrow(rows))) {
-        s <- rows$sample[r]
-        x <- as.numeric(vals[valid])
-        names(x) <- names(vals)[valid]
-        
-        if (!(s %in% names(x))) {
-          confirm_rows[[length(confirm_rows) + 1]] <- push_row(
-            rows,
-            r,
-            method = NA_character_,
-            pval = NA_real_,
-            ratio = NA_real_,
-            decision = "no_value"
-          )
-          next
-        }
-        if (gate == "unstable") {
-          confirm_rows[[length(confirm_rows) + 1]] <- push_row(
-            rows,
-            r,
-            method = NA_character_,
-            pval = NA_real_,
-            ratio = NA_real_,
-            decision = "skip_unstable_qc"
-          )
-          next
-        }
-        # stricter z for borderline QC
-        z_ok <- abs(rows$z[r]) >= ifelse(gate == "borderline", max(z_threshold, 5), z_threshold)
-        if (!z_ok) {
-          confirm_rows[[length(confirm_rows) + 1]] <- push_row(
-            rows,
-            r,
-            method = NA_character_,
-            pval = NA_real_,
-            ratio = NA_real_,
-            decision = "below_borderline_z"
-          )
-          next
-        }
-        if (!has_out) {
-          confirm_rows[[length(confirm_rows) + 1]] <- push_row(
-            rows,
-            r,
-            method = NA_character_,
-            pval = NA_real_,
-            ratio = NA_real_,
-            decision = "outliers_pkg_missing"
-          )
-          next
-        }
-        
-        # MD contribution as an independent confirm signal
-        md_row <- md_tbl[md_tbl$sample == s &
-                           md_tbl$group_id == gid, , drop = FALSE]
-        md_ok  <- nrow(md_row) > 0 && isTRUE(md_row$flagged[1])
-        
-        n <- length(x)
-        # For small/medium-n tests we need extreme status
-        is_min <- which.min(x) == which(names(x) == s)
-        is_max <- which.max(x) == which(names(x) == s)
-        tied_extreme <- (sum(x == min(x)) > 1) ||
-          (sum(x == max(x)) > 1)
-        
-        
-        
-        # holders
-        meth <- NA_character_
-        pval <- NA_real_
-        ratio <- NA_real_
-        decision <- "retain"
-        tt <- NULL
-        
-        # Large-n: Rosner (ESD)
-        if (n > 25) {
-          if (has_env) {
-            K <- min(max(1, floor(0.1 * n)), 10, n - 2)
-            tt <- tryCatch(
-              EnvStats::rosnerTest(x, k = K, alpha = alpha),
-              error = function(e)
-                NULL
-            )
-            if (is.null(tt)) {
-              meth <- "rosner"
-              decision <- "test_error"
-            } else {
-              stats <- tt$all.stats
-              obs_col <- grep("^Obs(\\.|_)?Num$", names(stats), value = TRUE)[1]
-              r_col   <- grep("^R", names(stats), value = TRUE)[1]
-              lam_col <- grep("^lambda",
-                              names(stats),
-                              ignore.case = TRUE,
-                              value = TRUE)[1]
-              out_col <- grep("^Outlier$",
-                              names(stats),
-                              ignore.case = TRUE,
-                              value = TRUE)[1]
-              pos <- match(s, names(x))
-              row_idx <- if (!is.na(obs_col))
-                match(pos, stats[[obs_col]])
-              else
-                NA_integer_
-              out_mask <- if (!is.na(out_col) &&
-                              is.logical(stats[[out_col]]))
-                stats[[out_col]]
-              else if (!is.na(out_col))
-                stats[[out_col]] %in% c("Yes", "TRUE", "True", "T", "1")
-              else
-                rep(FALSE, nrow(stats))
-              is_out <- is.finite(row_idx) &&
-                !is.na(row_idx) && isTRUE(out_mask[row_idx])
-              ratio <- if (!is.na(row_idx) &&
-                           !is.na(r_col) && !is.na(lam_col)) {
-                as.numeric(stats[row_idx, r_col]) / as.numeric(stats[row_idx, lam_col])
-              } else
-                NA_real_
-              meth <- "rosner"
-              decision <- if (is_out)
-                "confirm"
-              else
-                "retain"
-              pval <- NA_real_
-            }
-          } else {
-            meth <- "rosner"
-            decision <- "pkg_missing"
-          }
-          
-        } else {
-          # Small/medium-n: Dixon or Grubbs guarded
-          use_dixon <- (confirm_method == "dixon") &&
-            (n >= 3 && n <= 30)
-          if (use_dixon)
-            use_dixon <- (is_min || is_max) && !tied_extreme
-          
-          if (use_dixon) {
-            tt <- tryCatch(
-              outliers::dixon.test(x, two.sided = TRUE),
-              error = function(e)
-                NULL
-            )
-            meth <- if (is.null(tt))
-              "grubbs"
-            else
-              "dixon"
-            if (is.null(tt))
-              tt <- tryCatch(
-                outliers::grubbs.test(x, two.sided = TRUE),
-                error = function(e)
-                  NULL
-              )
-          } else {
-            if (!(is_min || is_max) || tied_extreme) {
-              if (md_ok) {
-                # MD override confirms even when Grubbs cannot run
-                confirm_rows[[length(confirm_rows) + 1]] <-
-                  push_row(
-                    rows,
-                    r,
-                    method = "md_only",
-                    pval = NA_real_,
-                    ratio = NA_real_,
-                    decision = "confirm"
-                  )
-              } else {
-                confirm_rows[[length(confirm_rows) + 1]] <-
-                  push_row(
-                    rows,
-                    r,
-                    method = "grubbs",
-                    pval = NA_real_,
-                    ratio = NA_real_,
-                    decision = "not_extreme_for_grubbs"
-                  )
-              }
-              next
-            }
-            tt <- tryCatch(
-              outliers::grubbs.test(x, two.sided = TRUE),
-              error = function(e)
-                NULL
-            )
-            meth <- "grubbs"
-          }
-          
-          if (!is.null(tt)) {
-            decision <- ifelse(tt$p.value < alpha, "confirm", "retain")
-            pval <- as.numeric(tt$p.value)
-          } else {
-            decision <- "test_error"
-          }
-        }
-        
-        # Final decision: test_ok OR md_ok
-        if (decision %in% c("confirm", "retain")) {
-          test_ok <- (decision == "confirm")
-          decision <- if ((test_ok ||
-                           md_ok))
-            "confirm"
-          else
-            "retain"
-        } else if (md_ok) {
-          decision <- "confirm"
-          meth <- if (is.na(meth))
-            "md_only"
-          else
-            paste0(meth, "+md")
-        }
-        
-        confirm_rows[[length(confirm_rows) + 1]] <-
-          push_row(
-            rows,
-            r,
-            method = meth,
-            pval = pval,
-            ratio = ratio,
-            decision = decision
-          )
-      }
-    }
+    metabolite_names <- met_cols[col_ids]
+    
+    extreme_values <- data.frame(
+      df[row_ids, meta_cols, drop = FALSE],
+      metabolite   = metabolite_names,
+      value_raw    = X_raw[cbind(row_ids, col_ids)],
+      value_log    = if (log_transform) X_log[cbind(row_ids, col_ids)] else NA_real_,
+      value_scaled = Z[cbind(row_ids, col_ids)],
+      abs_z        = abs(Z[cbind(row_ids, col_ids)]),
+      T2           = T2[row_ids],
+      stringsAsFactors = FALSE
+    )
+  } else {
+    extreme_values <- data.frame(
+      df[0, meta_cols, drop = FALSE],
+      metabolite   = character(0),
+      value_raw    = numeric(0),
+      value_log    = numeric(0),
+      value_scaled = numeric(0),
+      abs_z        = numeric(0),
+      T2           = numeric(0),
+      stringsAsFactors = FALSE
+    )
   }
   
-  confirm_tbl <- if (length(confirm_rows))
-    do.call(rbind, confirm_rows)
-  else
-    data.frame(
-      sample = character(),
-      batch = character(),
-      class = character(),
-      order = numeric(),
-      group_id = character(),
-      metabolite = character(),
-      z = numeric(),
-      qc_rsd = numeric(),
-      method = character(),
-      p_value = numeric(),
-      test_strength = numeric(),
-      decision = character(),
-      row.names = NULL
-    )
-  
+  ## 14. Return results
   list(
-    qc_rsd = qc_rsd_tbl,
-    sample_md = md_tbl,
-    candidate_metabolites = cand_long,
-    confirmations = confirm_tbl,
-    params = list(
-      group_nonqc_by_class = group_nonqc_by_class,
-      z_threshold = z_threshold,
-      alpha = alpha
+    data           = out_df,
+    extreme_values = extreme_values,
+    params         = list(
+      alpha                  = alpha,
+      cutoff                 = cutoff,
+      z_threshold            = z_threshold,
+      log_transform          = log_transform,
+      log_offset             = log_offset,
+      robust                 = robust,
+      p                      = p,
+      group_col              = group_col,
+      min_complete_per_group = min_complete_per_group,
+      drop_constant          = drop_constant,
+      const_tol              = const_tol,
+      ridge_factor           = ridge_factor,
+      retained_metabolites   = met_cols
     )
   )
 }
