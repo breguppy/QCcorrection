@@ -1,84 +1,91 @@
-#' Hotelling T^2 outlier detection with optional class-wise grouping
-#' and handling of singular covariance matrices.
+#' Hotelling T^2 on pooled non-QC samples with dual z-scores
 #'
 #' This function:
 #' 1) extracts metabolite columns,
-#' 2) log-transforms and globally scales them,
-#' 3) computes (robust) covariance and Hotelling-like T^2 via Mahalanobis
-#'    distance, either globally or within groups defined by `group_col`,
-#'    with a small ridge added to avoid singular covariance matrices,
-#' 4) flags samples outside the (1 - alpha) ellipse,
-#' 5) within flagged samples, identifies metabolite values with large |z|.
+#' 2) log-transforms and scales them using pooled non-QC samples,
+#' 3) computes Hotelling-like T^2 (via Mahalanobis distance) on pooled non-QC,
+#' 4) flags outlier non-QC samples based on a chi-square cutoff,
+#' 5) for outlier samples, computes:
+#'    - global z-scores (pooled non-QC),
+#'    - class-based z-scores (within each non-QC class),
+#' 6) flags metabolite values where both |global z| and |class z|
+#'    exceed thresholds.
 #'
 #' @param df data.frame
-#'   Input data with metadata columns and metabolite columns.
+#'   Input data with columns for metadata and metabolite intensities.
 #' @param meta_cols character
 #'   Names of metadata columns to exclude from multivariate analysis.
-#'   Default assumes "sample", "batch", "class", "order".
+#'   Default: c("sample", "batch", "class", "order").
+#' @param class_col character
+#'   Name of the column containing class labels. Default: "class".
+#' @param qc_label character
+#'   Label in `class_col` indicating QC samples (to be excluded from T^2).
+#'   Default: "QC".
 #' @param alpha numeric
 #'   Significance level for the Hotelling ellipse (default 0.05 => 95% ellipse).
 #' @param log_transform logical
-#'   Whether to apply log2(x + offset) to metabolite columns.
+#'   Whether to apply log2(x + offset) to metabolite columns. Default TRUE.
 #' @param log_offset numeric
-#'   Constant added before log-transform to avoid log(0).
-#' @param robust logical
-#'   If TRUE, use rrcov::CovMcd for robust covariance; otherwise classical cov().
+#'   Constant added before log-transform to avoid log(0). Default 1.
 #' @param z_threshold numeric
-#'   Absolute z-score threshold for per-metabolite flags within outlier samples.
-#' @param group_col character or NULL
-#'   Optional column name in `df` used to group samples for T^2 computation,
-#'   e.g. "class". If NULL, T^2 is computed globally across all samples.
-#' @param min_complete_per_group integer
-#'   Minimum number of complete rows (no NA in metabolite columns) required
-#'   per group to estimate covariance.
+#'   Absolute threshold for the global z-score. Default 3.
+#' @param class_z_threshold numeric
+#'   Absolute threshold for the class-based z-score. Default equal to z_threshold.
+#' @param min_complete integer
+#'   Minimum number of complete non-QC rows required for covariance estimation.
+#'   Default 3.
 #' @param drop_constant logical
-#'   If TRUE, drop metabolite columns with (near) zero variance (based on
-#'   globally complete rows) before covariance estimation.
+#'   If TRUE, drop metabolite columns with near-zero variance (based on
+#'   complete non-QC rows) before covariance estimation. Default TRUE.
 #' @param const_tol numeric
 #'   Variance threshold below which a metabolite is considered constant.
+#'   Default 1e-12.
 #' @param ridge_factor numeric
-#'   Factor controlling the ridge size. Ridge is computed as
-#'   `ridge_factor * mean(diag(cov_mat))` and added to the diagonal to ensure
-#'   invertibility.
+#'   Factor controlling the ridge size added to the covariance matrix:
+#'   ridge = ridge_factor * mean(diag(cov_mat)). Default 1e-6.
 #'
 #' @return list
 #'   A list with components:
 #'   - data: original df with added columns:
-#'       * T2: squared Mahalanobis distance
-#'       * is_outlier_sample: TRUE if outside (1 - alpha) ellipse
-#'       * used_in_fit: TRUE if row was used to estimate covariance
+#'       * T2: squared Mahalanobis distance for non-QC samples (NA for QC or
+#'             incomplete rows)
+#'       * is_outlier_sample: TRUE if non-QC sample outside (1 - alpha) ellipse
+#'       * used_in_fit: TRUE if row used to estimate covariance
 #'   - extreme_values: long-format data.frame of flagged metabolite values
-#'       * includes metadata, metabolite name, raw/log/scaled values, |z|, T2
-#'   - params: list of settings used.
+#'       * includes metadata, metabolite name, raw/log values,
+#'         global and class z-scores, abs values, and T2
+#'   - params: list of settings used (alpha, cutoff, thresholds, etc.).
 #'
 #' @examples
-#' # Global:
-#' # res <- detect_hotelling_with_metabolite_flags_grouped(df)
-#' # By class:
-#' # res <- detect_hotelling_with_metabolite_flags_grouped(df, group_col = "class")
+#' # res <- detect_hotelling_nonqc_dual_z(df)
 #' @keywords internal
 #' @noRd
-detect_hotelling_with_metabolite_flags_grouped <- function(
+detect_hotelling_nonqc_dual_z <- function(
     df,
-    meta_cols              = c("sample", "batch", "class", "order"),
-    alpha                  = 0.05,
-    log_transform          = TRUE,
-    log_offset             = 1,
-    robust                 = TRUE,
-    z_threshold            = 3,
-    group_col              = NULL,
-    min_complete_per_group = 3L,
-    drop_constant          = TRUE,
-    const_tol              = 1e-12,
-    ridge_factor           = 1e-6
+    meta_cols         = c("sample", "batch", "class", "order"),
+    class_col         = "class",
+    qc_label          = "QC",
+    alpha             = 0.05,
+    log_transform     = TRUE,
+    log_offset        = 1,
+    z_threshold       = 3,
+    class_z_threshold = z_threshold,
+    min_complete      = 3L,
+    drop_constant     = TRUE,
+    const_tol         = 1e-12,
+    ridge_factor      = 1e-6
 ) {
-  ## 1. Check metadata columns
+  # 1. Basic checks -----------------------------------------------------------
   missing_meta <- setdiff(meta_cols, names(df))
   if (length(missing_meta) > 0L) {
-    stop("Missing metadata columns in df: ", paste(missing_meta, collapse = ", "))
+    stop("Missing metadata columns in df: ",
+         paste(missing_meta, collapse = ", "))
+  }
+  if (!class_col %in% names(df)) {
+    stop("class_col '", class_col, "' not found in df.")
   }
   
-  ## 2. Identify metabolite columns: non-metadata numeric columns
+  # 2. Identify metabolite columns (numeric, non-metadata) -------------------
   candidate_cols <- setdiff(names(df), meta_cols)
   met_cols <- candidate_cols[vapply(df[candidate_cols], is.numeric, logical(1))]
   if (length(met_cols) == 0L) {
@@ -87,39 +94,43 @@ detect_hotelling_with_metabolite_flags_grouped <- function(
   
   X_raw <- as.matrix(df[, met_cols, drop = FALSE])
   
-  ## 3. Log-transform if requested
+  # 3. Log-transform ----------------------------------------------------------
   if (log_transform) {
     X_log <- log2(X_raw + log_offset)
   } else {
     X_log <- X_raw
   }
   
-  ## 4. Global complete cases for scaling / variance checks
-  complete_global <- stats::complete.cases(X_log)
-  X_complete_global <- X_log[complete_global, , drop = FALSE]
+  # 4. Define non-QC mask and complete non-QC rows for fit -------------------
+  class_vec <- df[[class_col]]
+  nonqc_mask <- !is.na(class_vec) & class_vec != qc_label
   
-  if (nrow(X_complete_global) < 3L) {
-    stop("Too few complete rows to estimate global scaling.")
+  # Use non-QC + complete metabolite data for covariance/scaling
+  complete_nonqc <- nonqc_mask & stats::complete.cases(X_log)
+  X_fit <- X_log[complete_nonqc, , drop = FALSE]
+  
+  if (sum(complete_nonqc) < min_complete) {
+    stop("Too few complete non-QC rows to estimate covariance.")
   }
   
-  ## 5. Optionally drop constant (near-zero variance) metabolite columns
+  # 5. Optionally drop constant (near-zero variance) metabolites -------------
   if (drop_constant) {
-    v <- apply(X_complete_global, 2L, stats::var, na.rm = TRUE)
+    v <- apply(X_fit, 2L, stats::var, na.rm = TRUE)
     const_mask <- v <= const_tol | is.na(v)
     
     if (any(const_mask)) {
       dropped_mets <- met_cols[const_mask]
       message(
-        "Dropping ", length(dropped_mets), " metabolite(s) with near-zero variance: ",
+        "Dropping ", length(dropped_mets),
+        " metabolite(s) with near-zero variance among non-QC: ",
         paste(dropped_mets, collapse = ", ")
       )
       
-      # Keep only non-constant metabolites
       keep_mask <- !const_mask
       met_cols  <- met_cols[keep_mask]
       X_raw     <- X_raw[, keep_mask, drop = FALSE]
       X_log     <- X_log[, keep_mask, drop = FALSE]
-      X_complete_global <- X_complete_global[, keep_mask, drop = FALSE]
+      X_fit     <- X_fit[, keep_mask, drop = FALSE]
     }
   }
   
@@ -127,10 +138,10 @@ detect_hotelling_with_metabolite_flags_grouped <- function(
     stop("All metabolite columns were dropped as constant; cannot proceed.")
   }
   
-  ## 6. Global scaling (center + sd from complete rows)
-  X_scaled_complete <- scale(X_complete_global)
-  center_scaled     <- attr(X_scaled_complete, "scaled:center")
-  scale_scaled      <- attr(X_scaled_complete, "scaled:scale")
+  # 6. Scaling based on pooled non-QC fit rows --------------------------------
+  X_fit_scaled <- scale(X_fit)
+  center_scaled <- attr(X_fit_scaled, "scaled:center")
+  scale_scaled  <- attr(X_fit_scaled, "scaled:scale")
   
   scale_all_rows <- function(X_raw, center_raw, scale_raw) {
     sweep(sweep(X_raw, 2L, center_raw, FUN = "-"), 2L, scale_raw, FUN = "/")
@@ -139,145 +150,160 @@ detect_hotelling_with_metabolite_flags_grouped <- function(
   X_scaled_all <- scale_all_rows(X_log, center_scaled, scale_scaled)
   p <- ncol(X_scaled_all)
   
-  ## 7. Prepare output vectors
+  # 7. Covariance (classical) + ridge, on pooled non-QC fit rows -------------
+  cov_mat <- stats::cov(X_fit_scaled)
+  
+  # Ridge regularization
+  d <- diag(cov_mat)
+  mean_diag <- mean(d)
+  if (!is.finite(mean_diag) || mean_diag <= 0) {
+    mean_diag <- 1
+  }
+  ridge <- ridge_factor * mean_diag
+  cov_reg <- cov_mat + diag(ridge, nrow(cov_mat))
+  
+  # 8. Compute T^2 for non-QC complete rows ----------------------------------
   n <- nrow(df)
   T2          <- rep(NA_real_, n)
   used_in_fit <- rep(FALSE, n)
   
-  ## 8. Grouping logic
-  if (is.null(group_col)) {
-    group_factor <- factor(rep("all", n))
-  } else {
-    if (!group_col %in% names(df)) {
-      stop("group_col '", group_col, "' not found in df.")
-    }
-    group_factor <- as.factor(df[[group_col]])
-  }
+  # Non-QC rows with complete data in retained metabolite columns
+  complete_nonqc_retained <- nonqc_mask & stats::complete.cases(X_log[, met_cols, drop = FALSE])
   
-  group_levels <- levels(group_factor)
-  
-  if (robust && !requireNamespace("rrcov", quietly = TRUE)) {
-    stop("Package 'rrcov' is required for robust = TRUE. Please install it.")
-  }
-  
-  ## 9. Function to add ridge to covariance and ensure invertibility
-  regularize_cov <- function(cov_mat, ridge_factor) {
-    d <- diag(cov_mat)
-    mean_diag <- mean(d)
-    if (!is.finite(mean_diag) || mean_diag <= 0) {
-      # fallback: use 1 as scale if covariance is degenerate
-      mean_diag <- 1
-    }
-    ridge <- ridge_factor * mean_diag
-    cov_mat + diag(ridge, nrow(cov_mat))
-  }
-  
-  ## 10. Loop over groups and compute T^2
-  for (g in group_levels) {
-    group_idx <- which(group_factor == g)
-    if (length(group_idx) == 0L) next
+  if (any(complete_nonqc_retained)) {
+    idx_nonqc <- which(complete_nonqc_retained)
+    X_nonqc_scaled <- X_scaled_all[idx_nonqc, , drop = FALSE]
     
-    # complete cases within this group (no NA in metabolite columns)
-    group_complete_mask <- stats::complete.cases(X_log[group_idx, , drop = FALSE])
-    group_complete_idx  <- group_idx[group_complete_mask]
-    
-    if (length(group_complete_idx) < min_complete_per_group) {
-      next
-    }
-    
-    X_group_scaled_complete <- X_scaled_all[group_complete_idx, , drop = FALSE]
-    
-    # Covariance and center (robust or classical) in scaled space
-    if (robust) {
-      cov_fit <- rrcov::CovMcd(X_group_scaled_complete)
-      center_g <- cov_fit@center
-      cov_g    <- cov_fit@cov
-    } else {
-      center_g <- colMeans(X_group_scaled_complete)
-      cov_g    <- stats::cov(X_group_scaled_complete)
-    }
-    
-    # Regularize covariance to avoid singular matrix
-    cov_g_reg <- regularize_cov(cov_g, ridge_factor = ridge_factor)
-    
-    # Mahalanobis T^2 for complete rows in this group
-    T2[group_complete_idx] <- stats::mahalanobis(
-      x      = X_scaled_all[group_complete_idx, , drop = FALSE],
-      center = center_g,
-      cov    = cov_g_reg
+    T2[idx_nonqc] <- stats::mahalanobis(
+      x      = X_nonqc_scaled,
+      center = colMeans(X_fit_scaled),
+      cov    = cov_reg
     )
     
-    used_in_fit[group_complete_idx] <- TRUE
+    # Rows used in covariance fit
+    used_in_fit[which(complete_nonqc)] <- TRUE
   }
   
-  ## 11. Chi-square cutoff for (1 - alpha) ellipse (df = p after any drops)
+  # 9. Chi-square cutoff and outlier flag ------------------------------------
   cutoff <- stats::qchisq(1 - alpha, df = p)
   is_outlier_sample <- !is.na(T2) & (T2 > cutoff)
   
-  ## 12. Augmented data frame
+  # 10. Global z-scores (pooled non-QC) --------------------------------------
+  # These are just X_scaled_all for retained metabolites
+  Z_global <- X_scaled_all  # same dimension as X_log for retained mets
+  
+  # 11. Class-based z-scores (within each non-QC class) ----------------------
+  Z_class <- matrix(NA_real_, nrow = nrow(df), ncol = length(met_cols))
+  colnames(Z_class) <- met_cols
+  
+  nonqc_classes <- sort(unique(class_vec[nonqc_mask]))
+  
+  for (cls in nonqc_classes) {
+    idx_cls <- which(class_vec == cls)
+    
+    X_cls <- X_log[idx_cls, , drop = FALSE]
+    
+    mu_cls <- apply(X_cls, 2L, mean, na.rm = TRUE)
+    sd_cls <- apply(X_cls, 2L, stats::sd,   na.rm = TRUE)
+    
+    zero_sd <- !is.finite(sd_cls) | sd_cls == 0
+    sd_cls[zero_sd] <- NA_real_
+    
+    # z = (x - mu) / sd (per class)
+    Z_cls <- sweep(X_cls, 2L, mu_cls, FUN = "-")
+    Z_cls <- sweep(Z_cls, 2L, sd_cls, FUN = "/")
+    
+    Z_class[idx_cls, ] <- Z_cls
+  }
+  
+  # 12. Flag metabolite values where both |z_global| and |z_class| exceed ----
+  #     thresholds, restricted to outlier samples.
+  outlier_idx <- which(is_outlier_sample)
+  
+  extreme_values <- NULL
+  
+  if (length(outlier_idx) > 0L) {
+    # Build masks for global + class-based z thresholds
+    Zg <- Z_global[outlier_idx, , drop = FALSE]
+    Zc <- Z_class[outlier_idx,  , drop = FALSE]
+    
+    mask <- !is.na(Zg) & !is.na(Zc) &
+      (abs(Zg) >= z_threshold) &
+      (abs(Zc) >= class_z_threshold)
+    
+    idx <- which(mask, arr.ind = TRUE)
+    
+    if (nrow(idx) > 0L) {
+      row_ids_global <- outlier_idx[idx[, "row"]]
+      col_ids        <- idx[, "col"]
+      
+      metabolite_names <- met_cols[col_ids]
+      
+      extreme_values <- data.frame(
+        df[row_ids_global, meta_cols, drop = FALSE],
+        metabolite        = metabolite_names,
+        value_raw         = X_raw[cbind(row_ids_global, col_ids)],
+        value_log         = X_log[cbind(row_ids_global, col_ids)],
+        z_global          = Z_global[cbind(row_ids_global, col_ids)],
+        abs_z_global      = abs(Z_global[cbind(row_ids_global, col_ids)]),
+        z_class           = Z_class[cbind(row_ids_global, col_ids)],
+        abs_z_class       = abs(Z_class[cbind(row_ids_global, col_ids)]),
+        T2                = T2[row_ids_global],
+        stringsAsFactors  = FALSE
+      )
+    } else {
+      extreme_values <- data.frame(
+        df[0, meta_cols, drop = FALSE],
+        metabolite    = character(0),
+        value_raw     = numeric(0),
+        value_log     = numeric(0),
+        z_global      = numeric(0),
+        abs_z_global  = numeric(0),
+        z_class       = numeric(0),
+        abs_z_class   = numeric(0),
+        T2            = numeric(0),
+        stringsAsFactors = FALSE
+      )
+    }
+  } else {
+    extreme_values <- data.frame(
+      df[0, meta_cols, drop = FALSE],
+      metabolite    = character(0),
+      value_raw     = numeric(0),
+      value_log     = numeric(0),
+      z_global      = numeric(0),
+      abs_z_global  = numeric(0),
+      z_class       = numeric(0),
+      abs_z_class   = numeric(0),
+      T2            = numeric(0),
+      stringsAsFactors = FALSE
+    )
+  }
+  
+  # 13. data frame 
   out_df <- df
   out_df$T2               <- T2
   out_df$is_outlier_sample <- is_outlier_sample
   out_df$used_in_fit      <- used_in_fit
   
-  ## 13. Per-metabolite extreme values based on global z-scores in outliers
-  Z <- X_scaled_all  # globally scaled z-scores (for retained metabolites only)
-  
-  is_outlier_mat <- matrix(is_outlier_sample,
-                           nrow = nrow(Z),
-                           ncol = ncol(Z),
-                           byrow = FALSE)
-  
-  mask <- is_outlier_mat & !is.na(Z) & (abs(Z) >= z_threshold)
-  idx  <- which(mask, arr.ind = TRUE)
-  
-  if (nrow(idx) > 0L) {
-    row_ids <- idx[, "row"]
-    col_ids <- idx[, "col"]
-    
-    metabolite_names <- met_cols[col_ids]
-    
-    extreme_values <- data.frame(
-      df[row_ids, meta_cols, drop = FALSE],
-      metabolite   = metabolite_names,
-      value_raw    = X_raw[cbind(row_ids, col_ids)],
-      value_log    = if (log_transform) X_log[cbind(row_ids, col_ids)] else NA_real_,
-      value_scaled = Z[cbind(row_ids, col_ids)],
-      abs_z        = abs(Z[cbind(row_ids, col_ids)]),
-      T2           = T2[row_ids],
-      stringsAsFactors = FALSE
-    )
-  } else {
-    extreme_values <- data.frame(
-      df[0, meta_cols, drop = FALSE],
-      metabolite   = character(0),
-      value_raw    = numeric(0),
-      value_log    = numeric(0),
-      value_scaled = numeric(0),
-      abs_z        = numeric(0),
-      T2           = numeric(0),
-      stringsAsFactors = FALSE
-    )
-  }
-  
-  ## 14. Return results
   list(
     data           = out_df,
     extreme_values = extreme_values,
     params         = list(
-      alpha                  = alpha,
-      cutoff                 = cutoff,
-      z_threshold            = z_threshold,
-      log_transform          = log_transform,
-      log_offset             = log_offset,
-      robust                 = robust,
-      p                      = p,
-      group_col              = group_col,
-      min_complete_per_group = min_complete_per_group,
-      drop_constant          = drop_constant,
-      const_tol              = const_tol,
-      ridge_factor           = ridge_factor,
-      retained_metabolites   = met_cols
+      alpha             = alpha,
+      cutoff            = cutoff,
+      z_threshold       = z_threshold,
+      class_z_threshold = class_z_threshold,
+      log_transform     = log_transform,
+      log_offset        = log_offset,
+      p                 = p,
+      class_col         = class_col,
+      qc_label          = qc_label,
+      min_complete      = min_complete,
+      drop_constant     = drop_constant,
+      const_tol         = const_tol,
+      ridge_factor      = ridge_factor,
+      retained_metabolites = met_cols
     )
   )
 }

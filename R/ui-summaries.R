@@ -317,43 +317,67 @@ ui_outliers <- function(p, d,
                         digits_z   = 2L,
                         digits_T2  = 2L) {
   df <- if (p$out_data == "filtered_cor_data") d$filtered_corrected$df else d$transformed$df
-  if(p$sample_grouping) {
-    detect_result <- detect_hotelling_with_metabolite_flags_grouped(df, group_col = "class")
-  } else {
-    detect_result <- detect_hotelling_with_metabolite_flags_grouped(df)
-  }
-  # Extract extreme values
-  ev <- detect_result$extreme_values
+  
+  detect_result <- detect_hotelling_nonqc_dual_z(df)
+  
+  # Extract extreme values and full data
+  ev   <- detect_result$extreme_values
+  dres <- detect_result$data
+  
   if (is.null(ev)) {
     stop("detect_result$extreme_values is NULL. Did you pass the correct object?")
   }
   
-  # If no extreme values, return a simple message
+  # Metric values
+  n_outlier_samples  <- sum(dres$is_outlier_sample, na.rm = TRUE)
+  n_extreme_values   <- nrow(ev)
+  
+  # Metric cards
+  cards <- shiny::div(
+    style = "display:flex; gap:10px; margin-bottom:10px;",
+    metric_card("Outlier samples (Hotelling's T^2)", n_outlier_samples),
+    metric_card("Extreme metabolite values", n_extreme_values)
+  )
+  
+  # If no extreme values, just show cards + message
   if (nrow(ev) == 0L) {
     return(shiny::tagList(
+      cards,
       shiny::tags$em("No extreme metabolite values detected in outlier samples.")
     ))
   }
   
-  # Check required columns
-  required_cols <- c(sample_col, class_col, "metabolite",
-                     "value_scaled", "abs_z", "T2")
+  # Check required columns from detect_hotelling_nonqc_dual_z()
+  required_cols <- c(
+    sample_col,
+    class_col,
+    "metabolite",
+    "z_global",
+    "abs_z_global",
+    "z_class",
+    "abs_z_class",
+    "T2"
+  )
   missing_cols <- setdiff(required_cols, names(ev))
   if (length(missing_cols) > 0L) {
-    stop("Missing columns in extreme_values: ",
-         paste(missing_cols, collapse = ", "))
+    stop(
+      "Missing columns in extreme_values: ",
+      paste(missing_cols, collapse = ", ")
+    )
   }
   
-  # Sort by |z| (and then by T2), descending
-  ev_sorted <- ev[order(-ev$abs_z, -ev$T2), , drop = FALSE]
+  # Sort by |z_global|, then |z_class|, then T2, descending
+  ev_sorted <- ev[order(-ev$abs_z_global, -ev$abs_z_class, -ev$T2), , drop = FALSE]
   
   # Take top_n rows
   ev_top <- head(ev_sorted, top_n)
   
   # Format numeric values
-  z_fmt  <- formatC(ev_top$value_scaled, format = "f", digits = digits_z)
-  absz_fmt <- formatC(ev_top$abs_z, format = "f", digits = digits_z)
-  T2_fmt <- formatC(ev_top$T2, format = "f", digits = digits_T2)
+  z_g_fmt    <- formatC(ev_top$z_global,      format = "f", digits = digits_z)
+  absz_g_fmt <- formatC(ev_top$abs_z_global,  format = "f", digits = digits_z)
+  z_c_fmt    <- formatC(ev_top$z_class,       format = "f", digits = digits_z)
+  absz_c_fmt <- formatC(ev_top$abs_z_class,   format = "f", digits = digits_z)
+  T2_fmt     <- formatC(ev_top$T2,            format = "f", digits = digits_T2)
   
   # Build table rows
   rows <- lapply(seq_len(nrow(ev_top)), function(i) {
@@ -361,29 +385,35 @@ ui_outliers <- function(p, d,
       shiny::tags$td(ev_top[[sample_col]][i]),
       shiny::tags$td(ev_top[[class_col]][i]),
       shiny::tags$td(ev_top$metabolite[i]),
-      shiny::tags$td(z_fmt[i]),
-      shiny::tags$td(absz_fmt[i]),
+      shiny::tags$td(z_g_fmt[i]),
+      shiny::tags$td(absz_g_fmt[i]),
+      shiny::tags$td(z_c_fmt[i]),
+      shiny::tags$td(absz_c_fmt[i]),
       shiny::tags$td(T2_fmt[i])
     )
   })
   
   # Build full table with header
-  shiny::tagList(
-    shiny::tags$table(
-      class = "table table-striped table-condensed table-hover",
-      shiny::tags$thead(
-        shiny::tags$tr(
-          shiny::tags$th("Sample"),
-          shiny::tags$th("Class"),
-          shiny::tags$th("Metabolite"),
-          shiny::tags$th("z-score"),
-          shiny::tags$th("|z|"),
-          shiny::tags$th("Mahalanobis^2")
-        )
-      ),
-      shiny::tags$tbody(
-        rows
+  table_tag <- shiny::tags$table(
+    class = "table table-striped table-condensed table-hover",
+    shiny::tags$thead(
+      shiny::tags$tr(
+        shiny::tags$th("Sample"),
+        shiny::tags$th("Class"),
+        shiny::tags$th("Metabolite"),
+        shiny::tags$th("Global z-score"),
+        shiny::tags$th("|z| (global)"),
+        shiny::tags$th("Class z-score"),
+        shiny::tags$th("|z| (class)"),
+        shiny::tags$th("Mahalanobis^2")
       )
-    )
+    ),
+    shiny::tags$tbody(rows)
+  )
+  
+  shiny::tagList(
+    cards,
+    table_tag
   )
 }
+
