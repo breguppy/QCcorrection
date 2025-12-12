@@ -311,12 +311,18 @@ ui_postcor_filter_info <- function(filtered_corrected_result,
 }
 
 ui_outliers <- function(p, d, 
-                        top_n      = 10L,
-                        sample_col = "sample",
-                        class_col  = "class",
-                        digits_z   = 2L,
-                        digits_T2  = 2L) {
-  df <- if (p$out_data == "filtered_cor_data") d$filtered_corrected$df else d$transformed$df
+                        top_n        = 10L,
+                        sample_col   = "sample",
+                        class_col    = "class",
+                        digits_z     = 2L,
+                        digits_T2    = 2L,
+                        pca_output_id = "hotelling_pca",
+                        ns           = identity) {
+  df <- if (p$out_data == "filtered_cor_data") {
+    d$filtered_corrected$df
+  } else {
+    d$transformed$df
+  }
   
   detect_result <- detect_hotelling_nonqc_dual_z(df)
   
@@ -335,13 +341,14 @@ ui_outliers <- function(p, d,
   # Metric cards
   cards <- shiny::div(
     style = "display:flex; gap:10px; margin-bottom:10px;",
-    metric_card("Outlier samples (Hotelling's T^2)", n_outlier_samples),
-    metric_card("Extreme metabolite values", n_extreme_values)
+    metric_card("Samples outside the Hotelling's T^2 95% limit", n_outlier_samples),
+    metric_card("Potential extreme metabolite values", n_extreme_values)
   )
   
-  # If no extreme values, just show cards + message
+  # If no extreme values, just show cards + PCA + message
   if (nrow(ev) == 0L) {
     return(shiny::tagList(
+      shiny::plotOutput(ns(pca_output_id), height = "350px"),
       cards,
       shiny::tags$em("No extreme metabolite values detected in outlier samples.")
     ))
@@ -412,8 +419,17 @@ ui_outliers <- function(p, d,
   )
   
   shiny::tagList(
+    # PCA plot placeholder – actual plot comes from renderPlot()
+    shiny::plotOutput(ns(pca_output_id), height = "350px"),
     cards,
+    shiny::tags$span(
+      "Top 10 potential extreme values are listed below. ",
+      "The full list of potential extreme values 'extreme_values_*today's_date*.xlsx' ",
+      "is available for download."
+    ),
     table_tag
   )
 }
+
+
 

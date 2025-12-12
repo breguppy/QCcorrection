@@ -70,8 +70,10 @@ mod_correct_ui <- function(id) {
         sidebar = ui_sidebar_block(
           title = "2.4 Candidate Extreme Values",
           ui_detect_outliers_options(ns),
-          help = c("The samples listed in the table are considered extreme values by robust z\u002Dscore with a cutoff weighted by QC variability confired with a test chosen by group size or by Mahalanobis distance in PCA.")
-        ),
+          help = c("PCA and Hotelling's T^2 95% ellipse are computes in the PC1-PC2 space using only the non-QC samples.",
+                   "Samples outside the Hotelling's T^2 ellipse are colored red",
+                   "Samples listed in the table are outside the Hotelling's T^2 95% limit AND have at least 1 potential extreme metabolite value meaning global AND class |z| is greater than 3."
+        )),
         layout_sidebar(
           sidebar = ui_sidebar_block(
             title = "Download Extreme Value Summary",
@@ -85,7 +87,6 @@ mod_correct_ui <- function(id) {
       )
     ),
     card(
-      #style = "background-color: #eeeeee;",
       layout_sidebar(
         sidebar = ui_sidebar_block(
           title = "2.5 Identify Control Group",
@@ -343,7 +344,29 @@ mod_correct_server <- function(id, data, params) {
       req(filtered_corrected_r(), transformed_r())
       d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
       p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
-      ui_outliers(p, d)
+      ui_outliers(
+        p = p,
+        d = d,
+        pca_output_id = "hotelling_pca",
+        ns = ns
+      )
+    })
+    
+    output$hotelling_pca <- shiny::renderPlot({
+      req(filtered_corrected_r(), transformed_r())
+      d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
+      p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
+      # Use the same df logic as ui_outliers()
+      df <- if (p$out_data == "filtered_cor_data") {
+        d$filtered_corrected$df
+      } else {
+        d$transformed$df
+      }
+      
+      res <- detect_hotelling_nonqc_dual_z(df)
+      if (!is.null(res$pca_plot)) {
+        res$pca_plot
+      }
     })
     
     # add download button for extreme values.
