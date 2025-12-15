@@ -170,11 +170,30 @@ mod_correct_server <- function(id, data, params) {
       any(is.na(dplyr::filter(df, .data$class != "QC")[, mc, drop = FALSE]))
     })
     
+    observeEvent(has_qc_na_r(), {
+      if (!has_qc_na_r()) {
+        updateRadioButtons(
+          session,
+          inputId  = "qcImputeM",
+          selected = "nothing_to_impute"
+        )
+      }
+    }, ignoreInit = TRUE)
+    
+    observeEvent(has_sam_na_r(), {
+      if (!has_sam_na_r()) {
+        updateRadioButtons(
+          session,
+          inputId  = "samImputeM",
+          selected = "nothing_to_impute"
+        )
+      }
+    }, ignoreInit = TRUE)
+    
+    
     imputed_r <- reactive({
       df <- filtered_r()$df; mc <- metab_cols_r()
-      qcImpute  <- if (!has_qc_na_r())  "nothing_to_impute" else input$qcImputeM
-      samImpute <- if (!has_sam_na_r()) "nothing_to_impute" else input$samImputeM
-      impute_missing(df, mc, qcImpute, samImpute)
+      impute_missing(df, mc, input$qcImpute, input$samImpute)
     })
     
     corrected_r <- eventReactive(input$correct, {
@@ -193,21 +212,17 @@ mod_correct_server <- function(id, data, params) {
     
     filtered_corrected_r <- reactive({
       req(filtered_r(), corrected_r())
+      df_filtered <- filtered_r()$df
       df_corrected <- corrected_r()$df
       
-      if (isTRUE(input$remove_imputed)) {
-        fil_cor_df <- remove_imputed_from_corrected(filtered_r()$df, df_corrected)
-      } else  {
-        fil_cor_df <- df_corrected
-      }
       
       if (isTRUE(input$post_cor_filter)) {
-        fil_cor_df <- filter_by_qc_rsd(fil_cor_df, Inf, c("sample","batch","class","order"))
+        fil_cor <- filter_by_qc_rsd(df_filtered, df_corrected, Inf, input$remove_imputed, c("sample","batch","class","order"))
       } else {
-        fil_cor_df <- filter_by_qc_rsd(fil_cor_df, input$rsd_filter, c("sample","batch","class","order"))
+        fil_cor <- filter_by_qc_rsd(df_filtered, df_corrected, input$rsd_filter, input$remove_imputed, c("sample","batch","class","order"))
       }
       
-      fil_cor_df 
+      fil_cor 
     })
     
     output$download_cor_rsd_btn <- renderUI({
@@ -231,7 +246,8 @@ mod_correct_server <- function(id, data, params) {
       },
       content = function(file) {
         p <- list(
-          rsd_compare = "filtered_cor_data"
+          rsd_compare = "filtered_cor_data",
+          remove_imputed = input$remove_imputed
         )
         
         d <- list(
@@ -239,7 +255,7 @@ mod_correct_server <- function(id, data, params) {
           filtered           = filtered_r()
         )
         
-        stats_wb <- export_stats_xlsx(p, d)
+        stats_wb <- export_stats_xlsx(p, d)                                             ######################################
         openxlsx::saveWorkbook(stats_wb, file, overwrite = TRUE)
       }
     )
@@ -248,13 +264,18 @@ mod_correct_server <- function(id, data, params) {
     transformed_r <- reactive({
       req(filtered_corrected_r())
       withheld <- character(0)
+      if (isTRUE(input$remove_imputed)) {
+        df_filtered <- filtered_corrected_r()$df_mv 
+        } else {
+        df_filtered <- filtered_corrected_r()$df_no_mv
+        }
       if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
         for (i in seq_len(input$trn_withhold_n)) {
           col <- input[[paste0("trn_withhold_col_", i)]]
-          if (!is.null(col) && col %in% names(filtered_corrected_r()$df)) withheld <- c(withheld, col)
+          if (!is.null(col) && col %in% names(df_filtered)) withheld <- c(withheld, col)
         }
       }
-      transform_data(filtered_corrected_r()$df, input$transform, withheld, input$ex_ISTD)
+      transform_data(df_filtered, input$transform, withheld, input$ex_ISTD)
     })
     
     observe({
@@ -298,7 +319,7 @@ mod_correct_server <- function(id, data, params) {
     
     output$post_cor_filter_info <- renderUI({
       req(filtered_corrected_r())
-      ui_postcor_filter_info(filtered_corrected_r(), input$rsd_filter, input$post_cor_filter)
+      ui_postcor_filter_info(filtered_corrected_r(), input$remove_imputed, input$rsd_filter, input$post_cor_filter)
     })
     output$cor_data <- renderTable({
       req(transformed_r())
@@ -343,9 +364,7 @@ mod_correct_server <- function(id, data, params) {
     output$outliers_table <- renderUI({
       req(filtered_corrected_r(), transformed_r())
       d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-      qcImpute  <- if (!has_qc_na_r())  "nothing_to_impute" else input$qcImputeM
-      samImpute <- if (!has_sam_na_r()) "nothing_to_impute" else input$samImputeM
-      p <- list(out_data = input$out_data, qcImputeM = qcImpute, samImputeM = samImpute)
+      p <- list(out_data = input$out_data, qcImputeM = input$qcImputeM, samImputeM = input$samImputeM)
       ui_outliers(
         p = p,
         d = d,
@@ -356,15 +375,12 @@ mod_correct_server <- function(id, data, params) {
     
     output$hotelling_pca <- shiny::renderPlot({
       req(filtered_corrected_r(), transformed_r())
-      d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-      qcImpute  <- if (!has_qc_na_r())  "nothing_to_impute" else input$qcImputeM
-      samImpute <- if (!has_sam_na_r()) "nothing_to_impute" else input$samImputeM
-      p <- list(out_data = input$out_data, qcImputeM = qcImpute, samImputeM = samImpute)
+      p <- list(out_data = input$out_data, qcImputeM = input$qcImputeM, samImputeM = input$samImputeM)
       # Use the same df logic as ui_outliers()
       df <- if (p$out_data == "filtered_cor_data") {
-        d$filtered_corrected$df
+        filtered_corrected_r()$df_no_mv
       } else {
-        d$transformed$df
+        transformed_r()$df
       }
       
       res <- detect_hotelling_nonqc_dual_z(df, p)
@@ -395,9 +411,7 @@ mod_correct_server <- function(id, data, params) {
       },
       content = function(file) {
         d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-        qcImpute  <- if (!has_qc_na_r())  "nothing_to_impute" else input$qcImputeM
-        samImpute <- if (!has_sam_na_r()) "nothing_to_impute" else input$samImputeM
-        p <- list(out_data = input$out_data, qcImputeM = qcImpute, samImputeM = samImpute)
+        p <- list(out_data = input$out_data, qcImputeM = input$qcImputeM, samImputeM = input$samImputeM)
         
         outlier_wb <- export_outliers_xlsx(p, d)
         openxlsx::saveWorkbook(outlier_wb, file, overwrite = TRUE)
@@ -483,8 +497,8 @@ mod_correct_server <- function(id, data, params) {
     })
     
     correct_params <- reactive(list(
-      qcImputeM          = input$qcImputeM %||% "median",
-      samImputeM         = input$samImputeM %||% "median",
+      qcImputeM          = input$qcImputeM,
+      samImputeM         = input$samImputeM,
       remove_imputed     = isTRUE(input$remove_imputed),
       post_cor_filter    = input$post_cor_filter,
       rsd_cutoff         = filtered_corrected_r()$rsd_cutoff,

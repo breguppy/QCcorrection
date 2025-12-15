@@ -257,9 +257,14 @@ ui_filter_info <- function(mv_removed, mv_cutoff, qc_missing_mets) {
 
 # Post-correction filtering info for section 2.2 Post-Correction Filtering
 ui_postcor_filter_info <- function(filtered_corrected_result,
+                                   remove_imputed,
                                    rsd_filter,
                                    post_cor_filter) {
-  removed <- filtered_corrected_result$removed_metabolites
+  if (isTRUE(remove_imputed)) {
+    removed <- filtered_corrected_result$removed_metabolites_mv
+  } else {
+    removed <- filtered_corrected_result$removed_metabolites_no_mv
+  }
   n_removed <- length(removed)
   
   # get ISTD/ITSD metabolites
@@ -319,7 +324,7 @@ ui_outliers <- function(p, d,
                         pca_output_id = "hotelling_pca",
                         ns           = identity) {
   df <- if (p$out_data == "filtered_cor_data") {
-    d$filtered_corrected$df
+      d$filtered_corrected$df_no_mv
   } else {
     d$transformed$df
   }

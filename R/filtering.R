@@ -48,29 +48,54 @@ remove_imputed_from_corrected <- function(raw_df, corrected_df) {
   return(corrected_df)
 }
 
-filter_by_qc_rsd <- function(df,
+filter_by_qc_rsd <- function(raw_df,
+                             corrected_df,
                              rsd_cutoff,
+                             remove_imputed,
                              metadata_cols = c("sample", "batch", "class", "order")) {
-  # Compute RSD
-  rsd_df <- metabolite_rsd(df, metadata_cols)
+  # corrected_df will have no missing values
+  # mv_corrected_df will have imputed values removed.
+  mv_corrected_df <- corrected_df
+  if (remove_imputed) {
+    # Ensure both data frames are the same shape
+    if (!all(dim(raw_df) == dim(mv_corrected_df))) {
+      stop("Both data frames must have the same dimensions.")
+    }
+    
+    # Return a new corrected_df with values removed where raw_df is NA
+    mv_corrected_df[is.na(raw_df)] <- NA
+  }
+
+  
+  # Compute RSD for corrected_df and mv_corrected_df
+  rsd_no_mv_df <- metabolite_rsd(corrected_df, metadata_cols)
+  rsd_mv_df <- metabolite_rsd(mv_corrected_df, metadata_cols)
   
   # Identify which metabolites to keep and remove
-  keep_metabolites <- rsd_df$Metabolite[!is.na(rsd_df$RSD_QC) &
-                                          rsd_df$RSD_QC <= rsd_cutoff]
+  keep_metabolites_no_mv <- rsd_no_mv_df$Metabolite[!is.na(rsd_no_mv_df$RSD_QC) &
+                                          rsd_no_mv_df$RSD_QC <= rsd_cutoff]
+  keep_metabolites_mv <- rsd_mv_df$Metabolite[!is.na(rsd_mv_df$RSD_QC) &
+                                                      rsd_mv_df$RSD_QC <= rsd_cutoff]
   
-  remove_metabolites <- rsd_df$Metabolite[is.na(rsd_df$RSD_QC) |
-                                            rsd_df$RSD_QC > rsd_cutoff]
+  remove_metabolites_no_mv <- rsd_no_mv_df$Metabolite[is.na(rsd_no_mv_df$RSD_QC) |
+                                            rsd_no_mv_df$RSD_QC > rsd_cutoff]
+  remove_metabolites_mv <- rsd_mv_df$Metabolite[is.na(rsd_mv_df$RSD_QC) |
+                                                        rsd_mv_df$RSD_QC > rsd_cutoff]
   
   # Columns to retain in filtered data
-  final_cols <- c(metadata_cols, keep_metabolites)
-  filtered_df = df[, final_cols, drop = FALSE]
-  
-  # Return a list with the filtered data and removed metabolites
+  final_cols_no_mv <- c(metadata_cols, keep_metabolites_no_mv)
+  final_cols_mv <- c(metadata_cols, keep_metabolites_mv)
+  rsd_filtered_df <- corrected_df[, final_cols_no_mv, drop = FALSE]
+  rsd_mv_filtered_df <- mv_corrected_df[, final_cols_mv, drop = FALSE]
+
+  # Return a list with the filtered data and removed metabolites with and without removing imputed values
   return(
     list(
-      df = filtered_df,
+      df_no_mv = rsd_filtered_df,
+      df_mv = rsd_mv_filtered_df,
       rsd_cutoff = rsd_cutoff,
-      removed_metabolites = remove_metabolites
+      removed_metabolites_no_mv = remove_metabolites_no_mv,
+      removed_metabolites_mv = remove_metabolites_mv
     )
   )
 }
