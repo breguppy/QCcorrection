@@ -22,18 +22,28 @@
 }
 
 
-transform_data <- function(df, transform, withheld_cols, ex_ISTD = TRUE) {
+transform_data <- function(filtered_corrected, transform, withheld_cols, ex_ISTD = TRUE) {
+  df_mv <- filtered_corrected$df_mv
+  df_no_mv <- filtered_corrected$df_no_mv
   meta_cols <- c("sample", "batch", "class", "order")
-  metab_cols <- setdiff(names(df), meta_cols)
+  metab_cols_mv <- setdiff(names(df_mv), meta_cols)
+  metab_cols_no_mv <- setdiff(names(df_no_mv), meta_cols)
+  
   if (ex_ISTD) {
     # Get column names containing ISTD and add them to withheld columns
-    istd <- grep("ISTD", metab_cols, value = TRUE)
-    itsd <- grep("ITSD", metab_cols, value = TRUE)
-    withheld_cols <- c(withheld_cols, istd, itsd)
-    metab_cols <- setdiff(metab_cols, withheld_cols)
+    istd_mv <- grepl("^(ISTD|ITSD)", metab_cols_mv, ignore.case = TRUE)
+    istd_no_mv <- grepl("^(ISTD|ITSD)", metab_cols_no_mv, ignore.case = TRUE)
+    istd_names_mv <- metab_cols_mv[istd_mv]
+    istd_names_no_mv <- metab_cols_no_mv[istd_no_mv]
+    # Get column names containing ISTD and add them to withheld columns
+    withheld_cols_mv <- c(withheld_cols, istd_names_mv)
+    metab_cols_mv <- setdiff(metab_cols_mv, withheld_cols_mv)
+    withheld_cols_no_mv <- c(withheld_cols, istd_names_no_mv)
+    metab_cols_no_mv <- setdiff(metab_cols_no_mv, withheld_cols_no_mv)
   }
   
-  transformed_df <- df[, c(meta_cols, metab_cols)]
+  transformed_df_mv <- df_mv[, c(meta_cols, metab_cols_mv)]
+  transformed_df_no_mv <- df_no_mv[, c(meta_cols, metab_cols_no_mv)]
   
   if (transform == "none") {
     transform_str <- "After correction, no scaling or transformations have been applied."
@@ -43,7 +53,8 @@ transform_data <- function(df, transform, withheld_cols, ex_ISTD = TRUE) {
       "to metabolite level values. For skewed data, the log transformation helps",
       "normalize the distribution of values."
     )
-    transformed_df[metab_cols] <- log(transformed_df[metab_cols], base = 2)
+    transformed_df_mv[metab_cols_mv] <- log(transformed_df_mv[metab_cols_mv], base = 2)
+    transformed_df_no_mv[metab_cols_mv] <- log(transformed_df_no_mv[metab_cols_no_mv], base = 2)
   } else if (transform == "TRN") {
     transform_str <- paste(
       "After correction, metabolite level values are ratiometrically normalized",
@@ -63,11 +74,14 @@ transform_data <- function(df, transform, withheld_cols, ex_ISTD = TRUE) {
       "scaling between samples cancel out by division, within-sample metabolite",
       "ratios can be quantitatively compared across samples."
     )
-    transformed_df <- .total_ratio_norm(transformed_df, metab_cols)
+    transformed_df_mv <- .total_ratio_norm(transformed_df_mv, metab_cols_mv)
+    transformed_df_no_mv <- .total_ratio_norm(transformed_df_no_mv, metab_cols_no_mv)
   }
   return(list(
-    df = transformed_df,
+    df_mv = transformed_df_mv,
+    df_no_mv = transformed_df_no_mv,
     str = transform_str,
-    withheld_cols = withheld_cols
+    withheld_cols_mv = withheld_cols_mv,
+    withheld_cols_no_mv = withheld_cols_no_mv
   ))
 }

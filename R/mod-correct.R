@@ -264,18 +264,14 @@ mod_correct_server <- function(id, data, params) {
     transformed_r <- reactive({
       req(filtered_corrected_r())
       withheld <- character(0)
-      if (isTRUE(input$remove_imputed)) {
-        df_filtered <- filtered_corrected_r()$df_mv 
-        } else {
-        df_filtered <- filtered_corrected_r()$df_no_mv
-        }
+      
       if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
         for (i in seq_len(input$trn_withhold_n)) {
           col <- input[[paste0("trn_withhold_col_", i)]]
           if (!is.null(col) && col %in% names(df_filtered)) withheld <- c(withheld, col)
         }
       }
-      transform_data(df_filtered, input$transform, withheld, input$ex_ISTD)
+      transform_data(filtered_corrected_r(), input$transform, withheld, input$ex_ISTD)
     })
     
     observe({
@@ -323,7 +319,12 @@ mod_correct_server <- function(id, data, params) {
     })
     output$cor_data <- renderTable({
       req(transformed_r())
-      transformed_r()$df
+      if (isTRUE(input$remove_imputed)) {
+        df <- transformed_r()$df_mv
+      } else {
+        df <- transformed_r()$df_no_mv
+      }
+      df
     })
     
     output$download_tc_rsd_btn <- renderUI({
@@ -356,7 +357,7 @@ mod_correct_server <- function(id, data, params) {
           transformed        = transformed_r()
         )
         
-        stats_wb <- export_stats_xlsx(p, d)
+        stats_wb <- export_stats_xlsx(p, d)                                     ###############################################                 
         openxlsx::saveWorkbook(stats_wb, file, overwrite = TRUE)
       }
     )
@@ -380,7 +381,7 @@ mod_correct_server <- function(id, data, params) {
       df <- if (p$out_data == "filtered_cor_data") {
         filtered_corrected_r()$df_no_mv
       } else {
-        transformed_r()$df
+        transformed_r()$df_no_mv
       }
       
       res <- detect_hotelling_nonqc_dual_z(df, p)
@@ -413,7 +414,7 @@ mod_correct_server <- function(id, data, params) {
         d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
         p <- list(out_data = input$out_data, qcImputeM = input$qcImputeM, samImputeM = input$samImputeM)
         
-        outlier_wb <- export_outliers_xlsx(p, d)
+        outlier_wb <- export_outliers_xlsx(p, d)                                                      #############################          
         openxlsx::saveWorkbook(outlier_wb, file, overwrite = TRUE)
       }
     )
@@ -487,7 +488,7 @@ mod_correct_server <- function(id, data, params) {
           transformed        = tr
         )
         
-        wb <- export_xlsx(p, rv)
+        wb <- export_xlsx(p, rv)                                                      ################################################
         openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )

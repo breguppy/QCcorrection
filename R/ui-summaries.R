@@ -326,7 +326,7 @@ ui_outliers <- function(p, d,
   df <- if (p$out_data == "filtered_cor_data") {
       d$filtered_corrected$df_no_mv
   } else {
-    d$transformed$df
+    d$transformed$df_no_mv
   }
   
   detect_result <- detect_hotelling_nonqc_dual_z(df, p)
