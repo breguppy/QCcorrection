@@ -24,7 +24,7 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
     df <- d$transformed$df
     d_type <- "transformed and corrected data"
   }
-  res <- detect_hotelling_nonqc_dual_z(df)
+  res <- detect_hotelling_nonqc_dual_z(df, p)
   
   outlier_samples <- unique(res$data$sample[res$data$is_outlier_sample])
   pc_loadings <- res$pc_loadings

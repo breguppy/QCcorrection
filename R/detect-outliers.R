@@ -75,6 +75,7 @@
 #' @noRd
 detect_hotelling_nonqc_dual_z <- function(
     df,
+    p,
     meta_cols         = c("sample", "batch", "class", "order"),
     class_col         = "class",
     qc_label          = "QC",
@@ -104,6 +105,11 @@ detect_hotelling_nonqc_dual_z <- function(
   met_cols <- candidate_cols[vapply(df[candidate_cols], is.numeric, logical(1))]
   if (length(met_cols) == 0L) {
     stop("No numeric metabolite columns found.")
+  }
+  # impute missing values in PCA if there are any
+  if (any(is.na(df[, met_cols, drop = FALSE]))) {
+    results <- impute_missing(df, met_cols, p$qcImputeM, p$samImputeM)
+    df <- results$df
   }
   
   X_raw <- as.matrix(df[, met_cols, drop = FALSE])

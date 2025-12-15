@@ -180,7 +180,9 @@ render_report <- function(p,
         rsd_compare        = p$rsd_compare,
         rsd_cal            = p$rsd_cal,
         out_data           = p$out_data,
-        sample_grouping    = p$sample_grouping
+        sample_grouping    = p$sample_grouping,
+        qcImputeM          = p$qcImputeM,
+        samImputeM         = p$samImputeM
       ),
       descriptions = descriptions
     )

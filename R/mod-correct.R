@@ -343,7 +343,9 @@ mod_correct_server <- function(id, data, params) {
     output$outliers_table <- renderUI({
       req(filtered_corrected_r(), transformed_r())
       d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-      p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
+      qcImpute  <- if (!has_qc_na_r())  "nothing_to_impute" else input$qcImputeM
+      samImpute <- if (!has_sam_na_r()) "nothing_to_impute" else input$samImputeM
+      p <- list(out_data = input$out_data, qcImputeM = qcImpute, samImputeM = samImpute)
       ui_outliers(
         p = p,
         d = d,
@@ -355,7 +357,9 @@ mod_correct_server <- function(id, data, params) {
     output$hotelling_pca <- shiny::renderPlot({
       req(filtered_corrected_r(), transformed_r())
       d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-      p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
+      qcImpute  <- if (!has_qc_na_r())  "nothing_to_impute" else input$qcImputeM
+      samImpute <- if (!has_sam_na_r()) "nothing_to_impute" else input$samImputeM
+      p <- list(out_data = input$out_data, qcImputeM = qcImpute, samImputeM = samImpute)
       # Use the same df logic as ui_outliers()
       df <- if (p$out_data == "filtered_cor_data") {
         d$filtered_corrected$df
@@ -363,7 +367,7 @@ mod_correct_server <- function(id, data, params) {
         d$transformed$df
       }
       
-      res <- detect_hotelling_nonqc_dual_z(df)
+      res <- detect_hotelling_nonqc_dual_z(df, p)
       if (!is.null(res$pca_plot)) {
         res$pca_plot
       }
@@ -391,7 +395,9 @@ mod_correct_server <- function(id, data, params) {
       },
       content = function(file) {
         d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-        p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
+        qcImpute  <- if (!has_qc_na_r())  "nothing_to_impute" else input$qcImputeM
+        samImpute <- if (!has_sam_na_r()) "nothing_to_impute" else input$samImputeM
+        p <- list(out_data = input$out_data, qcImputeM = qcImpute, samImputeM = samImpute)
         
         outlier_wb <- export_outliers_xlsx(p, d)
         openxlsx::saveWorkbook(outlier_wb, file, overwrite = TRUE)
@@ -485,7 +491,6 @@ mod_correct_server <- function(id, data, params) {
       transform          = input$transform,
       ex_ISTD            = isTRUE(input$ex_ISTD),
       out_data           = input$out_data,
-      sample_grouping    = input$sample_grouping,
       keep_corrected_qcs = isTRUE(input$keep_corrected_qcs),
       no_control         = isTRUE(input$no_control),
       control_class      = input$control_class %||% ""

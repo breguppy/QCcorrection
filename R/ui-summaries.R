@@ -324,7 +324,7 @@ ui_outliers <- function(p, d,
     d$transformed$df
   }
   
-  detect_result <- detect_hotelling_nonqc_dual_z(df)
+  detect_result <- detect_hotelling_nonqc_dual_z(df, p)
   
   # Extract extreme values and full data
   ev   <- detect_result$extreme_values

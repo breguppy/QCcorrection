@@ -62,13 +62,13 @@ QCcorrection:::ui_postcor_filter_info(params$choices$filtered_corrected, params$
 statement("Transformation Description")
 ```
 
-### Candidate Outliers
+### Candidate Extreme Values
 ```{r}
-statement("Candidate Outliers")
+statement("Candidate Extreme Values")
 ```
 
 ```{r}
-QCcorrection:::ui_outliers(list(out_data = params$choices$out_data, sample_grouping = params$choices$sample_grouping), list(filtered_corrected = params$choices$filtered_corrected, transformed = params$choices$transformed))
+QCcorrection:::ui_outliers(list(out_data = params$choices$out_data, qcImputeM = params$choices$qcImputeM, samImputeM = params$choices$samImputeM), list(filtered_corrected = params$choices$filtered_corrected, transformed = params$choices$transformed))
 ```
 
 # Correction Evaluation

@@ -145,7 +145,7 @@ ui_qc_impute <- function(df, metab_cols, ns = identity) {
   if (has_qc_na) {
     radioButtons(
       ns("qcImputeM"),
-      "QC Imputation Method",
+      "QC Sample Imputation Method",
       list(
         "metabolite median" = "median",
         "metabolite mean" = "mean",
@@ -160,8 +160,19 @@ ui_qc_impute <- function(df, metab_cols, ns = identity) {
       FALSE
     )
   } else {
-    tags$div(icon("check-circle", class = "text-success"),
-             span("No QC missing values"))
+    tags$div(
+             radioButtons(
+               ns("qcImputeM"),
+               "QC Sample Imputation method",
+               list(
+                 "nothing to impute" = "nothing_to_impute"
+               ),
+               selected = "nothing_to_impute",
+               inline = FALSE
+               ),
+             icon("check-circle", class = "text-success"),
+             span("No QC missing values")
+             )
   }
 }
 
@@ -208,9 +219,19 @@ ui_sample_impute <- function(df, metab_cols, ns = identity) {
       )
     }
   } else {
-    tags$div(icon("check-circle", class = "text-success"),
-             span("No Sample missing values"))
-    
+    tags$div(
+             radioButtons(
+               ns("samImputeM"),
+               label = "Sample Imputation Method",
+               list(
+                 "nothing to impute" = "nothing_to_impute"
+               ),
+               selected = "nothing_to_impute",
+               inline = FALSE
+             ),
+             icon("check-circle", class = "text-success"),
+             span("No Sample missing values")
+             )
   }
 }
 
