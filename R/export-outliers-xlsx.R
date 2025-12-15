@@ -18,10 +18,10 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
   }
   
   if (p$out_data == "filtered_cor_data") {
-    df <- d$filtered_corrected$df
+    df <- d$filtered_corrected$df_no_mv
     d_type <- "corrected data"
   } else {
-    df <- d$transformed$df
+    df <- d$transformed$df_no_mv
     d_type <- "transformed and corrected data"
   }
   res <- detect_hotelling_nonqc_dual_z(df, p)
