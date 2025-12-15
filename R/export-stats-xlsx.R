@@ -21,11 +21,19 @@ export_stats_xlsx <- function(p, d, file = NULL) {
   df_before <- d$filtered$df
   # Create excel sheet for RSD values
   if (p$rsd_compare == "filtered_cor_data") {
-    df_after <- d$filtered_corrected$df
     s2_name <- "Corrected"
+    if (isTRUE(p$remove_imputed)){
+      df_after <- d$filtered_corrected$df_mv
+    } else {
+      df_after <- d$filtered_corrected$df_no_mv
+    }
   } else {
-    df_after <- d$transformed$df
     s2_name <- "Transformed Corrected"
+    if (isTRUE(p$remove_imputed)) {
+      df_after <- d$transformed$df_mv
+    } else {
+      df_after <- d$transformed$df_no_mv
+    }
   }
   
   # Compute RSD based on RSD calc

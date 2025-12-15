@@ -133,6 +133,7 @@ mod_correct_server <- function(id, data, params) {
       d()$cleaned
     })
     
+    ########## Part 2.1: choose correction settings:
     output$qc_missing_value_warning <- renderUI({
       df <- filtered_r()$df
       ui_qc_missing_warning(df)
@@ -210,19 +211,36 @@ mod_correct_server <- function(id, data, params) {
     })
     output$cor_spinner <- renderUI(NULL)
     
+    
+    ########## Part 2.2 Post correction filtering:
     filtered_corrected_r <- reactive({
       req(filtered_r(), corrected_r())
       df_filtered <- filtered_r()$df
       df_corrected <- corrected_r()$df
       
-      
       if (isTRUE(input$post_cor_filter)) {
-        fil_cor <- filter_by_qc_rsd(df_filtered, df_corrected, Inf, input$remove_imputed, c("sample","batch","class","order"))
+        fil_cor <- filter_by_qc_rsd(df_filtered, 
+                                    df_corrected, 
+                                    Inf, 
+                                    input$remove_imputed, 
+                                    c("sample","batch","class","order"))
       } else {
-        fil_cor <- filter_by_qc_rsd(df_filtered, df_corrected, input$rsd_filter, input$remove_imputed, c("sample","batch","class","order"))
+        fil_cor <- filter_by_qc_rsd(df_filtered, 
+                                    df_corrected, 
+                                    input$rsd_filter, 
+                                    input$remove_imputed, 
+                                    c("sample","batch","class","order"))
       }
       
       fil_cor 
+    })
+    
+    output$post_cor_filter_info <- renderUI({
+      req(filtered_corrected_r())
+      ui_postcor_filter_info(filtered_corrected_r(), 
+                             input$remove_imputed, 
+                             input$rsd_filter, 
+                             input$post_cor_filter)
     })
     
     output$download_cor_rsd_btn <- renderUI({
@@ -255,12 +273,12 @@ mod_correct_server <- function(id, data, params) {
           filtered           = filtered_r()
         )
         
-        stats_wb <- export_stats_xlsx(p, d)                                             ######################################
+        stats_wb <- export_stats_xlsx(p, d)
         openxlsx::saveWorkbook(stats_wb, file, overwrite = TRUE)
       }
     )
     
-    
+    ########### Part 2.3 Post-correction Transformation:
     transformed_r <- reactive({
       req(filtered_corrected_r())
       withheld <- character(0)
@@ -313,10 +331,6 @@ mod_correct_server <- function(id, data, params) {
       })
     })
     
-    output$post_cor_filter_info <- renderUI({
-      req(filtered_corrected_r())
-      ui_postcor_filter_info(filtered_corrected_r(), input$remove_imputed, input$rsd_filter, input$post_cor_filter)
-    })
     output$cor_data <- renderTable({
       req(transformed_r())
       if (isTRUE(input$remove_imputed)) {
@@ -348,7 +362,8 @@ mod_correct_server <- function(id, data, params) {
       },
       content = function(file) {
         p <- list(
-          rsd_compare = "transformed_cor_data"
+          rsd_compare = "transformed_cor_data",
+          remove_imputed = input$remove_imputed
         )
         
         d <- list(
@@ -357,15 +372,20 @@ mod_correct_server <- function(id, data, params) {
           transformed        = transformed_r()
         )
         
-        stats_wb <- export_stats_xlsx(p, d)                                     ###############################################                 
+        stats_wb <- export_stats_xlsx(p, d)                
         openxlsx::saveWorkbook(stats_wb, file, overwrite = TRUE)
       }
     )
     
+    ######### Part 2.4 Candidate Extreme Values
+    # PCA plot and table with candidate extreme values
     output$outliers_table <- renderUI({
       req(filtered_corrected_r(), transformed_r())
-      d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-      p <- list(out_data = input$out_data, qcImputeM = input$qcImputeM, samImputeM = input$samImputeM)
+      d <- list(filtered_corrected = filtered_corrected_r(), 
+                transformed = transformed_r())
+      p <- list(out_data = input$out_data, 
+                qcImputeM = input$qcImputeM, 
+                samImputeM = input$samImputeM)
       ui_outliers(
         p = p,
         d = d,
@@ -373,10 +393,11 @@ mod_correct_server <- function(id, data, params) {
         ns = ns
       )
     })
-    
     output$hotelling_pca <- shiny::renderPlot({
       req(filtered_corrected_r(), transformed_r())
-      p <- list(out_data = input$out_data, qcImputeM = input$qcImputeM, samImputeM = input$samImputeM)
+      p <- list(out_data = input$out_data, 
+                qcImputeM = input$qcImputeM, 
+                samImputeM = input$samImputeM)
       # Use the same df logic as ui_outliers()
       df <- if (p$out_data == "filtered_cor_data") {
         filtered_corrected_r()$df_no_mv
@@ -389,8 +410,6 @@ mod_correct_server <- function(id, data, params) {
         res$pca_plot
       }
     })
-    
-    # add download button for extreme values.
     output$download_ev_btn <- renderUI({
       req(transformed_r())
       
@@ -411,14 +430,18 @@ mod_correct_server <- function(id, data, params) {
         sprintf("extreme_values_%s.xlsx", Sys.Date())
       },
       content = function(file) {
-        d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-        p <- list(out_data = input$out_data, qcImputeM = input$qcImputeM, samImputeM = input$samImputeM)
+        d <- list(filtered_corrected = filtered_corrected_r(), 
+                  transformed = transformed_r())
+        p <- list(out_data = input$out_data, 
+                  qcImputeM = input$qcImputeM, 
+                  samImputeM = input$samImputeM)
         
-        outlier_wb <- export_outliers_xlsx(p, d)                                                      #############################          
+        outlier_wb <- export_outliers_xlsx(p, d)        
         openxlsx::saveWorkbook(outlier_wb, file, overwrite = TRUE)
       }
     )
     
+    ############ Part 2.5 Identify Control Group
     output$control_class_selector <- renderUI({
       req(cleaned_r())
       df <- cleaned_r()$df
