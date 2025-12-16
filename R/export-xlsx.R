@@ -127,6 +127,17 @@ export_xlsx <- function(p, d, file = NULL) {
     openxlsx::setColWidths(wb, s1, cols = 1:2, widths = max_width_vec)
     
     # Optional lists
+    # columns withheld from correction: d$cleaned$withheld_cols
+    # columns filtered by missing value: d$filtered$mv_removed_cols
+    # columns filtered by QC RSD: d$filtered_corrected$removed_metabolites(_no)_mv
+    # columns withheld from TRN
+    if (isTRUE(p$remove_imputed)){
+      qc_rsd_removed_columns <- d$filtered_corrected$removed_metabolites_mv
+      trn_withheld_columns <- d$transformed$withheld_cols_mv
+    } else {
+      qc_rsd_removed_columns <- d$filtered_corrected$removed_metabolites_no_mv
+      trn_withheld_columns <- d$transformed$withheld_cols_no_mv
+    }
     cur_col <- 4
     add_list <- function(vec, header) {
       if (length(vec) == 0)
@@ -154,16 +165,20 @@ export_xlsx <- function(p, d, file = NULL) {
              "Missing-Value Filtered Metabolites")
     add_list(d$filtered$qc_missing_mets,
              "Metabolites with QC Missing Values")
-    add_list(d$filtered_corrected$removed_metabolites,
+    add_list(qc_rsd_removed_columns,
              "QC-RSD Filtered Metabolites")
-    if (length(d$transformed$withheld_cols) > 0)
-      add_list(d$transformed$withheld_cols,
+    if (length(trn_withheld_columns) > 0)
+      add_list(trn_withheld_columns,
                "Excluded From Normalization")
     shiny::incProgress(1 / N, detail = "Saved: Correction Settings")
     
     # Sheet 2: Drift Normalized
     s2 <- .add_sheet("2. Drift Normalized")
-    df2 <- d$filtered_corrected$df
+    if (isTRUE(p$remove_imputed)) {
+      df2 <- d$filtered_corrected$df_mv
+    } else {
+      df2 <- d$filtered_corrected$df_no_mv
+    }
     if (!isTRUE(p$keep_corrected_qcs))
       df2 <- df2[df2$class != "QC", , drop = FALSE]
     txt2 <- paste(
@@ -203,8 +218,13 @@ export_xlsx <- function(p, d, file = NULL) {
     
     # Sheet 3: Scaled or Normalized
     s3 <- .add_sheet("3. Scaled or Normalized")
-    df3 <- d$transformed$df
-    keep <- setdiff(names(df3), d$transformed$withheld_cols)
+    if (isTRUE(p$remove_imputed)) {
+      df3 <- d$transformed$df_mv
+    } else {
+      df3 <- d$transformed$df_no_mv
+    }
+    
+    keep <- setdiff(names(df3), trn_withheld_columns)
     df3 <- if (!isTRUE(p$keep_corrected_qcs))
       df3[df3$class != "QC", keep, drop = FALSE]
     else

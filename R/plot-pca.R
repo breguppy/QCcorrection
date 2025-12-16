@@ -6,23 +6,23 @@ plot_pca <- function(p, before, after, compared_to) {
   # Get overlapping metabolite columns
   meta_cols <- c("sample", "batch", "class", "order")
   metab_cols <- intersect(
-    setdiff(names(before$df), meta_cols),
-    setdiff(names(after$df),  meta_cols)
+    setdiff(names(before), meta_cols),
+    setdiff(names(after),  meta_cols)
   )
   
   # impute missing values in PCA if there are any
-  if (any(is.na(after$df[, metab_cols, drop = FALSE]))) {
-    results <- impute_missing(after$df, metab_cols, p$qcImputeM, p$samImputeM)
+  if (any(is.na(after[, metab_cols, drop = FALSE]))) {
+    results <- impute_missing(after, metab_cols, p$qcImputeM, p$samImputeM)
     after <- results$df
   } else {
-    after <- after$df
+    after <- after
   }
   
   # before PCA
-  before_p <- stats::prcomp(before$df[, metab_cols], center = TRUE, scale. = TRUE)
+  before_p <- stats::prcomp(before[, metab_cols], center = TRUE, scale. = TRUE)
   before_df <- tibble::as_tibble(before_p$x[, 1:2, drop = FALSE], .name_repair = "minimal")
   names(before_df) <- c("PC1", "PC2")
-  before_df <- dplyr::bind_cols(before_df, before$df[meta_cols])
+  before_df <- dplyr::bind_cols(before_df, before[meta_cols])
   
   # After PCA
   after_p  <- stats::prcomp(after[, metab_cols], center = TRUE, scale. = TRUE)

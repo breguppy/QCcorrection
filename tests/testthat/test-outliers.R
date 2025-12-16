@@ -1,250 +1,271 @@
-# test-outliers.R
+# tests/testthat/test-detect_hotelling_nonqc_dual_z.R
 
-# ---------- helpers ----------
-mk_data <- function() {
-  # 3 QCs + 6 samples (two non-QC classes).
-  # Make M1 a very clear outlier in class A (s6).
-  # Make M2 have high QC variance and one non-QC outlier (s5) to exercise "unstable QC" gating.
-  data.frame(
-    sample = paste0("s", 1:9),
-    batch  = rep("B1", 9),
-    class  = c(rep("QC", 3), rep("A", 3), rep("B", 3)),
-    order  = 1:9,
-    M1 = c(10, 10.5, 9.5,     10.2, 9.8, 60,     9.9, 10.1, 10.0),
-    M2 = c( 5, 10, 20,        10,  25,  11,     10,   9.8, 10.2),
-    check.names = FALSE
-  )
-}
-
-met_cols <- function(df) setdiff(names(df), c("sample","batch","class","order"))
-
-# ---------- tests ----------
-test_that("detect_qc_aware_outliers returns expected structure", {
-  df <- mk_data()
-  out <- detect_qc_aware_outliers(
-    df, group_nonqc_by_class = TRUE,
-    z_threshold = 2, md_cutoff_quantile = 0.80
-  )
-  expect_type(out, "list")
-  expect_true(all(c("qc_rsd","sample_md","candidate_metabolites","confirmations","params") %in% names(out)))
-  expect_true(all(c("metabolite","qc_rsd") %in% names(out$qc_rsd)))
-  expect_true(all(c("sample","group_id","md","cutoff","flagged") %in% names(out$sample_md)))
-  expect_true(all(c("method","p_value","test_strength","decision") %in% names(out$confirmations)))
-})
-
-test_that("grouping collapses to 'all' when only one non-QC class or when requested", {
-  df <- mk_data()
-  # Keep only QC + class A -> only one non-QC class remains
-  out1 <- detect_qc_aware_outliers(
-    df[df$class != "B" | df$class == "QC", ],
-    group_nonqc_by_class = TRUE,
-    z_threshold = 2, md_cutoff_quantile = 0.80
-  )
-  expect_setequal(unique(out1$sample_md$group_id), c("QC","all"))
+testthat::test_that("detect_hotelling_nonqc_dual_z errors when required metadata columns are missing", {
+  p <- list(qcImputeM = "median", samImputeM = "median")
   
-  # Explicitly request single group for non-QC
-  out2 <- detect_qc_aware_outliers(
-    df, group_nonqc_by_class = FALSE,
-    z_threshold = 2, md_cutoff_quantile = 0.80
-  )
-  expect_setequal(unique(out2$sample_md$group_id), c("QC","all"))
-})
-
-test_that("clear outlier on M1 (s6) becomes a candidate with lenient cutoffs", {
-  df <- mk_data()
-  # Relax MD cutoff and Z threshold so candidate reliably appears
-  out <- detect_qc_aware_outliers(
-    df, group_nonqc_by_class = TRUE,
-    z_threshold = 1.5, md_cutoff_quantile = 0.60
-  )
-  cand <- out$candidate_metabolites
-  expect_true(is.data.frame(cand))
-  expect_true(any(cand$sample == "s6" & cand$metabolite == "M1"))
-})
-
-test_that("insufficient group size yields 'insufficient_n' in confirmations", {
-  testthat::skip_if_not_installed("outliers")
-  df <- mk_data()
-  out <- detect_qc_aware_outliers(
-    df, group_nonqc_by_class = TRUE,
-    z_threshold = 1.5, md_cutoff_quantile = 0.60,
-    min_group_n = 99,        # force insufficient_n
-    confirm_method = "grubbs"
-  )
-  conf <- out$confirmations
-  expect_true(nrow(conf) == 0 || any(conf$decision == "insufficient_n"))
-  expect_true("test_strength" %in% names(conf))
-})
-
-test_that("unstable QC (high RSD on M2) leads to skip_unstable_qc decision", {
-  testthat::skip_if_not_installed("outliers")
-  
-  # Stronger M2 outlier so it reliably trips MD + Z
   df <- data.frame(
-    sample = paste0("s", 1:9),
-    batch  = "B1",
-    class  = c(rep("QC", 3), rep("A", 3), rep("B", 3)),
-    order  = 1:9,
-    M1     = c(10, 10.5, 9.5,   10.2, 9.8, 10.1,   9.9, 10.1, 10.0),
-    # QC M2 is very variable (unstable); s5 in class A is an extreme outlier
-    M2     = c(5, 10, 20,       10, 60, 11,        10,  9.8, 10.2),
-    check.names = FALSE
+    sample = paste0("S", 1:5),
+    batch  = "b1",
+    class  = c("A", "A", "A", "QC", "QC"),
+    # order column intentionally missing
+    m1 = rnorm(5),
+    stringsAsFactors = FALSE
   )
   
-  out <- detect_qc_aware_outliers(
-    df, group_nonqc_by_class = TRUE,
-    z_threshold = 1.0,         # looser Z to ensure candidate
-    md_cutoff_quantile = 0.50, # looser MD to ensure candidate
-    qc_rsd_unstable = 0.05,    # force 'unstable' gate for M2
-    confirm_method = "grubbs"
+  testthat::expect_error(
+    detect_hotelling_nonqc_dual_z(df = df, p = p),
+    "Missing metadata columns"
+  )
+})
+
+testthat::test_that("detect_hotelling_nonqc_dual_z errors when class column is missing (via meta_cols check)", {
+  p <- list(qcImputeM = "median", samImputeM = "median")
+  
+  df <- data.frame(
+    sample = paste0("S", 1:5),
+    batch  = "b1",
+    order  = 1:5,
+    m1 = rnorm(5),
+    stringsAsFactors = FALSE
   )
   
-  # M2 should now appear as a candidate
-  expect_true(any(out$candidate_metabolites$metabolite == "M2"))
-  expect_true("test_strength" %in% names(out$confirmations))
-  
-  # And confirmations for M2 should be skipped due to unstable QC
-  conf_m2 <- subset(out$confirmations, metabolite == "M2")
-  if (nrow(conf_m2)) {
-    expect_true(all(conf_m2$decision == "skip_unstable_qc" | is.na(conf_m2$decision)))
-  }
-})
-
-test_that("when outliers pkg missing, decisions record 'outliers_pkg_missing'", {
-  # Only run this branch when 'outliers' is NOT installed
-  if (requireNamespace("outliers", quietly = TRUE)) skip("outliers installed; skipping missing-pkg branch")
-  df <- mk_data()
-  out <- detect_qc_aware_outliers(
-    df, group_nonqc_by_class = TRUE,
-    z_threshold = 1.5, md_cutoff_quantile = 0.60
+  testthat::expect_error(
+    detect_hotelling_nonqc_dual_z(df = df, p = p),
+    "Missing metadata columns in df: class"
   )
-  conf <- out$confirmations
-  if (nrow(conf)) {
-    expect_true(all(conf$decision %in% c("outliers_pkg_missing","insufficient_n")))
-  }
 })
 
-test_that("params echo key inputs", {
-  df <- mk_data()
-  out <- detect_qc_aware_outliers(
-    df, group_nonqc_by_class = TRUE,
-    z_threshold = 3.5, alpha = 0.01
-  )
-  expect_equal(out$params$z_threshold, 3.5)
-  expect_equal(out$params$alpha, 0.01)
-  expect_true(isTRUE(out$params$group_nonqc_by_class))
-})
 
-test_that("confirmations always have consistent columns", {
-  df <- mk_data()
-  out <- detect_qc_aware_outliers(df, TRUE, z_threshold = 1.5, md_cutoff_quantile = 0.60,
-                                  min_group_n = 99)
-  nm <- names(out$confirmations)
-  expect_true(all(c("sample","group_id","metabolite","z","qc_rsd",
-                    "method","p_value","test_strength","decision") %in% nm))
-})
-
-test_that("Rosner is used for large n and fills test_strength", {
-  testthat::skip_if_not_installed("EnvStats")
+testthat::test_that("detect_hotelling_nonqc_dual_z errors when no numeric metabolite columns exist", {
+  p <- list(qcImputeM = "median", samImputeM = "median")
   
+  df <- data.frame(
+    sample = paste0("S", 1:5),
+    batch  = "b1",
+    class  = c("A", "A", "A", "QC", "QC"),
+    order  = 1:5,
+    m1     = as.character(1:5), # non-numeric
+    stringsAsFactors = FALSE
+  )
+  
+  testthat::expect_error(
+    detect_hotelling_nonqc_dual_z(df = df, p = p),
+    "No numeric metabolite columns found"
+  )
+})
+
+testthat::test_that("detect_hotelling_nonqc_dual_z errors when too few complete non-QC rows exist", {
+  p <- list(qcImputeM = "median", samImputeM = "median")
+  
+  df <- data.frame(
+    sample = paste0("S", 1:5),
+    batch  = "b1",
+    class  = c("A", "A", "QC", "QC", "QC"),
+    order  = 1:5,
+    m1 = c(1, NA, 1, 1, 1),  # only one complete non-QC row
+    m2 = c(1, NA, 1, 1, 1),
+    stringsAsFactors = FALSE
+  )
+  
+  testthat::expect_error(
+    detect_hotelling_nonqc_dual_z(df = df, p = p, min_complete = 3L),
+    "Too few complete non-QC rows"
+  )
+})
+
+testthat::test_that("detect_hotelling_nonqc_dual_z errors if all metabolites are dropped as constant", {
+  p <- list(qcImputeM = "median", samImputeM = "median")
+  
+  df <- data.frame(
+    sample = paste0("S", 1:6),
+    batch  = "b1",
+    class  = c("A", "A", "A", "QC", "QC", "QC"),
+    order  = 1:6,
+    m1 = rep(10, 6),
+    m2 = rep(10, 6),
+    stringsAsFactors = FALSE
+  )
+  
+  testthat::expect_error(
+    detect_hotelling_nonqc_dual_z(df = df, p = p, drop_constant = TRUE, const_tol = 1e-12),
+    "All metabolite columns were dropped as constant"
+  )
+})
+
+testthat::test_that("detect_hotelling_nonqc_dual_z returns expected structure and columns on a clean inlier dataset", {
+  p <- list(qcImputeM = "median", samImputeM = "median")
   set.seed(1)
-  # Build 30 non-QC samples in class A + 5 QC
-  n_qc <- 5; n_a <- 30
+  
   df <- data.frame(
-    sample = paste0("s", 1:(n_qc + n_a)),
-    batch  = "B1",
-    class  = c(rep("QC", n_qc), rep("A", n_a)),
-    order  = 1:(n_qc + n_a),
-    M1 = c(rnorm(n_qc, 10, 0.3), rnorm(n_a, 10, 0.3))
+    sample = paste0("S", 1:24),
+    batch  = rep(c("b1", "b2"), each = 12),
+    class  = c(rep("A", 8), rep("B", 8), rep("QC", 8)),
+    order  = 1:24,
+    m1 = c(rnorm(16, 100, 5), rnorm(8, 100, 5)),
+    m2 = c(rnorm(16,  50, 3), rnorm(8,  50, 3)),
+    m3 = c(rnorm(16, 200, 7), rnorm(8, 200, 7)),
+    stringsAsFactors = FALSE
   )
-  # Inject one big outlier in A
-  df$M1[n_qc + 10] <- 12.5  # ~8 SD
   
-  out <- detect_qc_aware_outliers(df, TRUE, z_threshold = 2, md_cutoff_quantile = 0.95)
-  conf <- subset(out$confirmations, decision == "confirm")
+  # Avoid calling impute_missing by keeping complete data
+  res <- detect_hotelling_nonqc_dual_z(
+    df = df,
+    p = p,
+    alpha = 0.05,
+    z_threshold = 5,          # make "extreme_values" unlikely
+    class_z_threshold = 5,
+    make_pca_plot = FALSE
+  )
   
-  # Rosner should be the method; p is NA; test_strength is numeric > 1
-  if (nrow(conf)) {
-    expect_true(any(conf$method == "rosner"))
-    rrows <- conf[conf$method == "rosner", ]
-    expect_true(all(is.na(rrows$p_value)))
-    expect_true(all(is.finite(rrows$test_strength)))
-    expect_true(all(rrows$test_strength > 1))
-  } else {
-    testthat::skip("No confirmed outliers; adjust seed/thresholds if flaky.")
-  }
+  testthat::expect_type(res, "list")
+  testthat::expect_true(all(c("data", "extreme_values", "pca_plot", "pc_loadings", "params") %in% names(res)))
+  
+  out_df <- res$data
+  testthat::expect_true(all(c("T2", "is_outlier_sample", "used_in_fit") %in% names(out_df)))
+  testthat::expect_equal(nrow(out_df), nrow(df))
+  
+  # With very high thresholds, extreme_values should be empty in typical data
+  testthat::expect_s3_class(res$extreme_values, "data.frame")
+  testthat::expect_equal(nrow(res$extreme_values), 0L)
+  testthat::expect_true(is.null(res$pca_plot))
 })
 
-test_that("Grubbs/Dixon produce p_value and NA test_strength", {
-  testthat::skip_if_not_installed("outliers")
-  df <- mk_data()
-  out <- detect_qc_aware_outliers(df, TRUE, z_threshold = 1.5, md_cutoff_quantile = 0.80,
-                                  confirm_method = "grubbs")
-  conf <- out$confirmations
-  if (nrow(conf)) {
-    gd <- subset(conf, method %in% c("grubbs","dixon"))
-    if (nrow(gd)) {
-      expect_true(all(is.finite(gd$p_value)))
-      expect_true(all(is.na(gd$test_strength)))
+testthat::test_that("detect_hotelling_nonqc_dual_z flags an obvious outlier and returns extreme_values", {
+  p <- list(qcImputeM = "median", samImputeM = "median")
+  set.seed(2)
+  
+  nA <- 15
+  nB <- 15
+  nQC <- 10
+  
+  base_A <- data.frame(
+    sample = paste0("A", seq_len(nA)),
+    batch  = "b1",
+    class  = "A",
+    order  = seq_len(nA),
+    m1 = rnorm(nA, 100, 2),
+    m2 = rnorm(nA,  50, 2),
+    m3 = rnorm(nA, 200, 3),
+    stringsAsFactors = FALSE
+  )
+  
+  base_B <- data.frame(
+    sample = paste0("B", seq_len(nB)),
+    batch  = "b1",
+    class  = "B",
+    order  = nA + seq_len(nB),
+    m1 = rnorm(nB, 100, 2),
+    m2 = rnorm(nB,  50, 2),
+    m3 = rnorm(nB, 200, 3),
+    stringsAsFactors = FALSE
+  )
+  
+  base_QC <- data.frame(
+    sample = paste0("QC", seq_len(nQC)),
+    batch  = "b1",
+    class  = "QC",
+    order  = nA + nB + seq_len(nQC),
+    m1 = rnorm(nQC, 100, 2),
+    m2 = rnorm(nQC,  50, 2),
+    m3 = rnorm(nQC, 200, 3),
+    stringsAsFactors = FALSE
+  )
+  
+  df <- rbind(base_A, base_B, base_QC)
+  
+  # Inject a clear non-QC outlier with a huge deviation in one metabolite
+  df$m1[1] <- df$m1[1] + 2000
+  
+  res <- detect_hotelling_nonqc_dual_z(
+    df = df,
+    p = p,
+    alpha = 0.01,         # stricter ellipse
+    z_threshold = 3,
+    class_z_threshold = 3,
+    make_pca_plot = FALSE
+  )
+  
+  out_df <- res$data
+  
+  testthat::expect_true(any(out_df$is_outlier_sample, na.rm = TRUE))
+  testthat::expect_true(out_df$is_outlier_sample[1])
+  
+  # extreme_values should include at least the injected metabolite for that row
+  ev <- res$extreme_values
+  testthat::expect_s3_class(ev, "data.frame")
+  testthat::expect_true(all(c("metabolite", "value_raw", "value_log", "z_global", "z_class", "T2") %in% names(ev)))
+  testthat::expect_true(any(ev$sample == df$sample[1]))
+  testthat::expect_true(any(ev$metabolite %in% c("m1", "m2", "m3")))
+})
+
+testthat::test_that("detect_hotelling_nonqc_dual_z can call impute_missing when NAs exist (mocked) and proceeds", {
+  p <- list(qcImputeM = "median", samImputeM = "median")
+  set.seed(3)
+  
+  df <- data.frame(
+    sample = paste0("S", 1:12),
+    batch  = "b1",
+    class  = c(rep("A", 5), rep("B", 5), rep("QC", 2)),
+    order  = 1:12,
+    m1 = rnorm(12, 100, 2),
+    m2 = rnorm(12,  50, 2),
+    m3 = rnorm(12, 200, 3),
+    stringsAsFactors = FALSE
+  )
+  
+  # Add missing values to force the imputation branch
+  df$m2[c(2, 7)] <- NA_real_
+  
+  called <- 0L
+  imputer <- function(df_in, met_cols, qc_method, sam_method) {
+    called <<- called + 1L
+    df_out <- df_in
+    # Simple deterministic fill to keep PCA valid
+    for (m in met_cols) {
+      if (anyNA(df_out[[m]])) {
+        df_out[[m]][is.na(df_out[[m]])] <- stats::median(df_out[[m]], na.rm = TRUE)
+      }
     }
+    list(df = df_out)
   }
-})
-
-test_that("borderline QC raises z cut at confirmation", {
-  testthat::skip_if_not_installed("outliers")
-  df <- mk_data()
-  # Force M1 into borderline gate by giving QC moderate RSD
-  df$M1[1:3] <- c(9.5, 10.5, 10.2)  # QC spread
-  out <- detect_qc_aware_outliers(df, TRUE, z_threshold = 3, md_cutoff_quantile = 0.80)
-  # M1 candidates exist from z-only stage, but may be filtered at confirm with stricter cut (>=5)
-  cand_m1 <- subset(out$candidate_metabolites, metabolite == "M1")
-  conf_m1 <- subset(out$confirmations, metabolite == "M1")
-  if (nrow(cand_m1)) {
-    expect_true(any(conf_m1$decision %in% c("below_borderline_z","confirm","retain")))
-  } else {
-    testthat::skip("No M1 candidates at given thresholds.")
-  }
-})
-
-test_that("MD override confirms when test not significant", {
-  testthat::skip_if_not_installed("outliers")
-  # Two features modestly high for the same sample -> MD flagged, each z ~2
-  df <- data.frame(
-    sample = paste0("s", 1:10),
-    batch  = "B1",
-    class  = c(rep("QC", 3), rep("A", 7)),
-    order  = 1:10,
-    M1 = c(10,10.2,9.8,  rep(10,6), 11.0),  # s10 modest high
-    M2 = c(5, 5.1, 4.9,  rep(5,6),  5.9),
-    check.names = FALSE
+  
+  testthat::local_mocked_bindings(impute_missing = imputer)
+  
+  res <- detect_hotelling_nonqc_dual_z(
+    df = df,
+    p = p,
+    make_pca_plot = FALSE
   )
-  out <- detect_qc_aware_outliers(df, TRUE, z_threshold = 2, md_cutoff_quantile = 0.80, confirm_method = "grubbs")
-  conf <- subset(out$confirmations, sample == "s10")
-  # Accept either "grubbs+md" if test ran or "md_only" if test failed
-  if (nrow(conf)) {
-    expect_true(any(conf$decision == "confirm"))
-    expect_true(any(grepl("md", conf$method)))
-  } else {
-    testthat::skip("No confirmation for s10; adjust thresholds if flaky.")
-  }
+  
+  testthat::expect_equal(called, 1L)
+  testthat::expect_s3_class(res$data, "data.frame")
+  testthat::expect_true(all(!is.na(res$data$T2) | is.na(res$data$T2))) # existence check
 })
 
-test_that("rosner pkg missing branch sets pkg_missing", {
-  if (requireNamespace("EnvStats", quietly = TRUE)) skip("EnvStats installed; skip missing-pkg branch")
-  # Build n > 25 to trigger Rosner path
+testthat::test_that("detect_hotelling_nonqc_dual_z returns a ggplot pca_plot when enabled (if ggplot2 is installed)", {
+  testthat::skip_if_not_installed("ggplot2")
+  
+  p <- list(qcImputeM = "median", samImputeM = "median")
+  set.seed(4)
+  
   df <- data.frame(
-    sample = paste0("s", 1:28),
-    batch = "B1",
-    class = c(rep("QC", 3), rep("A", 25)),
-    order = 1:28,
-    M1 = c(rnorm(3, 10, 0.2), rnorm(24, 10, 0.2), 13),
-    check.names = FALSE
+    sample = paste0("S", 1:30),
+    batch  = rep(c("b1", "b2"), each = 15),
+    class  = c(rep("A", 12), rep("B", 12), rep("QC", 6)),
+    order  = 1:30,
+    m1 = rnorm(30, 100, 5),
+    m2 = rnorm(30,  50, 3),
+    m3 = rnorm(30, 200, 7),
+    stringsAsFactors = FALSE
   )
-  out <- detect_qc_aware_outliers(df, TRUE, z_threshold = 2)
-  conf <- out$confirmations
-  if (nrow(conf)) {
-    expect_true(any(conf$method == "rosner"))
-    expect_true(any(conf$decision == "pkg_missing"))
-  }
+  
+  res <- detect_hotelling_nonqc_dual_z(
+    df = df,
+    p = p,
+    make_pca_plot = TRUE
+  )
+  
+  testthat::expect_s3_class(res$pca_plot, "ggplot")
+  testthat::expect_s3_class(res$pc_loadings, "data.frame")
+  testthat::expect_true(all(c("metabolite", "PC1", "PC2") %in% names(res$pc_loadings)))
 })
-

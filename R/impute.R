@@ -74,19 +74,11 @@ impute_missing <- function(df, metab_cols, qcImputeM, samImputeM) {
   sam_df <- imputed_df[!is_qc, ]
   
   # Apply user chosen imputation methods
-  if (is.null(qcImputeM)) {
-    qc_imputed <- apply_impute(qc_df, "nothing_to_impute")
-  } else {
-    qc_imputed <- apply_impute(qc_df, qcImputeM)
-  }
+  qc_imputed <- apply_impute(qc_df, qcImputeM)
   qc_df <- qc_imputed$sub_df
   qc_str <- qc_imputed$str
   
-  if (is.null(samImputeM)) {
-    sam_imputed <- apply_impute(sam_df, "nothing_to_impute")
-  } else {
-    sam_imputed <- apply_impute(sam_df, samImputeM)
-  }
+  sam_imputed <- apply_impute(sam_df, samImputeM)
   sam_df <- sam_imputed$sub_df
   sam_str <- sam_imputed$str
   

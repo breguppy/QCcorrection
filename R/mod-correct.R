@@ -171,30 +171,16 @@ mod_correct_server <- function(id, data, params) {
       any(is.na(dplyr::filter(df, .data$class != "QC")[, mc, drop = FALSE]))
     })
     
-    observeEvent(has_qc_na_r(), {
-      if (!has_qc_na_r()) {
-        updateRadioButtons(
-          session,
-          inputId  = "qcImputeM",
-          selected = "nothing_to_impute"
-        )
-      }
-    }, ignoreInit = TRUE)
-    
-    observeEvent(has_sam_na_r(), {
-      if (!has_sam_na_r()) {
-        updateRadioButtons(
-          session,
-          inputId  = "samImputeM",
-          selected = "nothing_to_impute"
-        )
-      }
-    }, ignoreInit = TRUE)
-    
-    
     imputed_r <- reactive({
       df <- filtered_r()$df; mc <- metab_cols_r()
-      impute_missing(df, mc, input$qcImpute, input$samImpute)
+
+      qc_method  <- input$qcImputeM %||% "nothing_to_impute"
+      sam_method <- input$samImputeM %||% "nothing_to_impute"
+      
+      if (!has_qc_na_r())  qc_method  <- "nothing_to_impute"
+      if (!has_sam_na_r()) sam_method <- "nothing_to_impute"
+      
+      impute_missing(df, mc, qc_method, sam_method)
     })
     
     corrected_r <- eventReactive(input$correct, {
@@ -282,7 +268,11 @@ mod_correct_server <- function(id, data, params) {
     transformed_r <- reactive({
       req(filtered_corrected_r())
       withheld <- character(0)
-      
+      if (isTRUE(input$remove_imputed)) {
+        df_filtered <- filtered_corrected_r()$df_mv
+      } else {
+        df_filtered <- filtered_corrected_r()$df_no_mv
+      }
       if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
         for (i in seq_len(input$trn_withhold_n)) {
           col <- input[[paste0("trn_withhold_col_", i)]]
@@ -511,7 +501,7 @@ mod_correct_server <- function(id, data, params) {
           transformed        = tr
         )
         
-        wb <- export_xlsx(p, rv)                                                      ################################################
+        wb <- export_xlsx(p, rv)                      
         openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )
@@ -521,8 +511,8 @@ mod_correct_server <- function(id, data, params) {
     })
     
     correct_params <- reactive(list(
-      qcImputeM          = input$qcImputeM,
-      samImputeM         = input$samImputeM,
+      qcImputeM          = input$qcImputeM %||% "nothing_to_impute",
+      samImputeM         = input$samImputeM %||% "nothing_to_impute",
       remove_imputed     = isTRUE(input$remove_imputed),
       post_cor_filter    = input$post_cor_filter,
       rsd_cutoff         = filtered_corrected_r()$rsd_cutoff,

@@ -134,9 +134,17 @@ ui_rsd_stats <- function(p, d) {
   df_before <- d$filtered$df
   # Determine df_after based on rsd_compare selected by user.
   if (p$rsd_compare == "filtered_cor_data") {
-    df_after <- d$filtered_corrected$df
+    if (isTRUE(p$remove_imputed)) {
+      df_after <- d$filtered_corrected$df_mv
+    } else {
+      df_after <- d$filtered_corrected$df_no_mv
+    }
   } else {
-    df_after <- d$transformed$df
+    if (isTRUE(p$remove_imputed)) {
+      df_after <- d$transformed$df_mv
+    } else {
+      df_after <- d$transformed$df_no_mv
+    }
   }
   if (p$rsd_cal == "met") {
     rsdBefore <- metabolite_rsd(df_before)

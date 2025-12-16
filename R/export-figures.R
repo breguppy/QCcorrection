@@ -45,7 +45,12 @@ export_figures <- function(p, d, out_dir = tempdir()) {
   }
   
   raw_cols <- setdiff(names(d$filtered$df), c("sample", "batch", "class", "order"))
-  cor_cols <- setdiff(names(d$filtered_corrected$df),
+  if(isTRUE(p$remove_imputed)) {
+    df_cor_mets <- d$filtered_corrected$df_mv
+  } else {
+    df_cor_mets <- d$filtered_corrected$df_no_mv
+  }
+  cor_cols <- setdiff(names(df_cor_mets), 
                       c("sample", "batch", "class", "order"))
   cols <- intersect(raw_cols, cor_cols)
   met_paths <- character(0)
@@ -57,7 +62,7 @@ export_figures <- function(p, d, out_dir = tempdir()) {
     rsd_path <- save_plot(rsd_path, rsd_plot, 7.5, 4.5)
     shiny::incProgress(1 / N, detail = "Saved: rsd figure")
     
-    pca_plot <- make_pca_plot(p, d)  # ensure this uses p$color_col safely
+    pca_plot <- make_pca_plot(p, d)  
     pca_path <- file.path(pca_dir,
                           sprintf("pca_comparison_%s.%s", p$color_col, fmt))
     pca_path <- save_plot(pca_path, pca_plot, 8.333, 4.417)
@@ -71,7 +76,7 @@ export_figures <- function(p, d, out_dir = tempdir()) {
     
     for (i in seq_len(n)) {
       metab <- cols[i]
-      fig <- make_met_scatter(d, metab)
+      fig <- make_met_scatter(d, p, metab)
       safe <- gsub("[^A-Za-z0-9_\\-]+", "_", metab)
       path <- file.path(met_dir, sprintf("%s.%s", safe, fmt))
       met_paths <- c(met_paths, save_plot(path, fig, 5, 5))
