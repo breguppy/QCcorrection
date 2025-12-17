@@ -253,8 +253,10 @@ ui_corr_range_info <- function(all_cor, range) {
     correlated_card <- warn_card(
       title = "Correlated Metabolites",
       body  = sprintf(
-        "%d column pairs have correlation (Pearson's r) within the selected range.",
-        nrow(high_corr_mets)
+        "%d column pairs have correlation (Pearson's r) within the selected range: %.3f - %.3f.",
+        nrow(high_corr_mets),
+        range[1],
+        range[2]
       ),
       body_tags = cor_badges
     )
