@@ -18,20 +18,88 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
   }
   
   if (p$out_data == "filtered_cor_data") {
-    df <- d$filtered_corrected$df
+    df <- d$filtered_corrected$df_no_mv
+    d_type <- "corrected data"
   } else {
-    df <- d$transformed$df
+    df <- d$transformed$df_no_mv
+    d_type <- "transformed and corrected data"
   }
-  res <- detect_qc_aware_outliers(df, group_nonqc_by_class = p$sample_grouping)
+  res <- detect_hotelling_nonqc_dual_z(df, p)
+  
+  outlier_samples <- unique(res$data$sample[res$data$is_outlier_sample])
+  pc_loadings <- res$pc_loadings
+  
+  hotelling_table_df <- function(res,
+                                 sample_col = "sample",
+                                 class_col  = "class",
+                                 digits_z   = 2L,
+                                 digits_T2  = 2L,
+                                 format     = FALSE) {
+    ev <- res$extreme_values
+    if (is.null(ev) || nrow(ev) == 0L) {
+      return(ev[0, , drop = FALSE])
+    }
+    
+    required_cols <- c(
+      sample_col,
+      class_col,
+      "metabolite",
+      "z_global",
+      "abs_z_global",
+      "z_class",
+      "abs_z_class",
+      "T2"
+    )
+    missing_cols <- setdiff(required_cols, names(ev))
+    if (length(missing_cols) > 0L) {
+      stop(
+        "Missing columns in extreme_values: ",
+        paste(missing_cols, collapse = ", ")
+      )
+    }
+    
+    # Sort exactly like ui_outliers (but no head(top_n))
+    ev_sorted <- ev[order(-ev$abs_z_global, -ev$abs_z_class, -ev$T2), , drop = FALSE]
+    
+    if (!format) {
+      # Return numeric columns as-is (better for export / further analysis)
+      out <- data.frame(
+        Sample        = ev_sorted[[sample_col]],
+        Class         = ev_sorted[[class_col]],
+        Metabolite    = ev_sorted$metabolite,
+        z_global      = ev_sorted$z_global,
+        abs_z_global  = ev_sorted$abs_z_global,
+        z_class       = ev_sorted$z_class,
+        abs_z_class   = ev_sorted$abs_z_class,
+        T2            = ev_sorted$T2,
+        stringsAsFactors = FALSE
+      )
+    } else {
+      # Return formatted character columns, matching the UI table styling
+      out <- data.frame(
+        Sample        = ev_sorted[[sample_col]],
+        Class         = ev_sorted[[class_col]],
+        Metabolite    = ev_sorted$metabolite,
+        `Global z-score`   = formatC(ev_sorted$z_global,     format = "f", digits = digits_z),
+        `|z| (global)`     = formatC(ev_sorted$abs_z_global, format = "f", digits = digits_z),
+        `Class z-score`    = formatC(ev_sorted$z_class,      format = "f", digits = digits_z),
+        `|z| (class)`      = formatC(ev_sorted$abs_z_class,  format = "f", digits = digits_z),
+        `Mahalanobis^2`    = formatC(ev_sorted$T2,           format = "f", digits = digits_T2),
+        stringsAsFactors = FALSE
+      )
+    }
+    
+    out
+  }
+  
+  
+  tab_numeric <- hotelling_table_df(res)
+  
   shiny::withProgress(message = "Creating extreme_values_*today's_date*.xlsx...", value = 0, {
-    s1 <- .add_sheet("Sample MD")
+    s1 <- .add_sheet("Samples Outside Ellipse")
     txt1 <- paste(
-      "Tab 1. This tab shows sample name, group ID, squared Mahalanois distances, Chi-squared quantile cutoff, and True/False extreme value flag.",
-      "The squared Mahalanobis distance of the sample is computed in the robust PC score space within each group.",
-      "First, each metabolite is standardized with robust centering (median) and scaling (MAD, IQR/1.349, SD, or 1) within each group.",
-      "The sandardized metabolites undergoes PCA where we retain PCs to reach at least 80% variance.",
-      "Then a robust covariance is computed using the minimum covariance determinant (MCD), Orthogonalized Gnanadesikan\u002DKettenring (OGK), shrinkage, or classical formula depending on sample size and number of PCs retained.",
-      "The next tab will show candidate driver metabolites for the flagged extreme value samples."
+      "Tab 1. This tab shows samples outside the Hotelling's T^2 95% ellipse. The ellipse is computed in the PC1-PC2 space using the non-QC samples in the",
+      d_type, "."
     )
     openxlsx::writeData(wb,
                         s1,
@@ -51,19 +119,16 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
     openxlsx::writeData(
       wb,
       s1,
-      x = res$sample_md,
+      x = outlier_samples,
       startRow = 3,
       startCol = 1,
       headerStyle = bold
     )
-    shiny::incProgress(1 / 3, detail = "Saved: Sample MD")
+    shiny::incProgress(1 / 3, detail = "Saved: Samples Outside Ellipse")
     
-    s2 <- .add_sheet("Candidates")
+    s2 <- .add_sheet("PC Loadings")
     txt2 <- paste(
-      "Tab 2. This tab shows sample name, batch, class, order, group ID, metabolite, and robust z-score for all candidate metabolite extreme values.",
-      "The robust z-score for each metabolite is computed for each sample using robust centering (median) and scaling (MAD, IQR/1.349, SD, or 1) within each group.",
-      "Samples and metabolites are only displayed if the absolute value of the z-score is above 4 (a conservative z-score cutoff to prevent false positives) if QC RSD is stable (<= 20%) or above 5 if QC RSD is borderline (20% < QC RSD <= 30%).",
-      "The next tab will show test results confirming potenial extreme values."
+      "Tab 2. This tab shows the loadings for PC1 and PC2 computed using the non-QC samples in the", d_type, "."
     )
     openxlsx::writeData(wb,
                         s2,
@@ -83,23 +148,17 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
     openxlsx::writeData(
       wb,
       s2,
-      x = res$candidate_metabolites,
+      x = res$pc_loadings,
       startRow = 3,
       startCol = 1,
       headerStyle = bold
     )
-    shiny::incProgress(1 / 3, detail = "Saved: Candidates")
+    shiny::incProgress(1 / 3, detail = "Saved: PC Loadings")
     
-    s3 <- .add_sheet("Confirmations")
+    s3 <- .add_sheet("Potential Extreme Values")
     txt3 <- paste(
-      "Tab 3. This tab shows sample name, batch, class, order, groupID, metabolite, robust z-score, QC RSD, test method, p value, test strength, and decision on all candidate extreme values from the previous tab.",
-      "For each candidate, if the QC RSD is stable (QC RSD <= 20%) the candidate is tested.",
-      "If the candidate's QC RSD is borderline (20% < QC RSD <= 30%) and absolute value of the z-score is greater than or equal to 5, the value is tested.",
-      "If the QC RSD is unstable (greater than 30%) the candidate is not tested.",
-      "Rosner/ESD test is used for sample size n > 25.",
-      "Dixon test is used if the candidate is the group's unique min/max and sample size 3 <= n <= 30, otherwise Grubbs test is used to confirm extreme values.",
-      "Tied or ineligible cases can still be confirmed when the sample's Mahalanobis distance is flagged (md_only).",
-      "The confirmed candidates are POSSIBLE extreme values. Futher investigation should be done before removing the metabolite values."
+       "Tab 3. This tab shows samples outside the Hotelling's T^2 95% Ellipse with AND have at least 1 potential extreme metabolite value meaning global AND class |z| is greater than 3 in the", 
+       d_type, "."
     )
     openxlsx::writeData(wb,
                         s3,
@@ -119,12 +178,12 @@ export_outliers_xlsx <- function(p, d, file = NULL) {
     openxlsx::writeData(
       wb,
       s3,
-      x = res$confirmations,
+      x = tab_numeric,
       startRow = 3,
       startCol = 1,
       headerStyle = bold
     )
-    shiny::incProgress(1 / 3, detail = "Saved: Confirmations")
+    shiny::incProgress(1 / 3, detail = "Saved: Potential Extreme Values")
     
     if (!is.null(file)) {
       openxlsx::saveWorkbook(wb, file, overwrite = TRUE)

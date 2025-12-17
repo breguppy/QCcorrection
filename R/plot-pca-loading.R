@@ -5,19 +5,19 @@ plot_pca_loading <- function(p, before, after, compared_to,
                              top_n = 10, label_width = 28) {
   # Overlapping metabolite columns
   meta_cols   <- c("sample", "batch", "class", "order")
-  metab_cols  <- intersect(setdiff(names(before$df), meta_cols),
-                           setdiff(names(after$df),  meta_cols))
+  metab_cols  <- intersect(setdiff(names(before), meta_cols),
+                           setdiff(names(after),  meta_cols))
   
   # Impute 'after' like in plot_pca()
-  if (any(is.na(after$df[ , metab_cols, drop = FALSE]))) {
-    results <- impute_missing(after$df, metab_cols, p$qcImputeM, p$samImputeM)
+  if (any(is.na(after[ , metab_cols, drop = FALSE]))) {
+    results <- impute_missing(after, metab_cols, p$qcImputeM, p$samImputeM)
     after_df_only <- results$df
   } else {
-    after_df_only <- after$df
+    after_df_only <- after
   }
   
   # PCA
-  before_p <- stats::prcomp(before$df[, metab_cols], center = TRUE, scale. = TRUE)
+  before_p <- stats::prcomp(before[, metab_cols], center = TRUE, scale. = TRUE)
   after_p  <- stats::prcomp(after_df_only[, metab_cols], center = TRUE, scale. = TRUE)
   
   # Helper to tidy top loadings

@@ -257,9 +257,14 @@ ui_filter_info <- function(mv_removed, mv_cutoff, qc_missing_mets) {
 
 # Post-correction filtering info for section 2.2 Post-Correction Filtering
 ui_postcor_filter_info <- function(filtered_corrected_result,
+                                   remove_imputed,
                                    rsd_filter,
                                    post_cor_filter) {
-  removed <- filtered_corrected_result$removed_metabolites
+  if (isTRUE(remove_imputed)) {
+    removed <- filtered_corrected_result$removed_metabolites_mv
+  } else {
+    removed <- filtered_corrected_result$removed_metabolites_no_mv
+  }
   n_removed <- length(removed)
   
   # get ISTD/ITSD metabolites
@@ -310,104 +315,126 @@ ui_postcor_filter_info <- function(filtered_corrected_result,
   do.call(tagList, ui)
 }
 
-ui_outliers <- function(p, d, confirmations = NULL, sample_md = NULL,
-                        digits = 2, n_top = 10) {
-  df <- if (p$out_data == "filtered_cor_data") d$filtered_corrected$df else d$transformed$df
-  res <- detect_qc_aware_outliers(df, group_nonqc_by_class = p$sample_grouping)
+ui_outliers <- function(p, d, 
+                        top_n        = 10L,
+                        sample_col   = "sample",
+                        class_col    = "class",
+                        digits_z     = 2L,
+                        digits_T2    = 2L,
+                        pca_output_id = "hotelling_pca",
+                        ns           = identity) {
+  df <- if (p$out_data == "filtered_cor_data") {
+      d$filtered_corrected$df_no_mv
+  } else {
+    d$transformed$df_no_mv
+  }
   
-  if (!requireNamespace("htmltools", quietly = TRUE)) stop("htmltools is required")
-  tags <- htmltools::tags
+  detect_result <- detect_hotelling_nonqc_dual_z(df, p)
   
-  if (is.null(res)) res <- list(confirmations = confirmations, sample_md = sample_md)
-  if (!is.list(res)) stop("ui_outliers: supply the full result list or confirmations+sample_md")
+  # Extract extreme values and full data
+  ev   <- detect_result$extreme_values
+  dres <- detect_result$data
   
-  conf <- res$confirmations
-  md   <- res$sample_md
-  if (is.null(conf) || is.null(md)) stop("ui_outliers: missing confirmations or sample_md")
+  if (is.null(ev)) {
+    stop("detect_result$extreme_values is NULL. Did you pass the correct object?")
+  }
   
-  group_col <- if ("group_id" %in% names(md)) "group_id" else "class"
-  conf_ok <- subset(conf, decision == "confirm")
+  # Metric values
+  n_outlier_samples  <- sum(dres$is_outlier_sample, na.rm = TRUE)
+  n_extreme_values   <- nrow(ev)
   
-  n_samples_with_outlier <- if (nrow(conf_ok)) length(unique(conf_ok$sample)) else 0L
-  n_candidate_values     <- nrow(conf_ok)
+  # Metric cards
+  cards <- shiny::div(
+    style = "display:flex; gap:10px; margin-bottom:10px;",
+    metric_card("Samples outside the Hotelling's T^2 95% limit", n_outlier_samples),
+    metric_card("Potential extreme metabolite values", n_extreme_values)
+  )
   
-  if (nrow(conf_ok) == 0) {
-    return(tagList(
-      tags$div(
-        style = "display:flex; gap:16px; margin-bottom:12px;",
-        metric_card("Samples with at least 1 potential extreme values", n_samples_with_outlier),
-        metric_card("Candidate extreme values", n_candidate_values)
-      ),
-      tags$span("No extreme values detected")
+  # If no extreme values, just show cards + PCA + message
+  if (nrow(ev) == 0L) {
+    return(shiny::tagList(
+      shiny::plotOutput(ns(pca_output_id), height = "350px"),
+      cards,
+      shiny::tags$em("No extreme metabolite values detected in outlier samples.")
     ))
   }
   
-  # join Mahalanobis info for each (sample, group)
-  md_keep <- md[, c("sample", group_col, "md", "cutoff", "flagged")]
-  names(md_keep)[names(md_keep) == group_col] <- "groupval"
-  
-  conf_ok$abs_z <- abs(conf_ok$z)
-  conf_ok$groupval <- conf_ok[[group_col]]
-  top <- merge(conf_ok, md_keep, by = c("sample","groupval"), all.x = TRUE)
-  
-  # rank by |z|, then MD desc
-  top <- top[order(-top$abs_z, -as.numeric(top$md)), ]
-  top <- head(top, n_top)
-  
-  # format rows
-  header <- tags$thead(
-    tags$tr(
-      tags$th("#"),
-      tags$th("Sample"),
-      tags$th("Group"),
-      tags$th("Metabolite"),
-      tags$th("|z|"),
-      tags$th("z"),
-      tags$th("QC RSD"),
-      tags$th("Method"),
-      tags$th("p"),
-      tags$th("test strength"),
-      tags$th("Mahalanobis"),
-      tags$th("Cutoff")
-    )
+  # Check required columns from detect_hotelling_nonqc_dual_z()
+  required_cols <- c(
+    sample_col,
+    class_col,
+    "metabolite",
+    "z_global",
+    "abs_z_global",
+    "z_class",
+    "abs_z_class",
+    "T2"
   )
+  missing_cols <- setdiff(required_cols, names(ev))
+  if (length(missing_cols) > 0L) {
+    stop(
+      "Missing columns in extreme_values: ",
+      paste(missing_cols, collapse = ", ")
+    )
+  }
   
-  body_rows <- lapply(seq_len(nrow(top)), function(i) {
-    r <- top[i, ]
-    tags$tr(
-      tags$td(i),
-      tags$td(r$sample),
-      tags$td(r$groupval),
-      tags$td(r$metabolite),
-      tags$td(sprintf("%.*f", digits, r$abs_z)),
-      tags$td(sprintf("%.*f", digits, r$z)),
-      tags$td(ifelse(is.na(r$qc_rsd), "NA", sprintf("%.*f%%", digits, r$qc_rsd))),
-      tags$td(r$method),
-      tags$td(ifelse(is.na(r$p_value), "NA", sprintf("%.*f", digits, r$p_value))),
-      tags$td(ifelse(is.na(r$test_strength), "NA", sprintf("%.*f", digits, r$test_strength))),
-      tags$td(ifelse(is.na(r$md), "NA", sprintf("%.*f", digits, r$md))),
-      tags$td(ifelse(is.na(r$cutoff), "NA", sprintf("%.*f", digits, r$cutoff)))
+  # Sort by |z_global|, then |z_class|, then T2, descending
+  ev_sorted <- ev[order(-ev$abs_z_global, -ev$abs_z_class, -ev$T2), , drop = FALSE]
+  
+  # Take top_n rows
+  ev_top <- head(ev_sorted, top_n)
+  
+  # Format numeric values
+  z_g_fmt    <- formatC(ev_top$z_global,      format = "f", digits = digits_z)
+  absz_g_fmt <- formatC(ev_top$abs_z_global,  format = "f", digits = digits_z)
+  z_c_fmt    <- formatC(ev_top$z_class,       format = "f", digits = digits_z)
+  absz_c_fmt <- formatC(ev_top$abs_z_class,   format = "f", digits = digits_z)
+  T2_fmt     <- formatC(ev_top$T2,            format = "f", digits = digits_T2)
+  
+  # Build table rows
+  rows <- lapply(seq_len(nrow(ev_top)), function(i) {
+    shiny::tags$tr(
+      shiny::tags$td(ev_top[[sample_col]][i]),
+      shiny::tags$td(ev_top[[class_col]][i]),
+      shiny::tags$td(ev_top$metabolite[i]),
+      shiny::tags$td(z_g_fmt[i]),
+      shiny::tags$td(absz_g_fmt[i]),
+      shiny::tags$td(z_c_fmt[i]),
+      shiny::tags$td(absz_c_fmt[i]),
+      shiny::tags$td(T2_fmt[i])
     )
   })
   
-  tagList(
-    tags$div(
-      style = "display:flex; gap:16px; margin-bottom:12px;",
-      metric_card("Samples with at least 1 potential extreme values", n_samples_with_outlier),
-      metric_card("Candidate extreme values", n_candidate_values)
-    ),
-    tags$span("Top 10 potential extreme values are listed below. The full list of potential extreme values 'extreme_values_*today's_date*.xlsx' is availble for download."),
-    tags$div(
-      style = "border:1px solid #ddd; border-radius:6px; background:white;",
-      tags$table(
-        style = "border-collapse:collapse; width:100%; font-size:90%;",
-        tags$style(htmltools::HTML("
-          table, th, td { border: 1px solid #ccc; }
-          th, td { padding: 6px 8px; vertical-align: top; }
-          th { background:#f7f7f7; text-align:left; }
-        ")),
-        header, tags$tbody(body_rows)
+  # Build full table with header
+  table_tag <- shiny::tags$table(
+    class = "table table-striped table-condensed table-hover",
+    shiny::tags$thead(
+      shiny::tags$tr(
+        shiny::tags$th("Sample"),
+        shiny::tags$th("Class"),
+        shiny::tags$th("Metabolite"),
+        shiny::tags$th("Global z-score"),
+        shiny::tags$th("|z| (global)"),
+        shiny::tags$th("Class z-score"),
+        shiny::tags$th("|z| (class)"),
+        shiny::tags$th("Mahalanobis^2")
       )
-    )
+    ),
+    shiny::tags$tbody(rows)
+  )
+  
+  shiny::tagList(
+    # PCA plot placeholder – actual plot comes from renderPlot()
+    shiny::plotOutput(ns(pca_output_id), height = "350px"),
+    cards,
+    shiny::tags$span(
+      "Top 10 potential extreme values are listed below. ",
+      "The full list of potential extreme values 'extreme_values_*today's_date*.xlsx' ",
+      "is available for download."
+    ),
+    table_tag
   )
 }
+
+
+

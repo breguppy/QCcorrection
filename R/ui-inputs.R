@@ -145,7 +145,7 @@ ui_qc_impute <- function(df, metab_cols, ns = identity) {
   if (has_qc_na) {
     radioButtons(
       ns("qcImputeM"),
-      "QC Imputation Method",
+      "QC Sample Imputation Method",
       list(
         "metabolite median" = "median",
         "metabolite mean" = "mean",
@@ -210,7 +210,6 @@ ui_sample_impute <- function(df, metab_cols, ns = identity) {
   } else {
     tags$div(icon("check-circle", class = "text-success"),
              span("No Sample missing values"))
-    
   }
 }
 
@@ -328,18 +327,18 @@ ui_post_cor_transform <- function(ns) {
 #' @keywords internal
 #' @noRd
 ui_detect_outliers_options <- function(ns) {
-  tagList(
-    radioButtons(ns("out_data"), 
-                 "Detect extreme values in", 
-                 list("Corrected data" = "filtered_cor_data", 
-                      "Transformed and corrected data" = "transformed_cor_data"), 
-                 "filtered_cor_data"),
-    tooltip(
-      checkboxInput(ns("sample_grouping"), 
-                 "Group samples by class", FALSE),
-      "Check this box if you want to compare samples within the same class when detecting extreme values.",
-      placement = "right"
-    )
+  tooltip(
+    radioButtons(
+      ns("out_data"),
+      "Detect extreme values in",
+      list(
+        "Corrected data" = "filtered_cor_data",
+        "Transformed and corrected data" = "transformed_cor_data"
+      ),
+      "filtered_cor_data"
+    ),
+    "Potential extreme values will be detected in the data set you select.",
+    placement = "right"
   )
 }
 

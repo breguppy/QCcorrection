@@ -70,8 +70,10 @@ mod_correct_ui <- function(id) {
         sidebar = ui_sidebar_block(
           title = "2.4 Candidate Extreme Values",
           ui_detect_outliers_options(ns),
-          help = c("The samples listed in the table are considered extreme values by robust z\u002Dscore with a cutoff weighted by QC variability confired with a test chosen by group size or by Mahalanobis distance in PCA.")
-        ),
+          help = c("PCA and Hotelling's T^2 95% ellipse are computes in the PC1-PC2 space using only the non-QC samples.",
+                   "Samples outside the Hotelling's T^2 ellipse are colored red",
+                   "Samples listed in the table are outside the Hotelling's T^2 95% limit AND have at least 1 potential extreme metabolite value meaning global AND class |z| is greater than 3."
+        )),
         layout_sidebar(
           sidebar = ui_sidebar_block(
             title = "Download Extreme Value Summary",
@@ -85,7 +87,6 @@ mod_correct_ui <- function(id) {
       )
     ),
     card(
-      #style = "background-color: #eeeeee;",
       layout_sidebar(
         sidebar = ui_sidebar_block(
           title = "2.5 Identify Control Group",
@@ -132,6 +133,7 @@ mod_correct_server <- function(id, data, params) {
       d()$cleaned
     })
     
+    ########## Part 2.1: choose correction settings:
     output$qc_missing_value_warning <- renderUI({
       df <- filtered_r()$df
       ui_qc_missing_warning(df)
@@ -171,9 +173,14 @@ mod_correct_server <- function(id, data, params) {
     
     imputed_r <- reactive({
       df <- filtered_r()$df; mc <- metab_cols_r()
-      qcImpute  <- if (!has_qc_na_r())  "nothing_to_impute" else input$qcImputeM
-      samImpute <- if (!has_sam_na_r()) "nothing_to_impute" else input$samImputeM
-      impute_missing(df, mc, qcImpute, samImpute)
+
+      qc_method  <- input$qcImputeM %||% "nothing_to_impute"
+      sam_method <- input$samImputeM %||% "nothing_to_impute"
+      
+      if (!has_qc_na_r())  qc_method  <- "nothing_to_impute"
+      if (!has_sam_na_r()) sam_method <- "nothing_to_impute"
+      
+      impute_missing(df, mc, qc_method, sam_method)
     })
     
     corrected_r <- eventReactive(input$correct, {
@@ -190,23 +197,36 @@ mod_correct_server <- function(id, data, params) {
     })
     output$cor_spinner <- renderUI(NULL)
     
+    
+    ########## Part 2.2 Post correction filtering:
     filtered_corrected_r <- reactive({
       req(filtered_r(), corrected_r())
+      df_filtered <- filtered_r()$df
       df_corrected <- corrected_r()$df
       
-      if (isTRUE(input$remove_imputed)) {
-        fil_cor_df <- remove_imputed_from_corrected(filtered_r()$df, df_corrected)
-      } else  {
-        fil_cor_df <- df_corrected
-      }
-      
       if (isTRUE(input$post_cor_filter)) {
-        fil_cor_df <- filter_by_qc_rsd(fil_cor_df, Inf, c("sample","batch","class","order"))
+        fil_cor <- filter_by_qc_rsd(df_filtered, 
+                                    df_corrected, 
+                                    Inf, 
+                                    input$remove_imputed, 
+                                    c("sample","batch","class","order"))
       } else {
-        fil_cor_df <- filter_by_qc_rsd(fil_cor_df, input$rsd_filter, c("sample","batch","class","order"))
+        fil_cor <- filter_by_qc_rsd(df_filtered, 
+                                    df_corrected, 
+                                    input$rsd_filter, 
+                                    input$remove_imputed, 
+                                    c("sample","batch","class","order"))
       }
       
-      fil_cor_df 
+      fil_cor 
+    })
+    
+    output$post_cor_filter_info <- renderUI({
+      req(filtered_corrected_r())
+      ui_postcor_filter_info(filtered_corrected_r(), 
+                             input$remove_imputed, 
+                             input$rsd_filter, 
+                             input$post_cor_filter)
     })
     
     output$download_cor_rsd_btn <- renderUI({
@@ -230,7 +250,8 @@ mod_correct_server <- function(id, data, params) {
       },
       content = function(file) {
         p <- list(
-          rsd_compare = "filtered_cor_data"
+          rsd_compare = "filtered_cor_data",
+          remove_imputed = input$remove_imputed
         )
         
         d <- list(
@@ -243,17 +264,22 @@ mod_correct_server <- function(id, data, params) {
       }
     )
     
-    
+    ########### Part 2.3 Post-correction Transformation:
     transformed_r <- reactive({
       req(filtered_corrected_r())
       withheld <- character(0)
+      if (isTRUE(input$remove_imputed)) {
+        df_filtered <- filtered_corrected_r()$df_mv
+      } else {
+        df_filtered <- filtered_corrected_r()$df_no_mv
+      }
       if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
         for (i in seq_len(input$trn_withhold_n)) {
           col <- input[[paste0("trn_withhold_col_", i)]]
-          if (!is.null(col) && col %in% names(filtered_corrected_r()$df)) withheld <- c(withheld, col)
+          if (!is.null(col) && col %in% names(df_filtered)) withheld <- c(withheld, col)
         }
       }
-      transform_data(filtered_corrected_r()$df, input$transform, withheld, input$ex_ISTD)
+      transform_data(filtered_corrected_r(), input$transform, withheld, input$ex_ISTD)
     })
     
     observe({
@@ -295,13 +321,14 @@ mod_correct_server <- function(id, data, params) {
       })
     })
     
-    output$post_cor_filter_info <- renderUI({
-      req(filtered_corrected_r())
-      ui_postcor_filter_info(filtered_corrected_r(), input$rsd_filter, input$post_cor_filter)
-    })
     output$cor_data <- renderTable({
       req(transformed_r())
-      transformed_r()$df
+      if (isTRUE(input$remove_imputed)) {
+        df <- transformed_r()$df_mv
+      } else {
+        df <- transformed_r()$df_no_mv
+      }
+      df
     })
     
     output$download_tc_rsd_btn <- renderUI({
@@ -325,7 +352,8 @@ mod_correct_server <- function(id, data, params) {
       },
       content = function(file) {
         p <- list(
-          rsd_compare = "transformed_cor_data"
+          rsd_compare = "transformed_cor_data",
+          remove_imputed = input$remove_imputed
         )
         
         d <- list(
@@ -334,19 +362,44 @@ mod_correct_server <- function(id, data, params) {
           transformed        = transformed_r()
         )
         
-        stats_wb <- export_stats_xlsx(p, d)
+        stats_wb <- export_stats_xlsx(p, d)                
         openxlsx::saveWorkbook(stats_wb, file, overwrite = TRUE)
       }
     )
     
+    ######### Part 2.4 Candidate Extreme Values
+    # PCA plot and table with candidate extreme values
     output$outliers_table <- renderUI({
       req(filtered_corrected_r(), transformed_r())
-      d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-      p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
-      ui_outliers(p, d)
+      d <- list(filtered_corrected = filtered_corrected_r(), 
+                transformed = transformed_r())
+      p <- list(out_data = input$out_data, 
+                qcImputeM = input$qcImputeM, 
+                samImputeM = input$samImputeM)
+      ui_outliers(
+        p = p,
+        d = d,
+        pca_output_id = "hotelling_pca",
+        ns = ns
+      )
     })
-    
-    # add download button for extreme values.
+    output$hotelling_pca <- shiny::renderPlot({
+      req(filtered_corrected_r(), transformed_r())
+      p <- list(out_data = input$out_data, 
+                qcImputeM = input$qcImputeM, 
+                samImputeM = input$samImputeM)
+      # Use the same df logic as ui_outliers()
+      df <- if (p$out_data == "filtered_cor_data") {
+        filtered_corrected_r()$df_no_mv
+      } else {
+        transformed_r()$df_no_mv
+      }
+      
+      res <- detect_hotelling_nonqc_dual_z(df, p)
+      if (!is.null(res$pca_plot)) {
+        res$pca_plot
+      }
+    })
     output$download_ev_btn <- renderUI({
       req(transformed_r())
       
@@ -367,14 +420,18 @@ mod_correct_server <- function(id, data, params) {
         sprintf("extreme_values_%s.xlsx", Sys.Date())
       },
       content = function(file) {
-        d <- list(filtered_corrected = filtered_corrected_r(), transformed = transformed_r())
-        p <- list(out_data = input$out_data, sample_grouping = input$sample_grouping)
+        d <- list(filtered_corrected = filtered_corrected_r(), 
+                  transformed = transformed_r())
+        p <- list(out_data = input$out_data, 
+                  qcImputeM = input$qcImputeM, 
+                  samImputeM = input$samImputeM)
         
-        outlier_wb <- export_outliers_xlsx(p, d)
+        outlier_wb <- export_outliers_xlsx(p, d)        
         openxlsx::saveWorkbook(outlier_wb, file, overwrite = TRUE)
       }
     )
     
+    ############ Part 2.5 Identify Control Group
     output$control_class_selector <- renderUI({
       req(cleaned_r())
       df <- cleaned_r()$df
@@ -444,7 +501,7 @@ mod_correct_server <- function(id, data, params) {
           transformed        = tr
         )
         
-        wb <- export_xlsx(p, rv)
+        wb <- export_xlsx(p, rv)                      
         openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )
@@ -454,15 +511,14 @@ mod_correct_server <- function(id, data, params) {
     })
     
     correct_params <- reactive(list(
-      qcImputeM          = input$qcImputeM %||% "median",
-      samImputeM         = input$samImputeM %||% "median",
+      qcImputeM          = input$qcImputeM %||% "nothing_to_impute",
+      samImputeM         = input$samImputeM %||% "nothing_to_impute",
       remove_imputed     = isTRUE(input$remove_imputed),
       post_cor_filter    = input$post_cor_filter,
       rsd_cutoff         = filtered_corrected_r()$rsd_cutoff,
       transform          = input$transform,
       ex_ISTD            = isTRUE(input$ex_ISTD),
       out_data           = input$out_data,
-      sample_grouping    = input$sample_grouping,
       keep_corrected_qcs = isTRUE(input$keep_corrected_qcs),
       no_control         = isTRUE(input$no_control),
       control_class      = input$control_class %||% ""

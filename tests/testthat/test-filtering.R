@@ -96,24 +96,26 @@ test_that("filter_by_qc_rsd keeps <= cutoff, removes NA and > cutoff", {
   
   out <- filter_by_qc_rsd(
     df,
+    df,
     rsd_cutoff = 25,
+    remove_imputed = TRUE,
     metadata_cols = c("sample", "batch", "class", "order")
   )
   
   # keep A (15) and C (NA). remove B (25? kept since <= cutoff) and D (60).
-  expect_setequal(names(out$df),
+  expect_setequal(names(out$df_mv),
                   c("sample", "batch", "class", "order", "A", "B"))
-  expect_setequal(out$removed_metabolites, c("C", "D"))
+  expect_setequal(out$removed_metabolites_mv, c("C", "D"))
   expect_equal(out$rsd_cutoff, 25)
 })
 
 test_that("filter_by_qc_rsd can remove all metabolites", {
   df <- make_df_for_rsd(c(70, 80, 90, 100))
   
-  out <- filter_by_qc_rsd(df, rsd_cutoff = 60)
+  out <- filter_by_qc_rsd(df, df, rsd_cutoff = 60, remove_imputed = TRUE)
   
-  expect_identical(setdiff(names(out$df), c("sample", "batch", "class", "order")), character(0))
-  expect_setequal(out$removed_metabolites, c("A", "B", "C", "D"))
+  expect_identical(setdiff(names(out$df_mv), c("sample", "batch", "class", "order")), character(0))
+  expect_setequal(out$removed_metabolites_mv, c("A", "B", "C", "D"))
 })
 
 test_that("metabolite_rsd returns targeted QC RSDs", {

@@ -58,12 +58,17 @@ mod_visualize_server <- function(id, data, params) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     d <- reactive(data())          
-    p <- reactive(params()) 
+    p <- reactive(params())
     
     #-- Let user select which metabolite to display in scatter plot
     output$met_plot_selectors <- renderUI({
-      df_raw <- req(d()$filtered)$df
-      df_cor <- req(d()$filtered_corrected)$df
+      req(d()$filtered, d()$filtered_corrected)
+      df_raw <- d()$filtered$df
+      if (isTRUE(p()$remove_imputed)){
+        df_cor <- d()$filtered_corrected$df_mv
+      } else {
+        df_cor <- d()$filtered_corrected$df_no_mv
+      }
       raw_cols <- setdiff(names(df_raw), c("sample","batch","class","order"))
       cor_cols <- setdiff(names(df_cor), c("sample","batch","class","order"))
       cols <- intersect(raw_cols, cor_cols)
@@ -74,19 +79,19 @@ mod_visualize_server <- function(id, data, params) {
     #-- Metabolite scatter plot
     output$metab_scatter <- renderPlot({
       req(input$met_col)
-      make_met_scatter(d(), input$met_col)
+      make_met_scatter(d(), p(), input$met_col)
     }, res = 120)
     
     #-- RSD comparison plot
     output$rsd_comparison_plot <- renderPlot(execOnResize = FALSE, res = 120,{
       req(input$rsd_compare, input$rsd_cal)
       
-      make_rsd_plot(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal, rsd_plot_type = input$rsd_plot_type), d())
+      make_rsd_plot(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal, rsd_plot_type = input$rsd_plot_type, remove_imputed = p()$remove_imputed), d())
     })
     
     output$rsd_comparison_stats <- renderUI({
       req(input$rsd_compare, input$rsd_cal)
-      ui_rsd_stats(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal), d())
+      ui_rsd_stats(list(rsd_compare = input$rsd_compare, rsd_cal = input$rsd_cal, remove_imputed = p()$remove_imputed), d())
     })
     
     #-- PCA plot
@@ -148,9 +153,11 @@ mod_visualize_server <- function(id, data, params) {
         choices <- list(
           rsd_cal     = input$rsd_cal,
           rsd_compare = input$rsd_compare,
+          rsd_plot_type = input$rsd_plot_type,
           pca_compare = input$pca_compare,
           color_col   = input$color_col,
-          fig_format  = input$fig_format
+          fig_format  = input$fig_format,
+          remove_imputed = p()$remove_imputed
         )
         rv_data <- list(
           filtered           = d()$filtered,

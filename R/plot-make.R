@@ -2,14 +2,21 @@
 #' @keywords internal
 #' @noRd
 # Helper for creating metabolite scatter plot
-make_met_scatter <- function(d, met_col) {
+make_met_scatter <- function(d, p, met_col) {
   # choose the correct plotting function based on the correction method.
   cor_method <- d$corrected$str
+  df_raw <- d$filtered$df
+  if (isTRUE(p$remove_imputed)) {
+    df_cor <- d$filtered_corrected$df_mv
+  } else {
+    df_cor <- d$filtered_corrected$df_no_mv
+  }
+  
   tryCatch({
     if (cor_method %in% c("Random Forest", "Batchwise Random Forest")) {
-      met_scatter_rf(d$filtered$df, d$filtered_corrected$df, i = met_col)
+      met_scatter_rf(df_raw, df_cor, i = met_col)
     } else if (cor_method %in% c("LOESS", "Batchwise LOESS")) {
-      met_scatter_loess(d$filtered$df, d$filtered_corrected$df, i = met_col)
+      met_scatter_loess(df_raw, df_cor, i = met_col)
     } else {
       ggplot2::ggplot() + ggplot2::labs(title = "No correction method selected.")
     }
@@ -28,11 +35,19 @@ make_rsd_plot <- function(p, d) {
   df_before <- d$filtered$df
   # Determine df_after based on rsd_compare selected by user.
   if (p$rsd_compare == "filtered_cor_data") {
-    df_after <- d$filtered_corrected$df
     compared_to <- "Correction"
+    if (isTRUE(p$remove_imputed)) {
+      df_after <- d$filtered_corrected$df_mv
+    } else {
+      df_after <- d$filtered_corrected$df_no_mv
+    }
   } else {
-    df_after <- d$transformed$df
     compared_to <- "Correction and Transformation"
+    if (isTRUE(p$remove_imputed)) {
+      df_after <- d$transformed$df_mv
+    } else {
+      df_after <- d$transformed$df_no_mv
+    }
   }
   
   # Need at least 1 metabolite column
@@ -71,22 +86,20 @@ make_rsd_plot <- function(p, d) {
 make_pca_plot <- function(p, d) {
   # get after based on pca_compare selected by user.
   if (p$pca_compare == "filtered_cor_data") {
-    df <- d$filtered_corrected$df
-    after <- d$filtered_corrected
+    after <- d$filtered_corrected$df_no_mv
     compared_to <- "Correction"
   } else {
-    df <- d$transformed$df
-    after <- d$transformed
+    after <- d$transformed$df_no_mv
     compared_to <- "Correction and Transformation"
   }
-  mets <- setdiff(names(df), c("sample", "batch", "class", "order"))
+  mets <- setdiff(names(after), c("sample", "batch", "class", "order"))
   shiny::validate(
     shiny::need(length(mets) >= 2, "Need at least 2 metabolite columns for PCA."),
-    shiny::need(nrow(df) >= 3, "Need at least 3 samples for PCA.")
+    shiny::need(nrow(after) >= 3, "Need at least 3 samples for PCA.")
   )
   
   # Also ensure non-constant / non-NA columns
-  X <- df[, mets, drop = FALSE]
+  X <- after[, mets, drop = FALSE]
   keep <- vapply(X, function(v) {
     v <- suppressWarnings(as.numeric(v))
     ok <- all(is.finite(v))
@@ -99,7 +112,7 @@ make_pca_plot <- function(p, d) {
   ))
   
   # before data cannot have any missing values.
-  before <- d$imputed
+  before <- d$imputed$df
   tryCatch({
     plot_pca(p, before, after, compared_to)
   }, error = function(e) {
@@ -116,22 +129,20 @@ make_pca_plot <- function(p, d) {
 make_pca_loading_plot <- function(p, d) {
   # get after based on pca_compare selected by user.
   if (p$pca_compare == "filtered_cor_data") {
-    df <- d$filtered_corrected$df
-    after <- d$filtered_corrected
+    after <- d$filtered_corrected$df_no_mv
     compared_to <- "Correction"
   } else {
-    df <- d$transformed$df
-    after <- d$transformed
+    after <- d$transformed$df_no_mv
     compared_to <- "Correction and Transformation"
   }
-  mets <- setdiff(names(df), c("sample", "batch", "class", "order"))
+  mets <- setdiff(names(after), c("sample", "batch", "class", "order"))
   shiny::validate(
     shiny::need(length(mets) >= 2, "Need at least 2 metabolite columns for PCA."),
-    shiny::need(nrow(df) >= 3, "Need at least 3 samples for PCA.")
+    shiny::need(nrow(after) >= 3, "Need at least 3 samples for PCA.")
   )
   
   # Also ensure non-constant / non-NA columns
-  X <- df[, mets, drop = FALSE]
+  X <- after[, mets, drop = FALSE]
   keep <- vapply(X, function(v) {
     v <- suppressWarnings(as.numeric(v))
     ok <- all(is.finite(v))
@@ -144,7 +155,7 @@ make_pca_loading_plot <- function(p, d) {
   ))
   
   # before data cannot have any missing values.
-  before <- d$imputed
+  before <- d$imputed$df
   tryCatch({
     plot_pca_loading(p, before, after, compared_to)
   }, error = function(e) {
