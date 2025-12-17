@@ -89,7 +89,31 @@ mod_correct_ui <- function(id) {
     card(
       layout_sidebar(
         sidebar = ui_sidebar_block(
-          title = "2.5 Identify Control Group",
+          title = "2.5 Post-Correction/Transformation Metabolite Correlation",
+          ui_tc_corr_slider(ns),
+          help = c("To investigate linear relationships between metabolites Pearson's r is computed for each pair.",
+                   "All pairwise correlations are computed, but we only allow pairs with a strong positive linear correlation to be displayed here.",
+                   "To view all pairwise correlation, download the Excel displayed on the right."),
+          width = 400
+        ),
+        layout_sidebar(
+          sidebar = ui_sidebar_block(
+            title = "Download Corrected/Transformed Data Metabolite Correlations",
+            uiOutput(ns("download_tc_corr_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+            help = c("Creates Excel file with all pairwise metabolite correlations in the raw data and corrected/transformed data."),
+            width = 400,
+            position = "right"),
+          uiOutput(ns("compute_tc_corr_ui")),
+          div(style="margin:12px 0 0 0;", withSpinner(uiOutput(ns("tc_corr_spinner")),
+                                                      color="#404040")),
+          uiOutput(ns("tc_corr_range_info"))
+        )
+        )
+      ),
+    card(
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "2.6 Identify Control Group",
           tooltip(
             checkboxInput(ns("no_control"), "No control group", FALSE),
             "Check the box if The data does not have a control group.", 
@@ -431,7 +455,122 @@ mod_correct_server <- function(id, data, params) {
       }
     )
     
-    ############ Part 2.5 Identify Control Group
+    # ---------- Part 2.5: TC correlations button show/hide  ----------
+    tc_corr_input_df_r <- reactive({
+      req(filtered_corrected_r(), transformed_r())
+      
+      use_mv <- isTRUE(input$remove_imputed)
+      use_filtered <- identical(input$tc_corr_data, "filtered_cor_data")
+      
+      if (use_filtered) {
+        if (use_mv) filtered_corrected_r()$df_mv else filtered_corrected_r()$df_no_mv
+      } else {
+        if (use_mv) transformed_r()$df_mv else transformed_r()$df_no_mv
+      }
+    })
+    
+    # Store which selection we last computed for
+    computed_tc_key_r <- reactiveVal(NA_character_)
+    
+    # Current selection key (changes when user switches tc_corr_data)
+    tc_corr_key_r <- reactive({
+      paste(
+        input$tc_corr_data %||% "filtered_cor_data",
+        isTRUE(input$remove_imputed),
+        sep = "::"
+      )
+    })
+    
+    # Force button to reappear whenever tc_corr_data (or remove_imputed) changes
+    observeEvent(input$tc_corr_data, {
+      computed_tc_key_r(NA_character_)
+    }, ignoreInit = TRUE)
+    
+    # Also reset when upstream invalidates (helps when data genuinely updates)
+    observeEvent(list(filtered_corrected_r(), transformed_r()), {
+      computed_tc_key_r(NA_character_)
+    }, ignoreInit = TRUE)
+    
+    output$compute_tc_corr_ui <- renderUI({
+      # Always read the key so the UI invalidates when tc_corr_data changes
+      key <- tc_corr_key_r()
+      req(nzchar(key))
+      
+      # If we've computed for this key, hide
+      if (!is.na(computed_tc_key_r()) && identical(computed_tc_key_r(), key)) {
+        return(NULL)
+      }
+      
+      tagList(
+        tags$div(
+          style = "margin-bottom: 8px; color: #555;",
+          "Computing correlations may take a while if the data has many metabolites."
+        ),
+        actionButton(
+          ns("compute_tc_corr"),
+          "Compute Metabolite Correlations",
+          class = "btn btn-primary btn-lg",
+          width = "100%"
+        )
+      )
+    })
+    
+    
+    tc_correlations_r <- eventReactive(input$compute_tc_corr, {
+      df <- req(tc_corr_input_df_r())
+      metab <- setdiff(names(df), c("sample", "batch", "class", "order"))
+      compute_pairwise_metabolite_correlations(df, metab)
+    })
+    
+    observeEvent(input$compute_tc_corr, ignoreInit = TRUE, {
+      shinyjs::disable(ns("compute_tc_corr"))
+      output$tc_corr_spinner <- renderUI({
+        on.exit(shinyjs::enable(ns("compute_tc_corr")), add = TRUE)
+        
+        tc_correlations_r()
+        
+        computed_tc_key_r(tc_corr_key_r())
+        NULL
+      })
+    })
+    output$tc_corr_spinner <- renderUI(NULL)
+    
+    
+    output$tc_corr_range_info <- renderUI({
+      all_corr <- req(tc_correlations_r())
+      ui_corr_range_info(all_corr, input$tc_corr_threshold)                
+    })
+    output$download_tc_corr_btn <- renderUI({
+      req(tc_correlations_r())
+      
+      div(
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 250px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_tc_corr_data"),
+            label    = "Download Metabolite Correlations",
+            class    = "btn btn-secondary"
+          )
+        )
+      )
+    })
+    output$download_tc_corr_data <- downloadHandler(
+      filename = function() {
+        paste0("corrected_metabolite_correlations_", Sys.Date(), ".xlsx")
+      },
+      content = function(file) {
+        if (input$tc_corr_data == "filtered_cor_data") {
+          d_type <- "Corrected"}
+        else {
+          d_type <- "Transformed and Corrected"
+        }
+        wb <- export_corr_xlsx(d()$raw_corr, tc_correlations_r(), d_type2 = d_type) 
+        openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+      }
+    )
+    
+    ############ Part 2.6 Identify Control Group
     output$control_class_selector <- renderUI({
       req(cleaned_r())
       df <- cleaned_r()$df

@@ -231,6 +231,7 @@ mod_import_server <- function(id) {
         openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )
+    
     # Increment whenever filtered df changes
     filtered_version_r <- reactiveVal(0L)
     

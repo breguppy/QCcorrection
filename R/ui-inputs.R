@@ -111,6 +111,30 @@ ui_corr_slider <- function(ns) {
     placement = "right"
   )
 }
+#' metabolite correlation slider in corrected or transformed data
+#' @keywords internal
+#' @noRd
+ui_tc_corr_slider <- function(ns) {
+  tagList(tooltip(
+    radioButtons(
+      ns("tc_corr_data"),
+      "Compute metabolite correlations for",
+      list(
+        "Corrected data" = "filtered_cor_data",
+        "Transformed and corrected data" = "transformed_cor_data"
+      ),
+      "filtered_cor_data"
+    ),
+    "all pairwise metabolite correlations will be computed in the data set you select.",
+    placement = "right"
+  ),
+  tooltip(
+    sliderInput(ns("tc_corr_threshold"), "Pearson's r range", 0.9, 1, value = c(0.99, 1), step = 0.005),
+    "Pairs of metabolites with Pearson's R within this range will be displayed here.", 
+    placement = "right"
+  )
+  )
+}
 
 #' missing value filter slider
 #' @keywords internal
