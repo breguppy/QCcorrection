@@ -101,6 +101,17 @@ ui_withhold_count <- function(ns, max_withhold) {
                step  = 1)
 }
 
+#' metabolite correlation slider
+#' @keywords internal
+#' @noRd
+ui_corr_slider <- function(ns) {
+  tooltip(
+    sliderInput(ns("corr_threshold"), "Pearson's r range", 0.9, 1, value = c(0.99, 1), step = 0.005),
+    "Pairs of metabolites with Pearson's R within this range will be displayed here.", 
+    placement = "right"
+  )
+}
+
 #' missing value filter slider
 #' @keywords internal
 #' @noRd

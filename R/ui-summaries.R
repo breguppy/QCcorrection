@@ -9,6 +9,19 @@ metric_card <- function(label, value) {
     h5(style = "margin:0;", label)
   )
 }
+# Reusable warning card generator
+warn_card <- function(title, body, body_tags = NULL) {
+  tags$div(
+    class = "card border-warning mb-3",
+    style = "margin-top: 10px;",
+    tags$div(class = "card-header", title),
+    tags$div(
+      class = "card-body",
+      tags$p(class = "card-text", body),
+      body_tags
+    )
+  )
+}
 
 # Basic info for section 1.2 Select non-metabolite columns
 ui_basic_info <- function(df,
@@ -45,20 +58,6 @@ ui_basic_info <- function(df,
       )
     })
   )
-  
-  # Reusable warning card generator
-  warn_card <- function(title, body, body_tags = NULL) {
-    tags$div(
-      class = "card border-warning mb-3",
-      style = "margin-top: 10px;",
-      tags$div(class = "card-header", title),
-      tags$div(
-        class = "card-body",
-        tags$p(class = "card-text", body),
-        body_tags
-      )
-    )
-  }
   
   # ---------- Warning box 1: replaced values ----------
   replaced_card <- NULL
@@ -116,36 +115,6 @@ ui_basic_info <- function(df,
     )
   }
   
-  # ---------- Warning box 4: highly correlated metabolites ----------
-  correlated_card <- NULL
-  if (!is.null(high_corr_mets) && nrow(high_corr_mets) > 0) {
-    
-    cor_badges <- tags$div(
-      style = "display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;",
-      lapply(seq_len(nrow(high_corr_mets)), function(i) {
-        pair <- high_corr_mets[i, , drop = FALSE]
-        tags$span(
-          style = paste(
-            "background-color: #fff3cd;",
-            "border: 1px solid #ffeeba;",
-            "padding: 4px 8px;",
-            "border-radius: 12px;",
-            "font-size: 0.85rem;"
-          ),
-          sprintf("%s \u221D %s", pair$col1, pair$col2)
-        )
-      })
-    )
-    
-    correlated_card <- warn_card(
-      title = "Highly correlated metabolites",
-      body  = sprintf(
-        "%d column pairs have strong positive correlation (Pearson's r > 0.995).",
-        nrow(high_corr_mets)
-      ),
-      body_tags = cor_badges
-    )
-  }
   
   # ---------------------------------------------------
   # MAIN UI SECTION
@@ -154,7 +123,6 @@ ui_basic_info <- function(df,
     replaced_card,
     nonnum_card,
     duplicate_card,
-    correlated_card,
     
     tags$div(
       style = "display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px;",
@@ -253,6 +221,46 @@ ui_filter_info <- function(mv_removed, mv_cutoff, qc_missing_mets) {
     style = "display:flex; gap:16px; align-items:flex-start;",
     left_col, right_col
   )
+}
+
+
+ui_corr_range_info <- function(all_cor, range) {
+  high_corr_mets <- filter_correlation_pairs_by_range(all_cor, range)
+  correlated_card <- tags$div(style = "flex: 1; padding-right: 10px;",
+                              tags$span(
+                                style = "color:darkgreen;font-weight:bold;",
+                                "No metabolite pairs within this correlation range."
+                              ))
+  if (!is.null(high_corr_mets) && nrow(high_corr_mets) > 0) {
+    
+    cor_badges <- tags$div(
+      style = "display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;",
+      lapply(seq_len(nrow(high_corr_mets)), function(i) {
+        pair <- high_corr_mets[i, , drop = FALSE]
+        tags$span(
+          style = paste(
+            "background-color: #fff3cd;",
+            "border: 1px solid #ffeeba;",
+            "padding: 4px 8px;",
+            "border-radius: 12px;",
+            "font-size: 0.85rem;"
+          ),
+          sprintf("%s \u221D %s", pair$col1, pair$col2)
+        )
+      })
+    )
+    
+    correlated_card <- warn_card(
+      title = "Correlated Metabolites",
+      body  = sprintf(
+        "%d column pairs have correlation (Pearson's r) within the selected range.",
+        nrow(high_corr_mets)
+      ),
+      body_tags = cor_badges
+    )
+  
+  } 
+  correlated_card
 }
 
 # Post-correction filtering info for section 2.2 Post-Correction Filtering

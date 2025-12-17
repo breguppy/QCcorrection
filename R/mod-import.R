@@ -48,6 +48,28 @@ mod_import_ui <- function(id) {
         uiOutput(ns("filter_info"))
       )
     )),
+    card(layout_sidebar(
+      sidebar = ui_sidebar_block(
+        title = "1.4 Raw Data Metabolite Correlations",
+        ui_corr_slider(ns),
+        help = c("To investigate linear relationships between metabolites Pearson's r is computed for each pair.",
+                 "All pairwise correlations are computed, but we only allow pairs with a strong positive linear correlation to be displayed here.",
+                 "To view all pairwise correlation, download the Excel displayed on the right."),
+        width = 400
+      ),
+      layout_sidebar(
+        sidebar = ui_sidebar_block(
+          title = "Download Raw Data Metabolite Correlations",
+          uiOutput(ns("download_raw_corr_btn"), container = div, style = "position: absolute; bottom: 15px; right: 15px;"),
+          help = c("Creates Excel file with all pairwise metabolite correlations in the raw data."),
+          width = 400,
+          position = "right"),
+        uiOutput(ns("compute_raw_corr_ui")),
+        div(style="margin:12px 0 0 0;", withSpinner(uiOutput(ns("corr_spinner")),
+                                                    color="#404040")),
+        uiOutput(ns("corr_range_info"))
+        )
+    )),
     card(
       actionButton(
         ns("next_correction"),
@@ -163,7 +185,7 @@ mod_import_server <- function(id) {
     output$basic_info <- renderUI({
       cd <- cleaned_r()
       req(cd)
-      ui_basic_info(cd$df, cd$replacement_counts, cd$non_numeric_cols, cd$duplicate_mets, cd$high_corr_mets)
+      ui_basic_info(cd$df, cd$replacement_counts, cd$non_numeric_cols, cd$duplicate_mets)
     })
     
     filtered_r <- reactive({
@@ -209,7 +231,83 @@ mod_import_server <- function(id) {
         openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
       }
     )
+    # Increment whenever filtered df changes
+    filtered_version_r <- reactiveVal(0L)
     
+    observeEvent(filtered_r()$df, {
+      filtered_version_r(filtered_version_r() + 1L)
+    }, ignoreInit = TRUE)
+    
+    # Store the version we last computed correlations for
+    computed_version_r <- reactiveVal(NA_integer_)
+    output$compute_raw_corr_ui <- renderUI({
+      req(filtered_r())
+      v <- filtered_version_r()
+      
+      if (isTRUE(!is.na(computed_version_r())) && identical(computed_version_r(), v)) {
+        return(NULL) # hide after computed, until df changes
+      }
+      
+      tagList(
+        tags$div(
+          style = "margin-bottom: 8px; color: #555;",
+          "Computing correlations may take a while if the data has many metabolites."
+        ),
+        actionButton(
+          ns("compute_raw_corr"),
+          "Compute Metabolite Correlations",
+          class = "btn-primary btn-lg",
+          width = "100%"
+        )
+      )
+    })
+    
+    raw_correlations_r <- eventReactive(input$compute_raw_corr, {
+      df <- isolate(filtered_r()$df)
+      metab <- setdiff(names(df), c("sample", "batch", "class", "order"))
+      compute_pairwise_metabolite_correlations(df, metab)
+    })
+    observeEvent(input$compute_raw_corr, ignoreInit = TRUE, {
+      shinyjs::disable("compute_raw_corr")
+      output$corr_spinner <- renderUI({
+        on.exit(shinyjs::enable("compute_raw_corr"), add = TRUE)
+        raw_correlations_r(); computed_version_r(filtered_version_r()); NULL
+      })
+    })
+    output$corr_spinner <- renderUI(NULL)
+    
+    observeEvent(raw_correlations_r(), {
+      computed_version_r(filtered_version_r())
+    }, ignoreInit = TRUE)
+    
+    output$corr_range_info <- renderUI({
+      all_corr <- req(raw_correlations_r())
+      ui_corr_range_info(all_corr, input$corr_threshold)
+    })
+    output$download_raw_corr_btn <- renderUI({
+      req(raw_correlations_r())
+      
+      div(
+        style = "width: 100%; text-align: center;",
+        div(
+          style = "max-width: 250px; display: inline-block;",
+          downloadButton(
+            outputId = ns("download_raw_corr_data"),
+            label    = "Download Metabolite Correlations",
+            class    = "btn btn-secondary"
+          )
+        )
+      )
+    })
+    output$download_raw_corr_data <- downloadHandler(
+      filename = function() {
+        paste0("raw_metabolite_correlations_", Sys.Date(), ".xlsx")
+      },
+      content = function(file) {
+        wb <- export_corr_xlsx(raw_correlations_r()) 
+        openxlsx::saveWorkbook(wb, file, overwrite = TRUE)
+      }
+    )
     
     params_r <- reactive({
       sel <- selections_r()
@@ -220,7 +318,8 @@ mod_import_server <- function(id) {
         order_col = sel$order,
         withheld_cols = withheld_r(),
         n_withhold = input$n_withhold %||% 0,
-        mv_cutoff = input$mv_cutoff
+        mv_cutoff = input$mv_cutoff,
+        raw_corr_threshold = input$corr_threshold
       )
     })
     
@@ -235,6 +334,7 @@ mod_import_server <- function(id) {
     # module output
     list(cleaned  = cleaned_r,
          filtered = filtered_r,
+         raw_corr = raw_correlations_r,
          params   = params_r)
   })
 }
