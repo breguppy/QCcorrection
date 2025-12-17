@@ -31,14 +31,15 @@ export_corr_xlsx <- function(df1, df2 = NULL, d_type2 = "Corrected", file = NULL
       "Tab Raw Data Correlations. Pearson's r values for all metabolite pairs.",
       "If r = -1 or near -1, the pair have a strong negative linear correlation.",
       "If r = 0, there is no correlation and r values near 0 have weak correlations.",
-      "If r = 1 or is close to 1, the pair have a strong positive linear correlation." 
+      "If r = 1 or is close to 1, the pair have a strong positive linear correlation.",
+      "n-complete is the number of samples with both metabolite values non-missing."
     )
     openxlsx::writeData(wb,
                         s1,
                         x = txt1,
                         startCol = 1,
                         startRow = 1)
-    openxlsx::mergeCells(wb, s1, cols = 1:6, rows = 1)
+    openxlsx::mergeCells(wb, s1, cols = 1:10, rows = 1)
     openxlsx::addStyle(
       wb,
       s1,
@@ -67,14 +68,15 @@ export_corr_xlsx <- function(df1, df2 = NULL, d_type2 = "Corrected", file = NULL
         "Tab", d_type2, "Data Correlations. Pearson's r values for all metabolite pairs.",
         "If r = -1 or near -1, the pair have a strong negative linear correlation.",
         "If r = 0, there is no correlation and r values near 0 have weak correlations.",
-        "If r = 1 or is close to 1, the pair have a strong positive linear correlation." 
+        "If r = 1 or is close to 1, the pair have a strong positive linear correlation.",
+        "n-complete is the number of samples with both metabolite values non-missing."
       )
       openxlsx::writeData(wb,
                           s2,
                           x = txt2,
                           startCol = 1,
                           startRow = 1)
-      openxlsx::mergeCells(wb, s2, cols = 1:6, rows = 1)
+      openxlsx::mergeCells(wb, s2, cols = 1:10, rows = 1)
       openxlsx::addStyle(
         wb,
         s2,
