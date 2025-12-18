@@ -11,10 +11,9 @@ clean_data <- function(df,
   if (!(batch %in% colnames(df))) {
     df$batch <- "batch1"
   }
+  
   # remove columns that will not be corrected and are not metadata
   df <- df[, setdiff(names(df), withheld_cols), drop = FALSE]
-  
-  #TODO: keep withheld columns so they may be added back post correction.
   
   # Rename metadata columns
   names(df)[names(df) == sample] <- "sample"
@@ -23,45 +22,87 @@ clean_data <- function(df,
   names(df)[names(df) == order]  <- "order"
   
   # get names of non-numeric columns that are not metadata columns
-  non_numeric_cols <- names(df)[sapply(df, function(col) {
+  non_numeric_cols <- names(df)[vapply(df, function(col) {
     vals <- col[!is.na(col)]
-    # TRUE if no value can be converted to numeric
     all(is.na(suppressWarnings(as.numeric(vals))))
-  })]
+  }, logical(1L))]
   non_numeric_cols <- setdiff(non_numeric_cols, c("sample", "batch", "class", "order"))
   
-  df <- df[, !(names(df) %in% non_numeric_cols)]
-  # make sure data is in injection order
-  df <- df[order(df$order), ]
+  df <- df[, !(names(df) %in% non_numeric_cols), drop = FALSE]
+  
+  # make sure data is in injection order (do this early so blanks/QCs relate to order)
+  df <- df[order(df$order), , drop = FALSE]
   metab <- setdiff(names(df), c("sample", "batch", "class", "order"))
   
-  # replace any non-numeric values or exactly 0 values with NA
-  # count them as missing values
-  repl <- tibble(
+  # ---- Normalize QC labels BEFORE blank detection (so NA class becomes QC, not blank) ----
+  df$class[is.na(df$class)] <- "QC"
+  df$class[df$class %in% c("qc", "Qc")] <- "QC"
+  
+  # ---- Define blank_df + remove blanks BEFORE replacement counting (NEW ORDER) ----
+  class_chr <- trimws(as.character(df$class))
+  is_blank  <- tolower(class_chr) == "blank"
+  
+  blank_df <- df[0, , drop = FALSE]
+  below_blank_threshold <- character(0)
+  
+  if (any(is_blank, na.rm = TRUE)) {
+    blank_df <- df[is_blank, , drop = FALSE]
+    df       <- df[!is_blank, , drop = FALSE]
+    
+    # keep df in injection order after removal
+    df <- df[order(df$order), , drop = FALSE]
+    
+    # Means (ignore NAs) using CURRENT metabolite set
+    blank_means <- vapply(
+      blank_df[, metab, drop = FALSE],
+      function(x) mean(suppressWarnings(as.numeric(x)), na.rm = TRUE),
+      numeric(1L)
+    )
+    qc_idx <- df$class == "QC"
+    if (!any(qc_idx)) {
+      stop("No QC samples remain after removing blanks; cannot compute blank threshold.")
+    }
+    df_means <- vapply(
+      df[qc_idx, metab, drop = FALSE],
+      function(x) mean(suppressWarnings(as.numeric(x)), na.rm = TRUE),
+      numeric(1L)
+    )
+    
+    # flag metabolites where df_mean < 3 * blank_mean (only when blank_mean is finite & > 0)
+    eligible <- is.finite(blank_means) & blank_means > 0
+    below_blank_threshold <- names(df_means)[eligible & (df_means < (3 * blank_means))]
+  }
+  
+  # ---- Replacement counting happens AFTER blanks removed (NEW ORDER) ----
+  repl <- tibble::tibble(
     metabolite = metab,
     non_numeric_replaced = 0L,
     zero_replaced = 0L
   )
+  
   for (i in seq_along(metab)) {
-    col <- metab[i]
+    col  <- metab[i]
     orig <- df[[col]]
     num  <- suppressWarnings(as.numeric(orig))
-    cnt1 <- sum(is.na(num) & !is.na(orig))
-    cnt2 <- sum(num == 0, na.rm = TRUE)
+    
+    cnt1 <- sum(is.na(num) & !is.na(orig))          # non-numeric -> NA
+    cnt2 <- sum(num == 0, na.rm = TRUE)             # exactly 0 -> NA
+    
     num[num == 0] <- NA
-    df[[col]]   <- num
+    df[[col]] <- num
+    
     repl$non_numeric_replaced[i] <- cnt1
     repl$zero_replaced[i]        <- cnt2
   }
   
-  # Rename qc samples to be "QC" in class column
-  df$class[is.na(df$class)] <- "QC"
-  df$class[df$class %in% c("qc", "Qc")] <- "QC"
-  
   # make sure data starts and ends with a QC
+  if (nrow(df) == 0L) {
+    stop("No non-blank rows remain after preprocessing.")
+  }
   if (df$class[1] != "QC") {
     stop("Data sorted by injection order must begin with a QC sample.")
-  } else if (df$class[nrow(df)] != "QC") {
+  }
+  if (df$class[nrow(df)] != "QC") {
     stop("Data sorted by injection order must end with a QC sample.")
   }
   
@@ -73,7 +114,9 @@ clean_data <- function(df,
     replacement_counts = repl,
     withheld_cols = withheld_cols,
     non_numeric_cols = non_numeric_cols,
-    duplicate_mets = duplicate_mets
+    duplicate_mets = duplicate_mets,
+    blank_df = blank_df,
+    below_blank_threshold = below_blank_threshold
   ))
 }
 

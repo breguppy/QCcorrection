@@ -28,7 +28,8 @@ ui_basic_info <- function(df,
                           replacement_counts,
                           non_numeric_cols,
                           duplicate_mets = NULL,
-                          high_corr_mets = NULL) {
+                          blank_df = NULL,
+                          below_blank_threshold = NULL) {
   
   metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
   n_metab    <- length(metab_cols)
@@ -115,6 +116,45 @@ ui_basic_info <- function(df,
     )
   }
   
+  # ---------- Warning box 4: blank samples + blank-threshold metabolites ----------
+  blank_card <- NULL
+  n_blanks <- if (!is.null(blank_df) && nrow(blank_df) > 0) nrow(blank_df) else 0L
+  
+  if (n_blanks > 0) {
+    below_blank_threshold <- unique(stats::na.omit(as.character(below_blank_threshold)))
+    
+    blank_body <- sprintf(
+      "%d blank sample(s) were detected and excluded from processing.",
+      n_blanks
+    )
+    
+    blank_tags <- if (length(below_blank_threshold) > 0) {
+      tags$div(
+        tags$p(
+          style = "font-weight: 600; margin-top: 8px; margin-bottom: 6px;",
+          sprintf("%d Metabolites failing the 3× blank-average threshold for QC samples:",
+                  length(below_blank_threshold)
+          )
+        ),
+        tags$ul(
+          style = "margin-bottom: 0;",
+          lapply(sort(below_blank_threshold), tags$li)
+        )
+      )
+    } else {
+      tags$p(
+        style = "font-weight: 600; margin-top: 8px; margin-bottom: 0;",
+        "All metabolites have average above 3 times the average of blanks."
+      )
+    }
+    
+    blank_card <- warn_card(
+      title = "Blank samples detected",
+      body  = blank_body,
+      body_tags = blank_tags
+    )
+  }
+  
   
   # ---------------------------------------------------
   # MAIN UI SECTION
@@ -123,6 +163,7 @@ ui_basic_info <- function(df,
     replaced_card,
     nonnum_card,
     duplicate_card,
+    blank_card,
     
     tags$div(
       style = "display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px;",
