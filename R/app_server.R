@@ -9,7 +9,8 @@ app_server <- function(input, output, session) {
   base_data <- reactive({
     .merge_lists(list(
       cleaned  = .get_or_null(import$cleaned),
-      filtered = .get_or_null(import$filtered)
+      filtered = .get_or_null(import$filtered),
+      raw_corr = .get_or_null(import$raw_corr)
     ))
   })
   

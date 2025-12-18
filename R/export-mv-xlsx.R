@@ -64,7 +64,7 @@ export_mv_xlsx <- function(p, d, file = NULL) {
     # sheet 1 Metabolite
     s1 <- .add_sheet("Metabolite")
     txt1 <- paste(
-      "Tab Metabolite.Missing value counts (missing_count) and percentages (missing_pct) per metabolite are listed here for samples and QC samples.",
+      "Tab Metabolite. Missing value counts (missing_count) and percentages (missing_pct) per metabolite are listed here for samples and QC samples.",
       "If a metabolite is not listed here, it did not have any missing values."
     )
     openxlsx::writeData(wb,
