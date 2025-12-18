@@ -23,7 +23,7 @@ test_that("clean_data basic cleaning and outputs", {
   
   # structure
   expect_type(out, "list")
-  expect_named(out, c("df", "replacement_counts", "withheld_cols", "non_numeric_cols", "duplicate_mets", "high_corr_mets", "all_corr_mets"))
+  expect_named(out, c("df", "replacement_counts", "withheld_cols", "non_numeric_cols", "duplicate_mets", "blank_df", "below_blank_threshold"))
   expect_equal(out$withheld_cols, "note")
   
   # columns renamed, withheld removed, order applied
@@ -116,3 +116,150 @@ test_that("withheld cols are not present in df but are tracked", {
   expect_false("keep_me" %in% names(out$df))
   expect_equal(out$withheld_cols, "keep_me")
 })
+
+test_that("clean_data computes duplicate_mets correctly (nearly equal columns ignoring NAs)", {
+  # Construct data so:
+  # - metA and metB are equal on all rows where both non-NA (one NA mismatch allowed)
+  # - metA and metC are NOT equal (different on overlapping non-NA rows)
+  # Ensure QC at start/end after ordering
+  df <- data.frame(
+    SampleID  = paste0("s", 1:6),
+    BatchID   = 1,
+    Type      = c("QC", "QC", "sample", "sample", "sample", "QC"),
+    Injection = 1:6,
+    metA      = c(1, 2, 3, 4, NA, 6),
+    metB      = c(1, 2, 3, 4, 5, 6),      # equal to metA wherever metA not NA
+    metC      = c(1, 2, 30, 4, 5, 6),     # differs at Injection 3
+    stringsAsFactors = FALSE
+  )
+  
+  out <- clean_data(
+    df,
+    sample = "SampleID",
+    batch  = "BatchID",
+    class  = "Type",
+    order  = "Injection",
+    withheld_cols = character()
+  )
+  
+  dm <- out$duplicate_mets
+  expect_true(is.data.frame(dm))
+  expect_named(dm, c("col1", "col2"))
+  
+  # Only metA~metB should be flagged
+  expect_equal(nrow(dm), 1L)
+  expect_identical(dm$col1[1], "metA")
+  expect_identical(dm$col2[1], "metB")
+})
+
+test_that("clean_data duplicate_mets is empty when no equal pairs exist", {
+  df <- data.frame(
+    SampleID  = paste0("s", 1:5),
+    BatchID   = 1,
+    Type      = c("QC", "sample", "sample", "sample", "QC"),
+    Injection = 1:5,
+    met1      = c(1, 2, 3, 4, 5),
+    met2      = c(1, 2, 3, 4, 6),  # differs at last
+    met3      = c(5, 4, 3, 2, 1),
+    stringsAsFactors = FALSE
+  )
+  
+  out <- clean_data(
+    df,
+    sample = "SampleID",
+    batch  = "BatchID",
+    class  = "Type",
+    order  = "Injection",
+    withheld_cols = character()
+  )
+  
+  expect_true(is.data.frame(out$duplicate_mets))
+  expect_equal(nrow(out$duplicate_mets), 0L)
+  expect_setequal(names(out$duplicate_mets), c("col1", "col2"))
+})
+
+test_that("clean_data detects blanks, returns blank_df, removes blanks, and computes below_blank_threshold (QC-only)", {
+  df <- data.frame(
+    SampleID  = paste0("s", 1:8),
+    BatchID   = 1,
+    Type      = c("QC", "blank", "sample", "sample", "blank", "sample", "sample", "QC"),
+    Injection = 1:8,
+    # QC rows are s1 and s8
+    # blanks are s2 and s5 with mean = 1 for both metabolites
+    met_high  = c(10, 1,  2,  2, 1,  2,  2, 10),  # QC mean = 10, blank mean = 1 => 10 >= 3 OK
+    met_low   = c( 2, 1, 10, 10, 1, 10, 10,  2),  # QC mean = 2,  blank mean = 1 => 2 < 3 FLAG
+    stringsAsFactors = FALSE
+  )
+  
+  out <- clean_data(
+    df,
+    sample = "SampleID",
+    batch  = "BatchID",
+    class  = "Type",
+    order  = "Injection",
+    withheld_cols = character()
+  )
+  
+  expect_true(is.data.frame(out$blank_df))
+  expect_equal(nrow(out$blank_df), 2L)
+  expect_true(all(tolower(trimws(out$blank_df$class)) == "blank"))
+  expect_false(any(tolower(trimws(out$df$class)) == "blank"))
+  
+  expect_type(out$below_blank_threshold, "character")
+  expect_true("met_low" %in% out$below_blank_threshold)
+  expect_false("met_high" %in% out$below_blank_threshold)
+})
+
+test_that("clean_data returns empty blank_df and empty below_blank_threshold when no blanks exist", {
+  df <- data.frame(
+    SampleID  = paste0("s", 1:5),
+    BatchID   = 1,
+    Type      = c("QC", "sample", "sample", "sample", "QC"),
+    Injection = 1:5,
+    met1      = c(1, 2, 3, 4, 5),
+    met2      = c(10, 10, 10, 10, 10),
+    stringsAsFactors = FALSE
+  )
+  
+  out <- clean_data(
+    df,
+    sample = "SampleID",
+    batch  = "BatchID",
+    class  = "Type",
+    order  = "Injection",
+    withheld_cols = character()
+  )
+  
+  expect_true(is.data.frame(out$blank_df))
+  expect_equal(nrow(out$blank_df), 0L)
+  expect_type(out$below_blank_threshold, "character")
+  expect_equal(length(out$below_blank_threshold), 0L)
+})
+
+test_that("below_blank_threshold does not flag metabolites when blank mean is 0 or non-finite (QC-only)", {
+  df <- data.frame(
+    SampleID  = paste0("s", 1:7),
+    BatchID   = 1,
+    Type      = c("QC", "blank", "sample", "sample", "blank", "sample", "QC"),
+    Injection = 1:7,
+    # blanks at s2 and s5 => mean = 0
+    met_zero_blank = c(1, 0, 9, 9, 0, 9, 1),  # blank mean 0 => never flagged
+    # blanks mean = 2, QCs are 2 and 2 => QC mean 2 < 6 => flagged
+    met_flag       = c(2, 2, 100, 100, 2, 100, 2),
+    stringsAsFactors = FALSE
+  )
+  
+  out <- clean_data(
+    df,
+    sample = "SampleID",
+    batch  = "BatchID",
+    class  = "Type",
+    order  = "Injection",
+    withheld_cols = character()
+  )
+  
+  expect_false("met_zero_blank" %in% out$below_blank_threshold)
+  expect_true("met_flag" %in% out$below_blank_threshold)
+})
+
+

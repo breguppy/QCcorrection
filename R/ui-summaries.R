@@ -132,7 +132,7 @@ ui_basic_info <- function(df,
       tags$div(
         tags$p(
           style = "font-weight: 600; margin-top: 8px; margin-bottom: 6px;",
-          sprintf("%d Metabolites failing the 3× blank-average threshold:",
+          sprintf("%d Metabolites failing the 3× blank-average threshold for QC samples:",
                   length(below_blank_threshold)
           )
         ),

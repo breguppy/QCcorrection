@@ -58,8 +58,12 @@ clean_data <- function(df,
       function(x) mean(suppressWarnings(as.numeric(x)), na.rm = TRUE),
       numeric(1L)
     )
+    qc_idx <- df$class == "QC"
+    if (!any(qc_idx)) {
+      stop("No QC samples remain after removing blanks; cannot compute blank threshold.")
+    }
     df_means <- vapply(
-      df[, metab, drop = FALSE],
+      df[qc_idx, metab, drop = FALSE],
       function(x) mean(suppressWarnings(as.numeric(x)), na.rm = TRUE),
       numeric(1L)
     )
