@@ -332,26 +332,43 @@ ui_post_cor_filter <- function(ns) {
 #' Post-correction transformation
 #' @keywords internal
 #' @noRd
-ui_post_cor_transform <- function(ns) {
+ui_post_cor_transform <- function(df, metab_cols, ns = identity) {
+  has_istd <- any(grepl("^(ISTD|ITSD)", metab_cols, ignore.case = TRUE))
+  
+  choices <- if (has_istd) {
+    list(
+      "Internal Standard Normalization" = "ISTD_norm",
+      "Total Ratiometically Normalized (TRN)" = "TRN",
+      "None" = "none"
+    )
+  } else {
+    list(
+      "Total Ratiometically Normalized (TRN)" = "TRN",
+      "None" = "none"
+    )
+  }
+  
   tagList(
-    radioButtons(ns("transform"), "Method",
-                 choices = list(
-                   "Log 2 Transformation" = "log2",
-                   "Total Ratiometically Normalized (TRN)" = "TRN",
-                   "None" = "none"
-                 ),
-                 "none"
+    radioButtons(
+      ns("transform"),
+      "Method",
+      choices  = choices,
+      selected = "none"
     ),
     tooltip(
-      checkboxInput(ns("ex_ISTD"), "Exclude Internal Standards from post-correction transformation/normalization.", TRUE),
-      "Check this box if you do not want internal standards to be included in the transformation or normalization calculation.", 
+      checkboxInput(
+        ns("ex_ISTD"),
+        "Exclude Internal Standards from post-correction transformation/normalization.",
+        TRUE
+      ),
+      "Check this box if you do not want internal standards to be included in the transformation or normalization calculation.",
       placement = "right"
     ),
     conditionalPanel(
       condition = sprintf("input['%s'] === 'TRN'", ns("transform")),
       tooltip(
-        checkboxInput(ns("trn_withhold_checkbox"), "Withold column(s) from TRN", FALSE),
-        "Check this box if there are any columns that should not count in TRN (i.e. TIC column). Sample, batch, class and order are already excluded.", 
+        checkboxInput(ns("trn_withhold_checkbox"), "Withhold column(s) from TRN", FALSE),
+        "Check this box if there are any columns that should not count in TRN (i.e. TIC column). Sample, batch, class and order are already excluded.",
         placement = "right"
       )
     )
