@@ -251,7 +251,10 @@ export_xlsx <- function(p, d, file = NULL) {
         "between samples cancel out by divsion, within-sample metabolite",
         "ratios can be quantitatively compared across samples."
       ),
-      "log2" = "Tab 3. This tab shows the log 2 transformed metabolite level values.",
+      "ISTD_norm" = paste("Tab 3. This tab shows the internal standard normalized",
+      "metabolite level values. After correction, all metabolite levels are",
+      "divided by the average of the internal standards within that sample."
+      ),
       "none" = "Tab 3. No scaling or normalization method has been applied to the data."
     )
     openxlsx::writeData(wb,

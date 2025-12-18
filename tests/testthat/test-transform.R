@@ -1,8 +1,8 @@
 # test-transform.R
 
 #  helpers 
-mk_df <- function() {
-  data.frame(
+mk_filtered_corrected <- function() {
+  df <- data.frame(
     sample = paste0("s", 1:3),
     batch  = 1L,
     class  = c("QC","sample","sample"),
@@ -10,17 +10,21 @@ mk_df <- function() {
     A = c(1, 2, 0),
     B = c(1, NA, 0),
     C = c(2, 2, 0),
-    Met1_ISTD = c(100, 120, 140),
-    X_ITSD    = c(50,  60,  70),
+    ISTD_Met1 = c(100, 120, 140),
+    ITSD_X    = c(50,  60,  70),
     check.names = FALSE
+  )
+  
+  list(
+    df_mv    = df,           # has NA in B row 2
+    df_no_mv = df            # for unit tests it's fine if same; adjust if desired
   )
 }
 
 meta_cols  <- c("sample","batch","class","order")
-metab_cols <- c("A","B","C","Met1_ISTD","X_ITSD")
 
 test_that(".total_ratio_norm scales rows by non_missing_count / row_sum", {
-  df <- mk_df()
+  df <- mk_filtered_corrected()$df_mv
   # use only true metabolites (exclude ISTD here)
   mc <- c("A","B","C")
   
@@ -43,61 +47,192 @@ test_that(".total_ratio_norm scales rows by non_missing_count / row_sum", {
   expect_true(is.nan(out$C[3]))
 })
 
-test_that("transform_data('none') returns unmodified values for metabolites, plus text", {
-  df <- mk_df()
-  # ex_ISTD=TRUE should exclude ISTD/ITSD from transformed set
-  res <- transform_data(df, transform = "none", withheld_cols = character(), ex_ISTD = TRUE)
+test_that(".istd_norm divides non-ISTD metabolites by row-wise ISTD mean", {
+  df <- mk_filtered_corrected()$df_mv
+  
+  istd_cols <- c("ISTD_Met1", "ITSD_X")
+  metab_cols <- c("A","B","C")
+  
+  # Row means of ISTDs:
+  # r1: (100+50)/2 = 75
+  # r2: (120+60)/2 = 90
+  # r3: (140+70)/2 = 105
+  out <- .istd_norm(df, metab_cols = metab_cols, istd_cols = istd_cols, na_action = "leave")
+  
+  expect_equal(out$A, df$A / c(75, 90, 105), tolerance = 1e-12)
+  expect_equal(out$C, df$C / c(75, 90, 105), tolerance = 1e-12)
+  
+  # NA stays NA
+  expect_true(is.na(out$B[2]))
+  
+  # ISTD cols not modified
+  expect_equal(out$ISTD_Met1, df$ISTD_Met1)
+  expect_equal(out$ITSD_X, df$ITSD_X)
+})
+
+test_that(".istd_norm errors if no ISTD columns are provided", {
+  df <- mk_filtered_corrected()$df_mv
+  expect_error(
+    .istd_norm(df, metab_cols = c("A","B","C"), istd_cols = character(0)),
+    "no ISTD/ITSD columns"
+  )
+})
+
+test_that(".istd_norm na_action='leave' keeps original values when ISTD mean is NA", {
+  df <- mk_filtered_corrected()$df_mv
+  df$ISTD_Met1[2] <- NA
+  df$ITSD_X[2]    <- NA
+  
+  out <- .istd_norm(
+    df,
+    metab_cols = c("A","B","C"),
+    istd_cols  = c("ISTD_Met1","ITSD_X"),
+    min_istd   = 1L,
+    na_action  = "leave"
+  )
+  
+  # row 2 should remain unchanged for A/B/C
+  expect_equal(out$A[2], df$A[2])
+  expect_true(is.na(out$B[2]))
+  expect_equal(out$C[2], df$C[2])
+})
+
+test_that(".istd_norm na_action='na' sets normalized values to NA when ISTD mean is NA", {
+  df <- mk_filtered_corrected()$df_mv
+  df$ISTD_Met1[2] <- NA
+  df$ITSD_X[2]    <- NA
+  
+  out <- .istd_norm(
+    df,
+    metab_cols = c("A","B","C"),
+    istd_cols  = c("ISTD_Met1","ITSD_X"),
+    min_istd   = 1L,
+    na_action  = "na"
+  )
+  
+  expect_true(is.na(out$A[2]))
+  expect_true(is.na(out$B[2]))
+  expect_true(is.na(out$C[2]))
+})
+
+test_that(".istd_norm na_action='error' throws when ISTD mean is NA", {
+  df <- mk_filtered_corrected()$df_mv
+  df$ISTD_Met1[2] <- NA
+  df$ITSD_X[2]    <- NA
+  
+  expect_error(
+    .istd_norm(
+      df,
+      metab_cols = c("A","B","C"),
+      istd_cols  = c("ISTD_Met1","ITSD_X"),
+      min_istd   = 1L,
+      na_action  = "error"
+    ),
+    "Cannot compute ISTD mean"
+  )
+})
+
+
+test_that("transform_data('none') returns unmodified dfs and sets withheld cols when eITSD_X=TRUE", {
+  fc <- mk_filtered_corrected()
+  
+  res <- transform_data(
+    filtered_corrected = fc,
+    transform = "none",
+    withheld_cols = character(0),
+    ex_ISTD = TRUE
+  )
   
   expect_true(startsWith(res$str, "After correction, no scaling"))
-  # ISTD columns are not in metab set of output frame
-  expect_false("Met1_ISTD" %in% names(res$df))
-  expect_false("X_ITSD"    %in% names(res$df))
-  # original metabolite values preserved
-  expect_equal(res$df$A, df$A)
-  expect_equal(res$df$B, df$B)
-  expect_equal(res$df$C, df$C)
-  # withheld_cols augmented with ISTD/ITSD
-  expect_setequal(res$withheld_cols, c("Met1_ISTD","X_ITSD"))
+  
+  expect_equal(res$df_mv, fc$df_mv)
+  expect_equal(res$df_no_mv, fc$df_no_mv)
+  
+  expect_setequal(res$withheld_cols_mv, c("ISTD_Met1", "ITSD_X"))
+  expect_setequal(res$withheld_cols_no_mv, c("ISTD_Met1", "ITSD_X"))
 })
 
-test_that("transform_data('log2') applies log2 to metabolites only and preserves metadata", {
-  df <- mk_df()
-  res <- transform_data(df, transform = "log2", withheld_cols = "pre_withheld", ex_ISTD = TRUE)
+test_that("transform_data('none') does not add ISTDs to withheld cols when eITSD_X=FALSE", {
+  fc <- mk_filtered_corrected()
   
-  # metadata present
-  expect_setequal(names(res$df)[names(res$df) %in% meta_cols], meta_cols)
-  # ISTD excluded
-  expect_false("Met1_ISTD" %in% names(res$df))
-  expect_false("X_ITSD"    %in% names(res$df))
-  # log2 applied where finite
-  idx <- which(!is.na(df$A))
-  expect_equal(res$df$A[idx], log(df$A[idx], 2), tolerance = 1e-12)
-  # NA stays NA
-  expect_true(is.na(res$df$B[2]))
-  # withheld includes prior + ISTD/ITSD
-  expect_setequal(res$withheld_cols, c("pre_withheld","Met1_ISTD","X_ITSD"))
+  res <- transform_data(
+    filtered_corrected = fc,
+    transform = "none",
+    withheld_cols = character(0),
+    ex_ISTD = FALSE
+  )
+  
+  expect_identical(res$withheld_cols_mv, character(0))
+  expect_identical(res$withheld_cols_no_mv, character(0))
+  expect_equal(res$df_mv, fc$df_mv)
 })
 
-test_that("transform_data('TRN') uses .total_ratio_norm on non-ISTD metabolites", {
-  df <- mk_df()
-  # Compute expected by calling the helper on A,B,C only
-  base <- df[, c(meta_cols, "A","B","C"), drop = FALSE]
-  exp  <- .total_ratio_norm(base, c("A","B","C"))
+test_that("transform_data('ISTD_norm') normalizes non-ISTD metabolites by ISTD mean and does not change ISTD cols", {
+  fc <- mk_filtered_corrected()
   
-  res <- transform_data(df, transform = "TRN", withheld_cols = character(), ex_ISTD = TRUE)
+  res <- transform_data(
+    filtered_corrected = fc,
+    transform = "ISTD_norm",
+    withheld_cols = character(0),
+    ex_ISTD = TRUE
+  )
   
-  # same columns as base (ISTD removed)
-  expect_setequal(names(res$df), names(exp))
-  # values equal to helper output
-  expect_equal(res$df[, c("A","B","C")], exp[, c("A","B","C")])
-  # description string present
+  # expected ISTD means
+  istd_mean <- c(75, 90, 105)
+  
+  expect_equal(res$df_no_mv$A, fc$df_no_mv$A / istd_mean, tolerance = 1e-12)
+  expect_equal(res$df_no_mv$C, fc$df_no_mv$C / istd_mean, tolerance = 1e-12)
+  expect_true(is.na(res$df_no_mv$B[2]))
+  expect_equal(res$df_no_mv$ISTD_Met1, fc$df_no_mv$ISTD_Met1)
+  expect_equal(res$df_no_mv$ITSD_X, fc$df_no_mv$ITSD_X)
+  expect_equal(res$df_no_mv[, meta_cols], fc$df_no_mv[, meta_cols])
+  expect_true(grepl("normalized to the average", res$str))
+})
+
+test_that("transform_data('ISTD_norm') errors when no ISTD/ITSD columns exist", {
+  fc <- mk_filtered_corrected()
+  # remove ISTD cols
+  fc$df_mv    <- fc$df_mv[, setdiff(names(fc$df_mv), c("ISTD_Met1","ITSD_X")), drop = FALSE]
+  fc$df_no_mv <- fc$df_no_mv[, setdiff(names(fc$df_no_mv), c("ISTD_Met1","ITSD_X")), drop = FALSE]
+  
+  expect_error(
+    transform_data(fc, transform = "ISTD_norm", withheld_cols = character(0), ex_ISTD = TRUE),
+    "no ISTD/ITSD columns"
+  )
+})
+
+test_that("transform_data('TRN') applies .total_ratio_norm to non-withheld columns and leaves withheld unchanged", {
+  fc <- mk_filtered_corrected()
+  
+  # Withhold column C and exclude ISTDs from TRN
+  res <- transform_data(
+    filtered_corrected = fc,
+    transform = "TRN",
+    withheld_cols = "C",
+    ex_ISTD = TRUE
+  )
+  
+  exp_no_mv <- fc$df_no_mv
+  exp_no_mv <- .total_ratio_norm(exp_no_mv, metab_cols = c("A","B"))
+  
+  expect_equal(res$df_no_mv$A, exp_no_mv$A, tolerance = 1e-12)
+  expect_equal(res$df_no_mv$B, exp_no_mv$B, tolerance = 1e-12)
+  
+  # withheld unchanged
+  expect_equal(res$df_mv$C, fc$df_mv$C)
+  expect_equal(res$df_mv$ISTD_Met1, fc$df_mv$ISTD_Met1)
+  expect_equal(res$df_mv$ITSD_X, fc$df_mv$ITSD_X)
+  
+  expect_setequal(res$withheld_cols_mv, c("C","ISTD_Met1","ITSD_X"))
   expect_true(grepl("ratiometrically normalized", res$str))
 })
 
-test_that("transform_data respects ex_ISTD=FALSE and keeps ISTD columns", {
-  df <- mk_df()
-  res <- transform_data(df, transform = "none", withheld_cols = character(), ex_ISTD = FALSE)
-  expect_true(all(c("Met1_ISTD","X_ITSD") %in% names(res$df)))
-  # withheld_cols unchanged
-  expect_identical(res$withheld_cols, character(0))
+test_that("transform_data preserves all columns in df_mv/df_no_mv outputs", {
+  fc <- mk_filtered_corrected()
+  
+  res <- transform_data(fc, transform = "ISTD_norm", withheld_cols = character(0), ex_ISTD = TRUE)
+  
+  expect_setequal(names(res$df_mv), names(fc$df_mv))
+  expect_setequal(names(res$df_no_mv), names(fc$df_no_mv))
 })
+

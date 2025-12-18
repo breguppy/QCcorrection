@@ -47,7 +47,7 @@ mod_correct_ui <- function(id) {
       layout_sidebar(
         sidebar = ui_sidebar_block(
           title = "2.3 Post-Correction Transformation",
-          ui_post_cor_transform(ns),
+          uiOutput(ns("transform_selection_ui")),
           uiOutput(ns("trn_withhold_ui")),
           uiOutput(ns("trn_withhold_selectors_ui")),
           width = 400
@@ -289,21 +289,40 @@ mod_correct_server <- function(id, data, params) {
     )
     
     ########### Part 2.3 Post-correction Transformation:
+    output$transform_selection_ui <- renderUI({
+      req(filtered_corrected_r())
+      
+      df <- if (isTRUE(input$remove_imputed)) filtered_corrected_r()$df_mv else filtered_corrected_r()$df_no_mv
+      mc <- setdiff(names(df), c("sample","batch","class","order"))
+      
+      ui_post_cor_transform(df, mc, ns = session$ns)
+    })
+    
+    
     transformed_r <- reactive({
       req(filtered_corrected_r())
-      withheld <- character(0)
+      
+      transform_method <- input$transform %||% "none"
+      ex_istd          <- input$ex_ISTD %||% TRUE
+      withhold_on      <- isTRUE(input$trn_withhold_checkbox)
+      
       if (isTRUE(input$remove_imputed)) {
         df_filtered <- filtered_corrected_r()$df_mv
       } else {
         df_filtered <- filtered_corrected_r()$df_no_mv
       }
-      if (isTRUE(input$trn_withhold_checkbox) && !is.null(input$trn_withhold_n)) {
+      
+      withheld <- character(0)
+      if (withhold_on && !is.null(input$trn_withhold_n)) {
         for (i in seq_len(input$trn_withhold_n)) {
           col <- input[[paste0("trn_withhold_col_", i)]]
-          if (!is.null(col) && col %in% names(df_filtered)) withheld <- c(withheld, col)
+          if (!is.null(col) && nzchar(col) && col %in% names(df_filtered)) {
+            withheld <- c(withheld, col)
+          }
         }
       }
-      transform_data(filtered_corrected_r(), input$transform, withheld, input$ex_ISTD)
+      
+      transform_data(filtered_corrected_r(), transform_method, withheld, ex_istd)
     })
     
     observe({

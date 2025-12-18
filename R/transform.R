@@ -1,3 +1,69 @@
+#' Internal standard normalization (row-wise)
+#'
+#' For each row, compute the mean of internal standard columns (ISTD*/ITSD*),
+#' then divide all non-ISTD metabolite columns by that mean.
+#'
+#' @param df            Data frame containing metadata + metabolite columns.
+#' @param metab_cols    Character vector of metabolite columns to normalize (non-ISTD).
+#' @param istd_cols     Character vector of internal standard columns.
+#' @param min_istd      Minimum number of non-missing ISTD values required to compute a mean.
+#' @param na_action     What to do if ISTD mean cannot be computed for a row.
+#'                      One of c("leave", "na", "error").
+#'
+#' @return `df` with `metab_cols` normalized in-place.
+#'
+#' @keywords internal
+#' @noRd
+.istd_norm <- function(df,
+                       metab_cols,
+                       istd_cols,
+                       min_istd = 1L,
+                       na_action = c("leave", "na", "error")) {
+  na_action <- match.arg(na_action)
+  
+  if (length(istd_cols) == 0L) {
+    stop("ISTD_norm requested but no ISTD/ITSD columns were found.")
+  }
+  if (length(metab_cols) == 0L) {
+    return(df)
+  }
+  
+  istd_data <- df[, istd_cols, drop = FALSE]
+  
+  # Row-wise ISTD mean, requiring at least `min_istd` non-missing values.
+  n_nonmiss <- rowSums(!is.na(istd_data))
+  istd_mean <- rowMeans(istd_data, na.rm = TRUE)
+  istd_mean[n_nonmiss < min_istd] <- NA_real_
+  
+  if (na_action == "error" && anyNA(istd_mean)) {
+    bad_rows <- which(is.na(istd_mean))
+    stop(sprintf(
+      "Cannot compute ISTD mean for %d row(s) (need >= %d non-missing ISTD values). Example row(s): %s",
+      length(bad_rows),
+      min_istd,
+      paste(utils::head(bad_rows, 10), collapse = ", ")
+    ))
+  }
+  
+  metab_data <- df[, metab_cols, drop = FALSE]
+  
+  # Divide each row by its ISTD mean
+  norm_data <- sweep(metab_data, 1, istd_mean, FUN = "/")
+  
+  if (na_action == "leave") {
+    # For rows where ISTD mean is NA, keep original values
+    bad <- is.na(istd_mean)
+    if (any(bad)) norm_data[bad, ] <- metab_data[bad, ]
+  } else if (na_action == "na") {
+    # For rows where ISTD mean is NA, force normalized values to NA
+    bad <- is.na(istd_mean)
+    if (any(bad)) norm_data[bad, ] <- NA_real_
+  }
+  
+  df[, metab_cols] <- norm_data
+  df
+}
+
 #' Transformation methods for corrected data
 #'
 #' @keywords internal
@@ -29,32 +95,61 @@ transform_data <- function(filtered_corrected, transform, withheld_cols, ex_ISTD
   metab_cols_mv <- setdiff(names(df_mv), meta_cols)
   metab_cols_no_mv <- setdiff(names(df_no_mv), meta_cols)
   
-  if (ex_ISTD) {
-    # Get column names containing ISTD and add them to withheld columns
-    istd_mv <- grepl("^(ISTD|ITSD)", metab_cols_mv, ignore.case = TRUE)
-    istd_no_mv <- grepl("^(ISTD|ITSD)", metab_cols_no_mv, ignore.case = TRUE)
-    istd_names_mv <- metab_cols_mv[istd_mv]
-    istd_names_no_mv <- metab_cols_no_mv[istd_no_mv]
-    # Get column names containing ISTD and add them to withheld columns
-    withheld_cols_mv <- c(withheld_cols, istd_names_mv)
-    metab_cols_mv <- setdiff(metab_cols_mv, withheld_cols_mv)
-    withheld_cols_no_mv <- c(withheld_cols, istd_names_no_mv)
-    metab_cols_no_mv <- setdiff(metab_cols_no_mv, withheld_cols_no_mv)
+  # Identify ISTD columns from the full metabolite sets
+  istd_names_mv <- metab_cols_mv[grepl("^(ISTD|ITSD)", metab_cols_mv, ignore.case = TRUE)]
+  istd_names_no_mv <- metab_cols_no_mv[grepl("^(ISTD|ITSD)", metab_cols_no_mv, ignore.case = TRUE)]
+  
+  
+  withheld_cols_mv <- withheld_cols
+  withheld_cols_no_mv <- withheld_cols
+  
+  # Exclude ISTDs from *TRN* calculation when requested
+  if (isTRUE(ex_ISTD)) {
+    withheld_cols_mv    <- unique(c(withheld_cols_mv, istd_names_mv))
+    withheld_cols_no_mv <- unique(c(withheld_cols_no_mv, istd_names_no_mv))
   }
   
-  transformed_df_mv <- df_mv[, c(meta_cols, metab_cols_mv)]
-  transformed_df_no_mv <- df_no_mv[, c(meta_cols, metab_cols_no_mv)]
+  # Columns to transform (non-withheld)
+  metab_cols_mv_trn    <- setdiff(metab_cols_mv, withheld_cols_mv)
+  metab_cols_no_mv_trn <- setdiff(metab_cols_no_mv, withheld_cols_no_mv)
+  
+  # Keep full data in outputs (including withheld metabolite cols), but only
+  # operate on the selected columns.
+  transformed_df_mv    <- df_mv
+  transformed_df_no_mv <- df_no_mv
   
   if (transform == "none") {
     transform_str <- "After correction, no scaling or transformations have been applied."
-  } else if (transform == "log2") {
+  } else if (transform == "ISTD_norm") {
     transform_str <- paste(
-      "After correction, the log 2 transformation is applied",
-      "to metabolite level values. For skewed data, the log transformation helps",
-      "normalize the distribution of values."
+      "After correction, all metabolite levels are normalized to the average of",
+      "the internal standards within that sample."
     )
-    transformed_df_mv[metab_cols_mv] <- log(transformed_df_mv[metab_cols_mv], base = 2)
-    transformed_df_no_mv[metab_cols_mv] <- log(transformed_df_no_mv[metab_cols_no_mv], base = 2)
+    # For ISTD normalization, we normalize NON-ISTD metabolite columns by the
+    # row-wise mean of ISTD columns. Withheld columns are *not* normalized.
+    # Note: if ex_ISTD=TRUE, ISTD columns are excluded from being normalized (desired).
+    metab_cols_mv_norm    <- setdiff(metab_cols_mv, withheld_cols_mv)
+    metab_cols_no_mv_norm <- setdiff(metab_cols_no_mv, withheld_cols_no_mv)
+    
+    # Ensure we are not normalizing ISTD columns themselves
+    metab_cols_mv_norm    <- setdiff(metab_cols_mv_norm, istd_names_mv)
+    metab_cols_no_mv_norm <- setdiff(metab_cols_no_mv_norm, istd_names_no_mv)
+    
+    transformed_df_mv <- .istd_norm(
+      transformed_df_mv,
+      metab_cols = metab_cols_mv_norm,
+      istd_cols  = istd_names_mv,
+      min_istd   = 1L,
+      na_action  = "leave"
+    )
+    
+    transformed_df_no_mv <- .istd_norm(
+      transformed_df_no_mv,
+      metab_cols = metab_cols_no_mv_norm,
+      istd_cols  = istd_names_no_mv,
+      min_istd   = 1L,
+      na_action  = "leave"
+    )
   } else if (transform == "TRN") {
     transform_str <- paste(
       "After correction, metabolite level values are ratiometrically normalized",
@@ -74,8 +169,8 @@ transform_data <- function(filtered_corrected, transform, withheld_cols, ex_ISTD
       "scaling between samples cancel out by division, within-sample metabolite",
       "ratios can be quantitatively compared across samples."
     )
-    transformed_df_mv <- .total_ratio_norm(transformed_df_mv, metab_cols_mv)
-    transformed_df_no_mv <- .total_ratio_norm(transformed_df_no_mv, metab_cols_no_mv)
+    transformed_df_mv <- .total_ratio_norm(transformed_df_mv, metab_cols_mv_trn)
+    transformed_df_no_mv <- .total_ratio_norm(transformed_df_no_mv, metab_cols_no_mv_trn)
   }
   return(list(
     df_mv = transformed_df_mv,
