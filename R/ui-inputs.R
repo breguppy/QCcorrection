@@ -343,7 +343,7 @@ ui_post_cor_transform <- function(df, metab_cols, ns = identity) {
     )
   } else {
     list(
-      "Total Ratiometically Normalized (TRN)" = "TRN",
+      "Total Ratiometic Normalization (TRN)" = "TRN",
       "None" = "none"
     )
   }
