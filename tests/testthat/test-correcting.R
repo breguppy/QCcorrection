@@ -33,6 +33,23 @@ mk_df_batches_ok <- function(n = 11) {
   rbind(one_batch("A"), one_batch("B"))
 }
 
+mk_df_sparse_qc_loess <- function() {
+  data.frame(
+    sample = paste0("s", seq_len(21)),
+    batch = "A",
+    class = ifelse(seq_len(21) %in% c(1, 2, 11, 20, 21), "QC", "sample"),
+    order = seq_len(21),
+    M1 = c(
+      21833397, 22019941, 16891774, 19389450, 18657692, 22750220,
+      19624217, 26394121, 23573722, 19946639, 22698586, 19829900,
+      20972400, 22896000, 25741200, 22242300, 23846500, 21357700,
+      27584600, 22002201, 22425309
+    ),
+    M2 = 100 + seq_len(21),
+    check.names = FALSE
+  )
+}
+
 meta_cols <- c("sample", "batch", "class", "order")
 met_cols <- function(df) setdiff(names(df), meta_cols)
 
@@ -112,6 +129,36 @@ testthat::test_that("correct_data LOESS returns clean, shaped output", {
   expect_clean_metabolites(out$df, met_cols(df))
 })
 
+testthat::test_that("LOESS stays stable on sparse five-QC dataset", {
+  testthat::skip_if_not_installed("impute")
+
+  df <- mk_df_sparse_qc_loess()
+  qcid <- which(df$class == "QC")
+
+  pred <- testthat::expect_warning(
+    .safe_loess_predict_x(
+      qc_x = df$order[qcid],
+      qc_y = df$M1[qcid],
+      newx = df$order,
+      span = 0.75,
+      degree = 2
+    ),
+    NA
+  )
+
+  testthat::expect_true(all(is.finite(pred)))
+  testthat::expect_true(all(pred > 0))
+  testthat::expect_gt(min(pred), 1e7)
+
+  out <- testthat::expect_warning(
+    loess_correction(df, metab_cols = c("M1", "M2"), degree = 2),
+    NA
+  )
+
+  testthat::expect_identical(out[meta_cols], df[meta_cols])
+  testthat::expect_lt(max(out$M1, na.rm = TRUE), 2)
+  testthat::expect_gt(min(out$M1[out$M1 > 0], na.rm = TRUE), 0.5)
+})
 testthat::test_that("correct_data BW_LOESS returns clean, shaped output", {
   testthat::skip_if_not_installed("impute")
 

@@ -47,7 +47,6 @@ met_scatter_loess <- function(
 
   add_qc_trend <- function(p, df_qc, method, metab, span_val = 0.75, nw_kernel = "gaussian") {
     has_line <- nrow(df_qc) >= 3L && dplyr::n_distinct(df_qc$order) >= 2L
-    has_ribbon <- nrow(df_qc) >= 10L && dplyr::n_distinct(df_qc$order) >= 3L
 
     if (!has_line) {
       return(p)
@@ -102,20 +101,32 @@ met_scatter_loess <- function(
       2L
     )
 
-    p + ggplot2::geom_smooth(
-      data = df_qc,
-      mapping = ggplot2::aes(x = order, y = .data[[metab]]),
-      method = "loess",
-      formula = y ~ x,
+    x_grid <- seq(
+      min(df_qc$order, na.rm = TRUE),
+      max(df_qc$order, na.rm = TRUE),
+      length.out = 200L
+    )
+
+    fit <- .safe_loess_predict_x(
+      qc_x = df_qc$order,
+      qc_y = df_qc[[metab]],
+      newx = x_grid,
       span = span_val,
-      method.args = list(
-        degree = deg,
-        family = "symmetric"
-      ),
-      se = has_ribbon,
-      fill = "#305CDE",
-      colour = "#305CDE",
+      degree = deg
+    )
+
+    trend_df <- data.frame(
+      order = x_grid,
+      fit = fit,
+      panel = factor("Raw", levels = c("Raw", "Corrected"))
+    )
+
+    p + ggplot2::geom_line(
+      data = trend_df,
+      mapping = ggplot2::aes(x = order, y = fit),
+      inherit.aes = FALSE,
       linewidth = 0.75,
+      colour = "#305CDE",
       show.legend = FALSE
     )
   }

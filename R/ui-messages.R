@@ -195,12 +195,18 @@ ui_how_to_correct <- function(df,
         "Local linear is the highest-supported method in this range."
       )
     }
+  } else if (total_qcs <= 6) {
+    recommendation <- "Local linear"
+    rationale <- paste(
+      "Limited QC support for a flexible polynomial smoother.",
+      "Local polynomial remains available and will auto-stabilize, but local linear is the safer default."
+    )
   } else if (total_qcs <= 8) {
     if (spacing_reasonable_poly) {
       recommendation <- "Local polynomial (QC-RLSC)"
       rationale <- paste(
         "Moderate QC count with acceptable spacing.",
-        "A moderately flexible smoother is supported."
+        "A moderately flexible smoother is supported and will auto-stabilize if the fit is numerically unstable."
       )
     } else {
       recommendation <- "Local linear"
@@ -265,7 +271,7 @@ ui_how_to_correct <- function(df,
     items <- c(items, list(
       htmltools::tags$li(
         htmltools::tags$strong("Local polynomial (QC-RLSC): "),
-        "Best when QC count is moderate to high and spacing is reasonably tight. Intermediate flexibility."
+        "Best when QC count is moderate to high and spacing is reasonably tight. Intermediate flexibility; auto-stabilizes to simpler local fits when the polynomial fit is numerically unstable."
       )
     ))
   }
