@@ -51,13 +51,13 @@
 
 #' @keywords internal
 #' @noRd
-.loess_candidate_predict_x <- function(qx, qy, newx, span, degree) {
+.loess_candidate_predict_x <- function(qx, qy, newx, span, degree, family = "symmetric") {
   fit_result <- .with_loess_warnings({
     stats::loess(
       log(qy) ~ qx,
       span = span,
       degree = degree,
-      family = "gaussian",
+      family = family,
       control = stats::loess.control(surface = "direct")
     )
   })
@@ -90,14 +90,15 @@
     return(list(pred = pred, ok = FALSE, reason = "loess_implausible_prediction"))
   }
 
-  list(pred = pred, ok = TRUE, reason = NA_character_)
+  list(pred = pred, ok = TRUE, reason = NA_character_, family = family)
 }
 
 #' @keywords internal
 #' @noRd
-.annotate_loess_prediction <- function(pred, fit_method, fallback_reason = NA_character_) {
+.annotate_loess_prediction <- function(pred, fit_method, fallback_reason = NA_character_, fit_family = NA_character_) {
   attr(pred, "fit_method") <- fit_method
   attr(pred, "fallback_reason") <- fallback_reason
+  attr(pred, "fit_family") <- fit_family
   pred
 }
 
@@ -143,12 +144,12 @@
       qy = qy,
       newx = newx,
       span = spn,
-      degree = deg
+      degree = deg,
+      family = "symmetric"
     )
-
     if (isTRUE(candidate$ok)) {
       method <- sprintf("loess_degree_%d", deg)
-      return(.annotate_loess_prediction(candidate$pred, method, fallback_reason))
+      return(.annotate_loess_prediction(candidate$pred, method, fallback_reason, candidate$family))
     }
 
     fallback_reason <- candidate$reason
@@ -156,7 +157,7 @@
 
   if (exists(".safe_nw_predict_x", mode = "function")) {
     pred <- .safe_nw_predict_x(qc_x = qx, qc_y = qy, newx = newx, span = span)
-    return(.annotate_loess_prediction(pred, "local_constant", fallback_reason))
+    return(.annotate_loess_prediction(pred, "local_constant", fallback_reason, NA_character_))
   }
 
   pred <- stats::approx(qx, qy, xout = newx, rule = 2)$y

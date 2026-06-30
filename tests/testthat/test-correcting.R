@@ -129,6 +129,24 @@ testthat::test_that("correct_data LOESS returns clean, shaped output", {
   expect_clean_metabolites(out$df, met_cols(df))
 })
 
+testthat::test_that("LOESS preserves robust weighting for accepted fits", {
+  qc_x <- seq(1, 21, by = 2)
+  qc_y <- c(100, 101, 99, 102, 100, 1000, 101, 99, 102, 100, 101)
+
+  pred <- testthat::expect_warning(
+    .safe_loess_predict_x(
+      qc_x = qc_x,
+      qc_y = qc_y,
+      newx = seq_len(21),
+      span = 0.75,
+      degree = 2
+    ),
+    NA
+  )
+
+  testthat::expect_true(grepl("^loess_degree_", attr(pred, "fit_method", exact = TRUE)))
+  testthat::expect_identical(attr(pred, "fit_family", exact = TRUE), "symmetric")
+})
 testthat::test_that("LOESS stays stable on sparse five-QC dataset", {
   testthat::skip_if_not_installed("impute")
 
