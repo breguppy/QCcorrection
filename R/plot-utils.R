@@ -61,9 +61,9 @@ facet_label_map <- function(df) {
   }
   split_df <- split(d_all, d_all[["Type"]], drop = TRUE)
 
-  key_x <- x_range[[1L]] + x_span * c(0.005, 0.39, 0.84)
-  label_x <- x_range[[1L]] + x_span * c(0.025, 0.415, 1.08)
-  label_hjust <- c(0, 0, 1)
+  key_x <- x_range[[1L]] + x_span * c(0.005, 0.36, 0.68)
+  label_x <- x_range[[1L]] + x_span * c(0.025, 0.385, 0.705)
+  label_hjust <- c(0, 0, 0)
   key_y <- y_range[[2L]] + y_span * 0.13
   band_y_min <- y_range[[2L]] + y_span * 0.04
   band_y_max <- y_range[[2L]] + y_span * 0.24

@@ -43,13 +43,13 @@ test_that("RSD key columns are separated and flush to the panel top", {
 
   testthat::expect_equal(
     (key_rows$key_x[seq_len(3)] - x_range[[1L]]) / x_span,
-    c(0.005, 0.39, 0.84)
+    c(0.005, 0.36, 0.68)
   )
   testthat::expect_equal(
     (key_rows$label_x[seq_len(3)] - x_range[[1L]]) / x_span,
-    c(0.025, 0.415, 1.08)
+    c(0.025, 0.385, 0.705)
   )
-  testthat::expect_equal(key_rows$label_hjust[seq_len(3)], c(0, 0, 1))
+  testthat::expect_equal(key_rows$label_hjust[seq_len(3)], c(0, 0, 0))
   testthat::expect_true(all(key_rows$band_y_max == key_rows$limit_y))
 
   plot <- mk_plot(d_all, "before", "after", facet_label_map(d_all), "Correction")
