@@ -35,6 +35,29 @@ test_that("RSD key rows preserve per-facet percentages", {
   testthat::expect_equal(as.character(key_rows$change), rep(lab_levels, 2L))
 })
 
+test_that("RSD key columns are separated and flush to the panel top", {
+  d_all <- make_rsd_key_test_data()
+  key_rows <- .rsd_key_rows(d_all, "before", "after")
+  x_range <- range(d_all[["before"]])
+  x_span <- diff(x_range)
+
+  testthat::expect_equal(
+    (key_rows$key_x[seq_len(3)] - x_range[[1L]]) / x_span,
+    c(0.02, 0.39, 0.72)
+  )
+  testthat::expect_equal(
+    (key_rows$label_x[seq_len(3)] - x_range[[1L]]) / x_span,
+    c(0.045, 0.415, 0.98)
+  )
+  testthat::expect_equal(key_rows$label_hjust[seq_len(3)], c(0, 0, 1))
+  testthat::expect_true(all(key_rows$band_y_max == key_rows$limit_y))
+
+  plot <- mk_plot(d_all, "before", "after", facet_label_map(d_all), "Correction")
+  y_scale <- plot$scales$get_scales("y")
+
+  testthat::expect_true(inherits(y_scale, "ScaleContinuousPosition"))
+  testthat::expect_equal(y_scale$expand, ggplot2::expansion(mult = c(0.05, 0)))
+})
 test_that("RSD comparison plot uses native point key markers", {
   d_all <- make_rsd_key_test_data()
   plot <- mk_plot(d_all, "before", "after", facet_label_map(d_all), "Correction")

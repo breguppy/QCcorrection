@@ -61,8 +61,9 @@ facet_label_map <- function(df) {
   }
   split_df <- split(d_all, d_all[["Type"]], drop = TRUE)
 
-  key_x <- x_range[[1L]] + x_span * c(0.02, 0.34, 0.68)
-  label_x <- key_x + x_span * 0.025
+  key_x <- x_range[[1L]] + x_span * c(0.02, 0.39, 0.72)
+  label_x <- x_range[[1L]] + x_span * c(0.045, 0.415, 0.98)
+  label_hjust <- c(0, 0, 1)
   key_y <- y_range[[2L]] + y_span * 0.13
   band_y_min <- y_range[[2L]] + y_span * 0.04
   band_y_max <- y_range[[2L]] + y_span * 0.24
@@ -77,6 +78,7 @@ facet_label_map <- function(df) {
         label = .rsd_key_label(.data$change, .data$percent),
         key_x = key_x,
         label_x = label_x,
+        label_hjust = label_hjust,
         key_y = key_y,
         band_y_min = band_y_min,
         band_y_max = band_y_max,
@@ -89,6 +91,7 @@ facet_label_map <- function(df) {
         "label",
         "key_x",
         "label_x",
+        "label_hjust",
         "key_y",
         "band_y_min",
         "band_y_max",
@@ -159,9 +162,13 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
     ) +
     ggplot2::geom_text(
       data = key_rows,
-      ggplot2::aes(x = .data$label_x, y = .data$key_y, label = .data$label),
+      ggplot2::aes(
+        x = .data$label_x,
+        y = .data$key_y,
+        label = .data$label,
+        hjust = .data$label_hjust
+      ),
       inherit.aes = FALSE,
-      hjust = 0,
       vjust = 0.5,
       size = 3,
       color = "gray20",
@@ -173,6 +180,7 @@ mk_plot <- function(d_all, x, y, facet_labs, compared_to) {
       labels = c("Increased", "No change", "Decreased"),
       name = "RSD Change"
     ) +
+    ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0.05, 0))) +
     ggplot2::facet_wrap(
       ~Type,
       nrow = 1,
