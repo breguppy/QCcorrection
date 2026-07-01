@@ -43,11 +43,11 @@ test_that("RSD key columns are separated and flush to the panel top", {
 
   testthat::expect_equal(
     (key_rows$key_x[seq_len(3)] - x_range[[1L]]) / x_span,
-    c(0.02, 0.39, 0.72)
+    c(0.005, 0.39, 0.84)
   )
   testthat::expect_equal(
     (key_rows$label_x[seq_len(3)] - x_range[[1L]]) / x_span,
-    c(0.045, 0.415, 0.98)
+    c(0.025, 0.415, 1.08)
   )
   testthat::expect_equal(key_rows$label_hjust[seq_len(3)], c(0, 0, 1))
   testthat::expect_true(all(key_rows$band_y_max == key_rows$limit_y))
