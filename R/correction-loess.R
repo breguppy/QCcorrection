@@ -34,11 +34,12 @@
 
 #' @keywords internal
 #' @noRd
-.loess_prediction_ok <- function(pred, qc_y, max_fold = 10) {
+.loess_prediction_ok <- function(pred, qc_y, max_fold = 10, small_n_envelope_fold = 1.25) {
   if (!is.numeric(pred) || length(pred) == 0L || any(!is.finite(pred)) || any(pred <= 0)) {
     return(FALSE)
   }
 
+  qc_y <- qc_y[is.finite(qc_y) & qc_y > 0]
   qc_ref <- stats::median(qc_y, na.rm = TRUE)
   if (!is.finite(qc_ref) || qc_ref <= 0) {
     return(FALSE)
@@ -46,7 +47,19 @@
 
   lower <- qc_ref / max_fold
   upper <- qc_ref * max_fold
-  all(pred >= lower & pred <= upper)
+  if (!all(pred >= lower & pred <= upper)) {
+    return(FALSE)
+  }
+
+  if (length(qc_y) <= 6L) {
+    small_n_lower <- min(qc_y, na.rm = TRUE) / small_n_envelope_fold
+    small_n_upper <- max(qc_y, na.rm = TRUE) * small_n_envelope_fold
+    if (!all(pred >= small_n_lower & pred <= small_n_upper)) {
+      return(FALSE)
+    }
+  }
+
+  TRUE
 }
 
 #' @keywords internal
@@ -54,7 +67,7 @@
 .loess_candidate_predict_x <- function(qx, qy, newx, span, degree, family = "symmetric") {
   fit_result <- .with_loess_warnings({
     stats::loess(
-      log(qy) ~ qx,
+      qy ~ qx,
       span = span,
       degree = degree,
       family = family,
@@ -73,10 +86,10 @@
   }
 
   pred_result <- .with_loess_warnings({
-    exp(stats::predict(fit, newdata = data.frame(qx = newx)))
+    stats::predict(fit, newdata = data.frame(qx = newx))
   })
   qc_result <- .with_loess_warnings({
-    exp(stats::predict(fit, newdata = data.frame(qx = qx)))
+    stats::predict(fit, newdata = data.frame(qx = qx))
   })
 
   warning_messages <- c(fit_result$warnings, pred_result$warnings, qc_result$warnings)
@@ -90,15 +103,16 @@
     return(list(pred = pred, ok = FALSE, reason = "loess_implausible_prediction"))
   }
 
-  list(pred = pred, ok = TRUE, reason = NA_character_, family = family)
+  list(pred = pred, ok = TRUE, reason = NA_character_, family = family, scale = "raw")
 }
 
 #' @keywords internal
 #' @noRd
-.annotate_loess_prediction <- function(pred, fit_method, fallback_reason = NA_character_, fit_family = NA_character_) {
+.annotate_loess_prediction <- function(pred, fit_method, fallback_reason = NA_character_, fit_family = NA_character_, fit_scale = NA_character_) {
   attr(pred, "fit_method") <- fit_method
   attr(pred, "fallback_reason") <- fallback_reason
   attr(pred, "fit_family") <- fit_family
+  attr(pred, "fit_scale") <- fit_scale
   pred
 }
 
@@ -149,7 +163,7 @@
     )
     if (isTRUE(candidate$ok)) {
       method <- sprintf("loess_degree_%d", deg)
-      return(.annotate_loess_prediction(candidate$pred, method, fallback_reason, candidate$family))
+      return(.annotate_loess_prediction(candidate$pred, method, fallback_reason, candidate$family, candidate$scale))
     }
 
     fallback_reason <- candidate$reason
@@ -157,7 +171,7 @@
 
   if (exists(".safe_nw_predict_x", mode = "function")) {
     pred <- .safe_nw_predict_x(qc_x = qx, qc_y = qy, newx = newx, span = span)
-    return(.annotate_loess_prediction(pred, "local_constant", fallback_reason, NA_character_))
+    return(.annotate_loess_prediction(pred, "local_constant", fallback_reason, NA_character_, NA_character_))
   }
 
   pred <- stats::approx(qx, qy, xout = newx, rule = 2)$y
@@ -181,6 +195,8 @@ loess_correction <- function(df, metab_cols, degree, span = 0.75, min_qc = 3) {
     metabolite = metab_cols,
     fit_method = rep(NA_character_, length(metab_cols)),
     fallback_reason = rep(NA_character_, length(metab_cols)),
+    fit_family = rep(NA_character_, length(metab_cols)),
+    fit_scale = rep(NA_character_, length(metab_cols)),
     stringsAsFactors = FALSE
   )
 
@@ -193,6 +209,8 @@ loess_correction <- function(df, metab_cols, degree, span = 0.75, min_qc = 3) {
       diag_idx <- match(metab, diagnostics$metabolite)
       diagnostics$fit_method[diag_idx] <- "all_nonpositive_qc"
       diagnostics$fallback_reason[diag_idx] <- "all_nonpositive_qc"
+      diagnostics$fit_family[diag_idx] <- NA_character_
+      diagnostics$fit_scale[diag_idx] <- NA_character_
       next
     }
 
@@ -207,6 +225,8 @@ loess_correction <- function(df, metab_cols, degree, span = 0.75, min_qc = 3) {
     diag_idx <- match(metab, diagnostics$metabolite)
     diagnostics$fit_method[diag_idx] <- attr(pred, "fit_method", exact = TRUE)
     diagnostics$fallback_reason[diag_idx] <- attr(pred, "fallback_reason", exact = TRUE)
+    diagnostics$fit_family[diag_idx] <- attr(pred, "fit_family", exact = TRUE)
+    diagnostics$fit_scale[diag_idx] <- attr(pred, "fit_scale", exact = TRUE)
 
     pred[!is.finite(pred) | pred <= 0] <- NA_real_
     corr <- as.numeric(df[[metab]]) / pred
@@ -276,6 +296,8 @@ bw_loess_correction <- function(df, metab_cols, span = 0.75, degree = 2, min_qc 
     batch = character(0),
     fit_method = character(0),
     fallback_reason = character(0),
+    fit_family = character(0),
+    fit_scale = character(0),
     stringsAsFactors = FALSE
   )
 
@@ -305,6 +327,8 @@ bw_loess_correction <- function(df, metab_cols, span = 0.75, degree = 2, min_qc 
             batch = as.character(b),
             fit_method = "skipped_too_few_qc",
             fallback_reason = "too_few_qc",
+            fit_family = NA_character_,
+            fit_scale = NA_character_,
             stringsAsFactors = FALSE
           )
         )
@@ -321,6 +345,8 @@ bw_loess_correction <- function(df, metab_cols, span = 0.75, degree = 2, min_qc 
             batch = as.character(b),
             fit_method = "all_nonpositive_qc",
             fallback_reason = "all_nonpositive_qc",
+            fit_family = NA_character_,
+            fit_scale = NA_character_,
             stringsAsFactors = FALSE
           )
         )
@@ -347,6 +373,8 @@ bw_loess_correction <- function(df, metab_cols, span = 0.75, degree = 2, min_qc 
           batch = as.character(b),
           fit_method = attr(pred, "fit_method", exact = TRUE),
           fallback_reason = attr(pred, "fallback_reason", exact = TRUE),
+          fit_family = attr(pred, "fit_family", exact = TRUE),
+          fit_scale = attr(pred, "fit_scale", exact = TRUE),
           stringsAsFactors = FALSE
         )
       )

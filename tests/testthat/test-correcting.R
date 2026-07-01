@@ -147,6 +147,65 @@ testthat::test_that("LOESS preserves robust weighting for accepted fits", {
   testthat::expect_true(grepl("^loess_degree_", attr(pred, "fit_method", exact = TRUE)))
   testthat::expect_identical(attr(pred, "fit_family", exact = TRUE), "symmetric")
 })
+testthat::test_that("LOESS raw robust fit avoids sparse-QC log inflation", {
+  qc_x <- c(1, 2, 11, 20, 21)
+  qc_y <- c(1761309, 2457259, 2463584, 1484390, 1462680)
+  newx <- seq_len(21)
+
+  pred <- testthat::expect_warning(
+    .safe_loess_predict_x(
+      qc_x = qc_x,
+      qc_y = qc_y,
+      newx = newx,
+      span = 0.75,
+      degree = 2
+    ),
+    NA
+  )
+
+  shiftcor_like_pred <- suppressWarnings(stats::predict(
+    stats::loess(
+      qc_y ~ qc_x,
+      span = 0.75,
+      degree = 2,
+      family = "gaussian",
+      control = stats::loess.control(surface = "direct")
+    ),
+    newdata = data.frame(qc_x = newx)
+  ))
+
+  testthat::expect_identical(attr(pred, "fit_scale", exact = TRUE), "raw")
+  testthat::expect_identical(attr(pred, "fit_family", exact = TRUE), "symmetric")
+  testthat::expect_lt(max(pred, na.rm = TRUE), 3e6)
+  testthat::expect_gt(min(pred, na.rm = TRUE), 1.2e6)
+  testthat::expect_lt(min(shiftcor_like_pred, na.rm = TRUE), 1e6)
+})
+
+testthat::test_that("LOESS diagnostics record robust raw accepted fits", {
+  df <- data.frame(
+    sample = paste0("s", seq_len(21)),
+    batch = "A",
+    class = ifelse(seq_len(21) %in% c(1, 2, 11, 20, 21), "QC", "sample"),
+    order = seq_len(21),
+    M1 = c(
+      1761309, 2457259, 2142000, 1599000, 1869000, 1084000,
+      1630000, 1389000, 2385000, 1501000, 2463584, 679700,
+      1203000, 1494000, 3113000, 2168000, 2909000, 1732000,
+      2608000, 1484390, 1462680
+    ),
+    check.names = FALSE
+  )
+
+  out <- testthat::expect_warning(
+    loess_correction(df, metab_cols = "M1", degree = 2),
+    NA
+  )
+  diagnostics <- attr(out, "loess_diagnostics", exact = TRUE)
+
+  testthat::expect_s3_class(diagnostics, "data.frame")
+  testthat::expect_identical(diagnostics$fit_scale, "raw")
+  testthat::expect_identical(diagnostics$fit_family, "symmetric")
+})
 testthat::test_that("LOESS stays stable on sparse five-QC dataset", {
   testthat::skip_if_not_installed("impute")
 
