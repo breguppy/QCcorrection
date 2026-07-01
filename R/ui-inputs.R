@@ -477,7 +477,7 @@ ui_correction_method <- function(df, ns = identity) {
   # Recommended selection
   selected <- if (allow_rf && supports_rf) {
     "RF"
-  } else if (allow_loess && supports_loess) {
+  } else if (allow_loess && total_qcs >= 7L && supports_loess) {
     "LOESS"
   } else if (allow_ll) {
     "LL"

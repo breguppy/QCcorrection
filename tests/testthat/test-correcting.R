@@ -33,6 +33,23 @@ mk_df_batches_ok <- function(n = 11) {
   rbind(one_batch("A"), one_batch("B"))
 }
 
+mk_df_sparse_qc_loess <- function() {
+  data.frame(
+    sample = paste0("s", seq_len(21)),
+    batch = "A",
+    class = ifelse(seq_len(21) %in% c(1, 2, 11, 20, 21), "QC", "sample"),
+    order = seq_len(21),
+    M1 = c(
+      21833397, 22019941, 16891774, 19389450, 18657692, 22750220,
+      19624217, 26394121, 23573722, 19946639, 22698586, 19829900,
+      20972400, 22896000, 25741200, 22242300, 23846500, 21357700,
+      27584600, 22002201, 22425309
+    ),
+    M2 = 100 + seq_len(21),
+    check.names = FALSE
+  )
+}
+
 meta_cols <- c("sample", "batch", "class", "order")
 met_cols <- function(df) setdiff(names(df), meta_cols)
 
@@ -112,6 +129,113 @@ testthat::test_that("correct_data LOESS returns clean, shaped output", {
   expect_clean_metabolites(out$df, met_cols(df))
 })
 
+testthat::test_that("LOESS preserves robust weighting for accepted fits", {
+  qc_x <- seq(1, 21, by = 2)
+  qc_y <- c(100, 101, 99, 102, 100, 1000, 101, 99, 102, 100, 101)
+
+  pred <- testthat::expect_warning(
+    .safe_loess_predict_x(
+      qc_x = qc_x,
+      qc_y = qc_y,
+      newx = seq_len(21),
+      span = 0.75,
+      degree = 2
+    ),
+    NA
+  )
+
+  testthat::expect_true(grepl("^loess_degree_", attr(pred, "fit_method", exact = TRUE)))
+  testthat::expect_identical(attr(pred, "fit_family", exact = TRUE), "symmetric")
+})
+testthat::test_that("LOESS raw robust fit avoids sparse-QC log inflation", {
+  qc_x <- c(1, 2, 11, 20, 21)
+  qc_y <- c(1761309, 2457259, 2463584, 1484390, 1462680)
+  newx <- seq_len(21)
+
+  pred <- testthat::expect_warning(
+    .safe_loess_predict_x(
+      qc_x = qc_x,
+      qc_y = qc_y,
+      newx = newx,
+      span = 0.75,
+      degree = 2
+    ),
+    NA
+  )
+
+  shiftcor_like_pred <- suppressWarnings(stats::predict(
+    stats::loess(
+      qc_y ~ qc_x,
+      span = 0.75,
+      degree = 2,
+      family = "gaussian",
+      control = stats::loess.control(surface = "direct")
+    ),
+    newdata = data.frame(qc_x = newx)
+  ))
+
+  testthat::expect_identical(attr(pred, "fit_scale", exact = TRUE), "raw")
+  testthat::expect_identical(attr(pred, "fit_family", exact = TRUE), "symmetric")
+  testthat::expect_lt(max(pred, na.rm = TRUE), 3e6)
+  testthat::expect_gt(min(pred, na.rm = TRUE), 1.2e6)
+  testthat::expect_lt(min(shiftcor_like_pred, na.rm = TRUE), 1e6)
+})
+
+testthat::test_that("LOESS diagnostics record robust raw accepted fits", {
+  df <- data.frame(
+    sample = paste0("s", seq_len(21)),
+    batch = "A",
+    class = ifelse(seq_len(21) %in% c(1, 2, 11, 20, 21), "QC", "sample"),
+    order = seq_len(21),
+    M1 = c(
+      1761309, 2457259, 2142000, 1599000, 1869000, 1084000,
+      1630000, 1389000, 2385000, 1501000, 2463584, 679700,
+      1203000, 1494000, 3113000, 2168000, 2909000, 1732000,
+      2608000, 1484390, 1462680
+    ),
+    check.names = FALSE
+  )
+
+  out <- testthat::expect_warning(
+    loess_correction(df, metab_cols = "M1", degree = 2),
+    NA
+  )
+  diagnostics <- attr(out, "loess_diagnostics", exact = TRUE)
+
+  testthat::expect_s3_class(diagnostics, "data.frame")
+  testthat::expect_identical(diagnostics$fit_scale, "raw")
+  testthat::expect_identical(diagnostics$fit_family, "symmetric")
+})
+testthat::test_that("LOESS stays stable on sparse five-QC dataset", {
+  testthat::skip_if_not_installed("impute")
+
+  df <- mk_df_sparse_qc_loess()
+  qcid <- which(df$class == "QC")
+
+  pred <- testthat::expect_warning(
+    .safe_loess_predict_x(
+      qc_x = df$order[qcid],
+      qc_y = df$M1[qcid],
+      newx = df$order,
+      span = 0.75,
+      degree = 2
+    ),
+    NA
+  )
+
+  testthat::expect_true(all(is.finite(pred)))
+  testthat::expect_true(all(pred > 0))
+  testthat::expect_gt(min(pred), 1e7)
+
+  out <- testthat::expect_warning(
+    loess_correction(df, metab_cols = c("M1", "M2"), degree = 2),
+    NA
+  )
+
+  testthat::expect_identical(out[meta_cols], df[meta_cols])
+  testthat::expect_lt(max(out$M1, na.rm = TRUE), 2)
+  testthat::expect_gt(min(out$M1[out$M1 > 0], na.rm = TRUE), 0.5)
+})
 testthat::test_that("correct_data BW_LOESS returns clean, shaped output", {
   testthat::skip_if_not_installed("impute")
 

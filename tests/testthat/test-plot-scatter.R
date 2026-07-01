@@ -70,3 +70,35 @@ test_that("LOESS scatter accepts precomputed context without changing visible la
   testthat::expect_equal(plot[["labels"]][["x"]], "Injection Order")
   testthat::expect_equal(plot[["labels"]][["y"]], "Intensity")
 })
+
+test_that("LOESS scatter uses safe trend on sparse five-QC data", {
+  testthat::skip_if_not_installed("impute")
+
+  raw_df <- data.frame(
+    sample = paste0("S", seq_len(21)),
+    batch = "A",
+    class = ifelse(seq_len(21) %in% c(1, 2, 11, 20, 21), "QC", "Sample"),
+    order = seq_len(21),
+    met_a = c(
+      21833397, 22019941, 16891774, 19389450, 18657692, 22750220,
+      19624217, 26394121, 23573722, 19946639, 22698586, 19829900,
+      20972400, 22896000, 25741200, 22242300, 23846500, 21357700,
+      27584600, 22002201, 22425309
+    ),
+    check.names = FALSE
+  )
+  corrected_df <- loess_correction(raw_df, metab_cols = "met_a", degree = 2)
+
+  plot <- testthat::expect_warning(
+    met_scatter_loess(
+      raw_df,
+      corrected_df,
+      "local polynomial regression",
+      "met_a"
+    ),
+    NA
+  )
+
+  testthat::expect_s3_class(plot, "ggplot")
+  testthat::expect_warning(ggplot2::ggplot_build(plot), NA)
+})
