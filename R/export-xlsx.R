@@ -468,7 +468,7 @@ export_xlsx <- function(p, d, file = NULL) {
           "Tab", next_sheet_num, ". This tab shows metabolite level values",
           "ratiometrically normalized to total metabolite signal on a per",
           "sample basis. Before this normalization, metabolites were equally",
-          "weighted so that each metabolite had an average value of 1000 across",
+          "weighted so that each metabolite had an average value of 1 across",
           "samples. This normalization is done by summing all individual",
           "post-QC corrected metabolite level values within a sample (total",
           "signal) and then dividing each individual metabolite level value",
