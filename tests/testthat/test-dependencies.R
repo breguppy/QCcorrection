@@ -3,7 +3,6 @@ test_that("all user-facing runtime packages are hard dependencies", {
 
   runtime_packages <- c(
     "randomForest",
-    "ggtext",
     "cowplot",
     "zip",
     "pmp"
@@ -31,7 +30,6 @@ test_that("every runtime namespace is declared as a hard dependency", {
     "rmarkdown",
     "impute",
     "randomForest",
-    "ggtext",
     "cowplot",
     "zip",
     "pmp"
