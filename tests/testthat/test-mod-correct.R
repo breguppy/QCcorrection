@@ -51,6 +51,7 @@ test_that("correct module runs and navigates", {
   params <- jsonlite::fromJSON(app$get_value(output = "correct_params_json"))
   n_tr <- as.integer(app$get_value(output = "transformed_n"))
   expect_type(params, "list")
+  expect_true(isTRUE(params$remove_qc_rsd_filter))
   expect_gt(n_tr, 0)
 
   # 8) Navigate to visualize tab

@@ -78,7 +78,7 @@ MetaboRx:::ui_how_to_correct(params$d$filtered$df)
 MetaboRx:::ui_postcor_filter_info(params$d$filtered_corrected,
                                       params$p$remove_imputed, 
                                       params$p$rsd_cutoff, 
-                                      params$p$post_cor_filter,
+                                      MetaboRx:::.qc_rsd_filter_enabled(params$p, params$p$rsd_cutoff),
                                       params$p$remove_qc_average_pct_filter)
 ```
 ```{r}

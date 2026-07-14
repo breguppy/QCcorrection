@@ -97,7 +97,7 @@ make_complete_export_fixture <- function(fig_format) {
     remove_imputed = FALSE,
     rsd_cutoff = 30,
     rsd_filter_threshold = 30,
-    post_cor_filter = TRUE,
+    remove_qc_rsd_filter = TRUE,
     remove_qc_average_pct_filter = FALSE,
     transform = "none",
     ex_ISTD = TRUE,

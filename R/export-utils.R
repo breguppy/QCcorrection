@@ -760,7 +760,7 @@ report_text_scatter_intro <- function(p, d) {
     parts <- c(parts, ".")
   }
 
-  if (isTRUE(!p$post_cor_filter)) {
+  if (.qc_rsd_filter_enabled(p, p$rsd_cutoff %||% NULL)) {
     parts <- c(parts, sprintf(
       "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above %s%%.",
       p$rsd_cutoff
@@ -825,7 +825,7 @@ report_text_rsd_intro <- function(p, d) {
   )
 
   extra <- character(0)
-  if (isTRUE(!p$post_cor_filter)) {
+  if (.qc_rsd_filter_enabled(p, p$rsd_cutoff %||% NULL)) {
     extra <- c(extra, sprintf(
       "Some metabolites may have been filtered out of the post-corrected dataset if the QC RSD is above %s%%.",
       p$rsd_cutoff

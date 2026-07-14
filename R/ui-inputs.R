@@ -648,14 +648,14 @@ ui_post_cor_filter <- function(ns) {
     tooltip(
       shiny::checkboxInput(
         inputId = ns("post_cor_filter"),
-        label = "Don't filter metabolites based on QC RSD%",
-        value = FALSE
+        label = "Remove metabolites that exceed QC RSD% threshold",
+        value = TRUE
       ),
-      "Check this box if you don't want any metabolites removed post-correction.",
+      "Check this box to remove metabolites with QC RSD% above the selected threshold.",
       placement = "right"
     ),
     shiny::conditionalPanel(
-      condition = sprintf("!input['%s']", ns("post_cor_filter")),
+      condition = sprintf("input['%s']", ns("post_cor_filter")),
       tooltip(
         shiny::sliderInput(
           inputId = ns("rsd_filter"),

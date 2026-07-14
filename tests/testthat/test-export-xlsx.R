@@ -21,7 +21,7 @@ make_export_xlsx_fixture <- function() {
     remove_imputed = FALSE,
     rsd_cutoff = Inf,
     rsd_filter_threshold = 30,
-    post_cor_filter = TRUE,
+    remove_qc_rsd_filter = FALSE,
     remove_qc_average_pct_filter = FALSE,
     transform = "none",
     ex_ISTD = TRUE,
@@ -137,6 +137,28 @@ test_that("export_xlsx writes expanded correction settings audit tables", {
   expect_true("met_b" %in% settings_values)
 })
 
+
+test_that("export_xlsx writes QC RSD filtered metabolites when filtering is enabled", {
+  fixture <- make_export_xlsx_fixture()
+  fixture$p$remove_qc_rsd_filter <- TRUE
+  fixture$p$rsd_cutoff <- 30
+  fixture$d$filtered_corrected$rsd_cutoff <- 30
+  fixture$d$filtered_corrected$removed_metabolites_no_mv <- "met_b"
+  fixture$d$filtered_corrected$removed_metabolites_mv <- "met_b"
+  file <- tempfile(fileext = ".xlsx")
+
+  export_xlsx_fixture(fixture, file)
+
+  settings <- openxlsx::read.xlsx(
+    file,
+    sheet = "1. Correction Settings",
+    colNames = FALSE
+  )
+  settings_values <- as.character(unlist(settings, use.names = FALSE))
+
+  expect_true("QC-RSD Filtered Metabolites" %in% settings_values)
+  expect_true("met_b" %in% settings_values)
+})
 test_that("samples normalized export data matches display filtering contract", {
   transformed <- list(
     df_no_mv = data.frame(

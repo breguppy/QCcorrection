@@ -199,9 +199,13 @@ export_xlsx <- function(p, d, file = NULL) {
         trn_withheld_columns <- d$transformed$withheld_cols_no_mv
       }
 
-      rsd_filter_disabled <- isTRUE(p$post_cor_filter) ||
-        is.infinite(d$filtered_corrected$rsd_cutoff %||% Inf)
-      qc_rsd_columns <- if (rsd_filter_disabled) {
+      rsd_filter_enabled <- .qc_rsd_filter_enabled(
+        p,
+        d$filtered_corrected$rsd_cutoff %||% NULL
+      )
+      qc_rsd_columns <- if (rsd_filter_enabled) {
+        qc_rsd_removed_columns
+      } else {
         qc_rsd_flagged_metabolites(
           if (isTRUE(p$remove_imputed)) {
             d$filtered_corrected$df_mv
@@ -212,15 +216,12 @@ export_xlsx <- function(p, d, file = NULL) {
             p$rsd_cutoff %||%
             d$filtered_corrected$rsd_cutoff
         )
-      } else {
-        qc_rsd_removed_columns
       }
-      qc_rsd_header <- if (rsd_filter_disabled) {
-        "QC-RSD Flagged Metabolites"
-      } else {
+      qc_rsd_header <- if (rsd_filter_enabled) {
         "QC-RSD Filtered Metabolites"
+      } else {
+        "QC-RSD Flagged Metabolites"
       }
-
       blank_threshold_columns <- if (isTRUE(d$filtered$remove_blank_threshold_cols)) {
         d$filtered$removed_blank_threshold_cols
       } else {
