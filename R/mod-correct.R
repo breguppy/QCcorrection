@@ -384,11 +384,11 @@ mod_correct_server <- function(id, data, params) {
         removed_metabolites <- average_diff_results$removed_metabolites
       }
 
-      post_all <- isTRUE(input$post_cor_filter)
+      remove_qc_rsd_filter <- isTRUE(input$post_cor_filter)
       remove_imputed <- isTRUE(input$remove_imputed)
       rsd_cutoff <- input$rsd_filter %||% Inf
 
-      cutoff_to_use <- if (post_all) Inf else rsd_cutoff
+      cutoff_to_use <- if (remove_qc_rsd_filter) rsd_cutoff else Inf
 
       filtered_cor_results <- filter_by_qc_rsd(
         raw_df = df_filtered,
@@ -416,9 +416,9 @@ mod_correct_server <- function(id, data, params) {
 
       remove_imputed <- isTRUE(input$remove_imputed)
       rsd_filter <- input$rsd_filter %||% Inf
-      post_cor_all <- isTRUE(input$post_cor_filter)
+      remove_qc_rsd_filter <- isTRUE(input$post_cor_filter)
 
-      ui_postcor_filter_info(res, remove_imputed, rsd_filter, post_cor_all, input$remove_qc_average_pct_filter)
+      ui_postcor_filter_info(res, remove_imputed, rsd_filter, remove_qc_rsd_filter, input$remove_qc_average_pct_filter)
     })
 
     output$rsd_comparison_stats <- renderUI({
@@ -740,7 +740,7 @@ mod_correct_server <- function(id, data, params) {
           remove_imputed = isTRUE(input$remove_imputed),
           rsd_cutoff = fc$rsd_cutoff,
           rsd_filter_threshold = input$rsd_filter %||% fc$rsd_cutoff,
-          post_cor_filter = isTRUE(input$post_cor_filter),
+          remove_qc_rsd_filter = isTRUE(input$post_cor_filter),
           remove_qc_average_pct_filter = isTRUE(input$remove_qc_average_pct_filter),
           transform = input$transform,
           ex_ISTD = isTRUE(input$ex_ISTD),
@@ -950,7 +950,7 @@ mod_correct_server <- function(id, data, params) {
       qcImputeM = input$qcImputeM %||% "nothing_to_impute",
       samImputeM = input$samImputeM %||% "nothing_to_impute",
       remove_imputed = isTRUE(input$remove_imputed),
-      post_cor_filter = input$post_cor_filter,
+      remove_qc_rsd_filter = isTRUE(input$post_cor_filter),
       rsd_cutoff = filtered_corrected_r()$rsd_cutoff,
       rsd_filter_threshold = input$rsd_filter %||% filtered_corrected_r()$rsd_cutoff,
       remove_qc_average_pct_filter = isTRUE(input$remove_qc_average_pct_filter),

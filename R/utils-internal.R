@@ -27,6 +27,21 @@
   setdiff(names(df), metadata_cols)
 }
 
+#' Whether QC RSD filtering is enabled
+#'
+#' @keywords internal
+#' @noRd
+.qc_rsd_filter_enabled <- function(p, rsd_cutoff = NULL) {
+  if (!is.null(p$remove_qc_rsd_filter)) {
+    return(isTRUE(p$remove_qc_rsd_filter))
+  }
+
+  if (!is.null(p$post_cor_filter)) {
+    return(!isTRUE(p$post_cor_filter))
+  }
+
+  length(rsd_cutoff) == 1L && !is.na(rsd_cutoff) && is.finite(rsd_cutoff)
+}
 #' Final metabolite cleanup used by correction methods
 #'
 #' @keywords internal

@@ -577,7 +577,7 @@ ui_corr_range_info <- function(all_corr, range) {
 ui_postcor_filter_info <- function(filtered_corrected_result,
                                    remove_imputed,
                                    rsd_cutoff,
-                                   post_cor_filter,
+                                   remove_qc_rsd_filter,
                                    remove_qc_average_pct_filter) {
   if (isTRUE(remove_imputed)) {
     removed <- filtered_corrected_result$removed_metabolites_mv
@@ -677,7 +677,7 @@ ui_postcor_filter_info <- function(filtered_corrected_result,
     )
   }
 
-  if (isFALSE(post_cor_filter)) {
+  if (isTRUE(remove_qc_rsd_filter)) {
     ui <- list(
       imputed_removed_ui,
       warning_ui,
