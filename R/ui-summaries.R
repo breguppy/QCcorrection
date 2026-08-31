@@ -176,12 +176,8 @@ ui_basic_info <- function(cleaned) {
   nonnum_card <- NULL
 
   removed_non_numeric <- sort(unique(non_numeric_cols))
-  removed_all_zero_qc <- sort(unique(all_missing_zero_qc_cols))
 
-  if (
-    length(removed_non_numeric) > 0 ||
-      length(removed_all_zero_qc) > 0
-  ) {
+  if (length(removed_non_numeric) > 0) {
     section_tag <- function(title, values) {
       if (length(values) == 0) {
         return(NULL)
@@ -201,15 +197,11 @@ ui_basic_info <- function(cleaned) {
 
     nonnum_card <- warn_card(
       title = "Removed metabolite columns",
-      body = "The following metabolite columns were removed prior to processing:",
+      body = "The following columns were removed prior to processing:",
       body_tags = tags$div(
         section_tag(
           "Non-numerical columns:",
           removed_non_numeric
-        ),
-        section_tag(
-          "All values missing or zero for QC samples:",
-          removed_all_zero_qc
         )
       )
     )
