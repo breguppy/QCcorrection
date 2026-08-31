@@ -364,9 +364,11 @@ mod_import_server <- function(id) {
       )
 
       mv_filter_result <- filter_by_missing(
-        df_for_filtering,
-        metab_cols,
-        mv_cutoff
+        df = df_for_filtering,
+        metab_cols = metab_cols,
+        mv_cutoff = input$mv_cutoff,
+        qc_mv_cutoff = input$qc_mv_cutoff,
+        filter_rule = input$mv_filter_rule
       )
 
       mv_filter_result$blank_threshold_result <- blank_threshold_result
@@ -402,14 +404,10 @@ mod_import_server <- function(id) {
       )
     })
 
-    # Existing missing-value filter info.
+    # missing-value filter info.
     output$filter_info <- shiny::renderUI({
       fd <- req(filtered_r())
-
-      ui_filter_info(
-        fd,
-        input$mv_cutoff
-      )
+      ui_filter_info(fd)
     })
 
     output$download_mv_btn <- renderUI({
