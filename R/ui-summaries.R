@@ -406,16 +406,85 @@ ui_filter_info <- function(fd, mv_cutoff) {
   mv_removed <- fd$mv_removed_cols
   qc_missing_mets <- fd$qc_missing_mets
   class_metab_all_missing <- fd$class_metab_all_missing
+  
+  not_detected_mets <- fd$not_detected_mets
+  all_missing_zero_non_qc_cols <- fd$all_missing_zero_non_qc_cols
+  all_missing_zero_qc_cols <- fd$all_missing_zero_qc_cols
+  
   df <- fd$df
-
-  metab_cols <- setdiff(names(df), c("sample", "batch", "class", "order"))
+  
+  metab_cols <- setdiff(
+    names(df),
+    c("sample", "batch", "class", "order")
+  )
+  
   n_metab <- length(metab_cols)
-  n_missv <- sum(is.na(df[, metab_cols]))
+  n_missv <- sum(is.na(df[, metab_cols, drop = FALSE]))
   n_qcs <- sum(df$class == "QC")
   n_samp <- sum(df$class != "QC")
-  perc_missv <- round(100 * (n_missv / ((n_samp + n_qcs) * n_metab)), digits = 2)
-
-
+  
+  perc_missv <- if (n_metab > 0 && (n_samp + n_qcs) > 0) {
+    round(
+      100 * (n_missv / ((n_samp + n_qcs) * n_metab)),
+      digits = 2
+    )
+  } else {
+    0
+  }
+  
+  # ---------------------------------------------------------------------------
+  # Metabolites that were completely missing/zero before missing-value filtering
+  # ---------------------------------------------------------------------------
+  
+  not_detected_card <- NULL
+  
+  if (length(not_detected_mets) > 0) {
+    not_detected_card <- warn_card(
+      title = "Metabolites not detected",
+      body = paste0(
+        "The following metabolites are not detected ",
+        "(all missing or zero) in this dataset."
+      ),
+      body_tags = shiny::tags$ul(
+        lapply(not_detected_mets, shiny::tags$li)
+      )
+    )
+  }
+  
+  all_missing_zero_non_qc_card <- NULL
+  
+  if (length(all_missing_zero_non_qc_cols) > 0) {
+    all_missing_zero_non_qc_card <- warn_card(
+      title = "Metabolites not detected in study samples",
+      body = paste0(
+        "The following metabolites are all missing or zero ",
+        "in study samples."
+      ),
+      body_tags = shiny::tags$ul(
+        lapply(all_missing_zero_non_qc_cols, shiny::tags$li)
+      )
+    )
+  }
+  
+  all_missing_zero_qc_card <- NULL
+  
+  if (length(all_missing_zero_qc_cols) > 0) {
+    all_missing_zero_qc_card <- warn_card(
+      title = "Metabolites not detected in QC samples",
+      body = paste0(
+        "The following metabolites are all missing or zero ",
+        "in QC samples."
+      ),
+      body_tags = shiny::tags$ul(
+        lapply(all_missing_zero_qc_cols, shiny::tags$li)
+      )
+    )
+  }
+  
+  # ---------------------------------------------------------------------------
+  # Missing-value filter summary
+  # ---------------------------------------------------------------------------
+  
   left_col <- if (length(mv_removed) == 0) {
     tags$div(
       style = "flex: 1; padding-right: 10px;",
@@ -440,67 +509,101 @@ ui_filter_info <- function(fd, mv_cutoff) {
           "%."
         )
       ),
-      tags$ul(lapply(mv_removed, tags$li))
+      tags$ul(
+        lapply(mv_removed, tags$li)
+      )
     )
   }
-
+  
   right_col <- if (length(qc_missing_mets) == 0) {
     tags$div(
       class = "alert alert-success",
       style = "margin-bottom: 10px;",
-      # tags$span(style = "color:darkgreen; font-weight:bold;",
-      tags$strong("No metabolites have missing values in QC samples after filtering.")
+      tags$strong(
+        "No metabolites have missing values in QC samples after filtering."
+      )
     )
   } else {
     tags$div(
       class = "alert alert-warning",
       style = "margin-bottom: 10px;",
-      # tags$span(style = "color:darkorange; font-weight:bold;",
-      tags$strong(paste0(
-        length(qc_missing_mets),
-        " metabolite(s) with at least one QC missing value after filtering."
-      )),
-      tags$ul(lapply(qc_missing_mets, tags$li))
+      tags$strong(
+        paste0(
+          length(qc_missing_mets),
+          " metabolite(s) with at least one QC missing value after filtering."
+        )
+      ),
+      tags$ul(
+        lapply(qc_missing_mets, tags$li)
+      )
     )
   }
+  
   right_col1 <- tags$div(
     style = "flex: 1; min-width: 250px;",
     right_col,
     tags$div(
-      style = "display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 15px;",
+      style = paste0(
+        "display: grid; ",
+        "grid-template-columns: repeat(2, 1fr); ",
+        "gap: 10px; ",
+        "margin-top: 15px;"
+      ),
       metric_card("Metabolites", n_metab),
-      metric_card("Missing Values", paste0(n_missv, " (", perc_missv, "%)"))
+      metric_card(
+        "Missing Values",
+        paste0(n_missv, " (", perc_missv, "%)")
+      )
     )
   )
+  
   summary_row <- tags$div(
     style = "display:flex; gap:16px; align-items:flex-start;",
-    left_col, right_col1
+    left_col,
+    right_col1
   )
-
-  has_all_missing <- !is.null(class_metab_all_missing) &&
+  
+  # ---------------------------------------------------------------------------
+  # Class/metabolite combinations that remain completely missing
+  # ---------------------------------------------------------------------------
+  
+  has_all_missing <-
+    !is.null(class_metab_all_missing) &&
     is.data.frame(class_metab_all_missing) &&
     nrow(class_metab_all_missing) > 0L
-
+  
   all_missing_card <- NULL
+  
   if (has_all_missing) {
-    # Create bullet list like: "QC - MetaboliteA"
     pair_items <- apply(
-      class_metab_all_missing[, c("class", "metabolite"), drop = FALSE],
+      class_metab_all_missing[
+        ,
+        c("class", "metabolite"),
+        drop = FALSE
+      ],
       1,
-      function(r) paste0(r[[1]], " - ", r[[2]])
+      function(r) {
+        paste0(r[[1]], " - ", r[[2]])
+      }
     )
-
+    
     all_missing_card <- warn_card(
       title = "All-missing class/metabolite combinations detected",
       body = paste0(
         "The following class-metabolite pairs have all values missing. ",
-        "These values will remain missing if you choose a class-metabolite imputation method."
+        "These values will remain missing if you choose a ",
+        "class-metabolite imputation method."
       ),
-      body_tags = shiny::tags$ul(lapply(pair_items, shiny::tags$li))
+      body_tags = shiny::tags$ul(
+        lapply(pair_items, shiny::tags$li)
+      )
     )
   }
-
+  
   shiny::tagList(
+    not_detected_card,
+    all_missing_zero_non_qc_card,
+    all_missing_zero_qc_card,
     summary_row,
     all_missing_card
   )
