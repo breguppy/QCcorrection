@@ -329,8 +329,16 @@ mod_import_server <- function(id) {
     filtered_r <- shiny::reactive({
       cd <- req(cleaned_r())
       mv_cutoff <- req(input$mv_cutoff)
+      
+      # Get columns of not detected metabolites.
+      not_detected_mets <- intersect(cd$all_missing_zero_non_qc_cols, cd$all_missing_zero_qc_cols)
+      
+      # Remove column in cd$all_missing_zero_non_qc_cols and cd$all_missing_zero_qc_cols
+      drops <- union(cd$all_missing_zero_non_qc_cols, cd$all_missing_zero_qc_cols)
+      all_missing_zero_non_qc_cols <- setdiff(cd$all_missing_zero_non_qc_cols, not_detected_mets)
+      all_missing_zero_qc_cols <- setdiff(cd$all_missing_zero_qc_cols, not_detected_mets)
+      df_for_filtering <- cd$df[, !(names(cd$df) %in% drops)]
 
-      df_for_filtering <- cd$df
       blank_threshold_result <- blank_threshold_result_r()
 
       removed_blank_threshold_cols <- character(0)
@@ -365,6 +373,9 @@ mod_import_server <- function(id) {
       mv_filter_result$removed_blank_threshold_cols <- removed_blank_threshold_cols
       mv_filter_result$blank_threshold <- input$blank_threshold %||% 3
       mv_filter_result$remove_blank_threshold_cols <- isTRUE(input$remove_blank_threshold_cols)
+      mv_filter_result$not_detected_mets <- not_detected_mets
+      mv_filter_result$all_missing_zero_non_qc_cols <- all_missing_zero_non_qc_cols
+      mv_filter_result$all_missing_zero_qc_cols <- all_missing_zero_qc_cols
 
       mv_filter_result
     })
