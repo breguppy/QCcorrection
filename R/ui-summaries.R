@@ -374,7 +374,7 @@ ui_blank_threshold_info <- function(blank_threshold_result,
       shiny::tags$p(
         style = "margin-top: 8px; margin-bottom: 0;",
         sprintf(
-          "%d metabolite column(s) were removed before missing-value filtering.",
+          "%d metabolite column(s) were removed after missing-value filtering.",
           length(removed_blank_threshold_cols)
         )
       )
@@ -860,9 +860,7 @@ ui_filter_info <- function(fd) {
     all_missing_card <- warn_card(
       title = "All-missing class/metabolite combinations detected",
       body = paste0(
-        "The following class-metabolite pairs have all values missing. ",
-        "These values will remain missing if you choose a ",
-        "class-metabolite imputation method."
+        "The following class-metabolite pairs have all values missing. "
       ),
       body_tags = tags$ul(
         lapply(
